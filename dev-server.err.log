@@ -1,0 +1,617 @@
+ ⚠ Port 3000 is in use, using available port 3001 instead.
+[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+    at assertConfig (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:482:16)
+    at Auth (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5338:204)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AppRouteRouteModule.do (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:34112)
+[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+    at assertConfig (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:482:16)
+    at Auth (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5338:204)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AppRouteRouteModule.do (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:34112)
+[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+    at assertConfig (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:482:16)
+    at Auth (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5338:204)
+    at async AppRouteRouteModule.do (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:34112)
+[31m[auth][error][0m CallbackRouteError: Read more at https://errors.authjs.dev#callbackrouteerror
+[31m[auth][cause][0m: AggregateError: 
+    at C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_drizzle-orm_98d723f4._.js:15886:28
+    at async Object.authorize (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\[root-of-the-server]__7f89c2cb._.js:435:30)
+    at async callback (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:4275:39)
+    at async AuthInternal (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5139:24)
+    at async Auth (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5378:34)
+    at async AppRouteRouteModule.do (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:34112)
+    at async AppRouteRouteModule.handle (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:41338)
+    at async doRender (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1518:42)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1920:28)
+    at async DevServer.renderPageComponent (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:2408:24)
+    at async DevServer.renderToResponseImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:2445:32)
+    at async DevServer.pipeImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1008:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\next-server.js:305:17)
+    at async DevServer.handleRequestImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:900:17)
+    at async C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\dev\next-dev-server.js:371:20
+    at async Span.traceAsyncFn (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\trace\trace.js:157:20)
+    at async DevServer.handleRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\dev\next-dev-server.js:368:24)
+    at async invokeRender (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:237:21)
+    at async handleRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:428:24)
+    at async requestHandlerImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:452:13)
+    at async Server.requestListener (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\start-server.js:158:13)
+[31m[auth][details][0m: {
+  "provider": "credentials"
+}
+[31m[auth][error][0m MissingCSRF: CSRF token was missing during an action callback. Read more at https://errors.authjs.dev#missingcsrf
+    at validateCSRF (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:1195:11)
+    at AuthInternal (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5138:222)
+    at async Auth (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5378:34)
+    at async AppRouteRouteModule.do (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:34112)
+    at async AppRouteRouteModule.handle (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:41338)
+    at async doRender (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1518:42)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1920:28)
+    at async DevServer.renderPageComponent (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:2408:24)
+    at async DevServer.renderToResponseImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:2445:32)
+    at async DevServer.pipeImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1008:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\next-server.js:305:17)
+    at async DevServer.handleRequestImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:900:17)
+    at async C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\dev\next-dev-server.js:371:20
+    at async Span.traceAsyncFn (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\trace\trace.js:157:20)
+    at async DevServer.handleRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\dev\next-dev-server.js:368:24)
+    at async invokeRender (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:237:21)
+    at async handleRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:428:24)
+    at async requestHandlerImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:452:13)
+    at async Server.requestListener (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\start-server.js:158:13)
+Error: INVALID_KEY: Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.
+
+Invalid key: List of all installments under this contract.
+
+If you're migrating from a flat structure, you can convert your messages as follows:
+
+import {set} from "lodash";
+
+const input = {
+  "one.one": "1.1",
+  "one.two": "1.2",
+  "two.one.one": "2.1.1"
+};
+
+const output = Object.entries(input).reduce(
+  (acc, [key, value]) => set(acc, key, value),
+  {}
+);
+
+// Output:
+//
+// {
+//   "one": {
+//     "one": "1.1",
+//     "two": "1.2"
+//   },
+//   "two": {
+//     "one": {
+//       "one": "2.1.1"
+//     }
+//   }
+// }
+
+    at async RootLayout (src\app\layout.tsx:71:16)
+  69 | 	const session = await auth();
+  70 |
+> 71 | 	const locale = await getLocale();
+     | 	              ^
+  72 | 	const messages = await getMessages();
+  73 | 	const {dir} = await getCheckedLocale();
+  74 | {
+  code: 'INVALID_KEY',
+  originalMessage: 'Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.\n' +
+    '\n' +
+    'Invalid key: List of all installments under this contract.\n' +
+    '\n' +
+    "If you're migrating from a flat structure, you can convert your messages as follows:\n" +
+    '\n' +
+    'import {set} from "lodash";\n' +
+    '\n' +
+    'const input = {\n' +
+    '  "one.one": "1.1",\n' +
+    '  "one.two": "1.2",\n' +
+    '  "two.one.one": "2.1.1"\n' +
+    '};\n' +
+    '\n' +
+    'const output = Object.entries(input).reduce(\n' +
+    '  (acc, [key, value]) => set(acc, key, value),\n' +
+    '  {}\n' +
+    ');\n' +
+    '\n' +
+    '// Output:\n' +
+    '//\n' +
+    '// {\n' +
+    '//   "one": {\n' +
+    '//     "one": "1.1",\n' +
+    '//     "two": "1.2"\n' +
+    '//   },\n' +
+    '//   "two": {\n' +
+    '//     "one": {\n' +
+    '//       "one": "2.1.1"\n' +
+    '//     }\n' +
+    '//   }\n' +
+    '// }\n'
+}
+[Error: INVALID_KEY: Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.
+
+Invalid key: List of all installments under this contract.
+
+If you're migrating from a flat structure, you can convert your messages as follows:
+
+import {set} from "lodash";
+
+const input = {
+  "one.one": "1.1",
+  "one.two": "1.2",
+  "two.one.one": "2.1.1"
+};
+
+const output = Object.entries(input).reduce(
+  (acc, [key, value]) => set(acc, key, value),
+  {}
+);
+
+// Output:
+//
+// {
+//   "one": {
+//     "one": "1.1",
+//     "two": "1.2"
+//   },
+//   "two": {
+//     "one": {
+//       "one": "2.1.1"
+//     }
+//   }
+// }
+] {
+  code: 'INVALID_KEY',
+  originalMessage: 'Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.\n' +
+    '\n' +
+    'Invalid key: List of all installments under this contract.\n' +
+    '\n' +
+    "If you're migrating from a flat structure, you can convert your messages as follows:\n" +
+    '\n' +
+    'import {set} from "lodash";\n' +
+    '\n' +
+    'const input = {\n' +
+    '  "one.one": "1.1",\n' +
+    '  "one.two": "1.2",\n' +
+    '  "two.one.one": "2.1.1"\n' +
+    '};\n' +
+    '\n' +
+    'const output = Object.entries(input).reduce(\n' +
+    '  (acc, [key, value]) => set(acc, key, value),\n' +
+    '  {}\n' +
+    ');\n' +
+    '\n' +
+    '// Output:\n' +
+    '//\n' +
+    '// {\n' +
+    '//   "one": {\n' +
+    '//     "one": "1.1",\n' +
+    '//     "two": "1.2"\n' +
+    '//   },\n' +
+    '//   "two": {\n' +
+    '//     "one": {\n' +
+    '//       "one": "2.1.1"\n' +
+    '//     }\n' +
+    '//   }\n' +
+    '// }\n'
+}
+ ⨯ Error: No intl context found. Have you configured the provider? See https://next-intl.dev/docs/usage/configuration#server-client-components
+    at LocaleSwitcher (src\components\LocaleSwitcher.tsx:9:31)
+   7 | export function LocaleSwitcher() {
+   8 | 	const router = useRouter();
+>  9 | 	const currentLocale = useLocale();
+     | 	                             ^
+  10 | 	const nextLocale = currentLocale === 'ar' ? 'en' : 'ar';
+  11 |
+  12 | 	const changeLanguage = (locale: string) => { {
+  digest: '324296905'
+}
+Credentials authorize failed: AggregateError: 
+    at async Object.authorize (src\auth.ts:31:18)
+  29 |
+  30 | 				try {
+> 31 | 					const user = await db
+     | 					            ^
+  32 | 						.select()
+  33 | 						.from(users)
+  34 | 						.where(eq(users.username, credentials.username)) {
+  code: 'ECONNREFUSED'
+}
+[31m[auth][error][0m CredentialsSignin: Read more at https://errors.authjs.dev#credentialssignin
+    at callback (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:4282:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AuthInternal (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5139:24)
+    at async Auth (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5378:34)
+    at async AppRouteRouteModule.do (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:34112)
+    at async AppRouteRouteModule.handle (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:41338)
+    at async doRender (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1518:42)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1920:28)
+    at async DevServer.renderPageComponent (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:2408:24)
+    at async DevServer.renderToResponseImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:2445:32)
+    at async DevServer.pipeImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1008:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\next-server.js:305:17)
+    at async DevServer.handleRequestImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:900:17)
+    at async C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\dev\next-dev-server.js:371:20
+    at async Span.traceAsyncFn (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\trace\trace.js:157:20)
+    at async DevServer.handleRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\dev\next-dev-server.js:368:24)
+    at async invokeRender (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:237:21)
+    at async handleRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:428:24)
+    at async requestHandlerImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:452:13)
+    at async Server.requestListener (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\start-server.js:158:13)
+Error: INVALID_KEY: Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.
+
+Invalid key: List of all installments under this contract.
+
+If you're migrating from a flat structure, you can convert your messages as follows:
+
+import {set} from "lodash";
+
+const input = {
+  "one.one": "1.1",
+  "one.two": "1.2",
+  "two.one.one": "2.1.1"
+};
+
+const output = Object.entries(input).reduce(
+  (acc, [key, value]) => set(acc, key, value),
+  {}
+);
+
+// Output:
+//
+// {
+//   "one": {
+//     "one": "1.1",
+//     "two": "1.2"
+//   },
+//   "two": {
+//     "one": {
+//       "one": "2.1.1"
+//     }
+//   }
+// }
+
+    at async RootLayout (src\app\layout.tsx:71:16)
+  69 | 	const session = await auth();
+  70 |
+> 71 | 	const locale = await getLocale();
+     | 	              ^
+  72 | 	const messages = await getMessages();
+  73 | 	const {dir} = await getCheckedLocale();
+  74 | {
+  code: 'INVALID_KEY',
+  originalMessage: 'Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.\n' +
+    '\n' +
+    'Invalid key: List of all installments under this contract.\n' +
+    '\n' +
+    "If you're migrating from a flat structure, you can convert your messages as follows:\n" +
+    '\n' +
+    'import {set} from "lodash";\n' +
+    '\n' +
+    'const input = {\n' +
+    '  "one.one": "1.1",\n' +
+    '  "one.two": "1.2",\n' +
+    '  "two.one.one": "2.1.1"\n' +
+    '};\n' +
+    '\n' +
+    'const output = Object.entries(input).reduce(\n' +
+    '  (acc, [key, value]) => set(acc, key, value),\n' +
+    '  {}\n' +
+    ');\n' +
+    '\n' +
+    '// Output:\n' +
+    '//\n' +
+    '// {\n' +
+    '//   "one": {\n' +
+    '//     "one": "1.1",\n' +
+    '//     "two": "1.2"\n' +
+    '//   },\n' +
+    '//   "two": {\n' +
+    '//     "one": {\n' +
+    '//       "one": "2.1.1"\n' +
+    '//     }\n' +
+    '//   }\n' +
+    '// }\n'
+}
+[Error: INVALID_KEY: Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.
+
+Invalid key: List of all installments under this contract.
+
+If you're migrating from a flat structure, you can convert your messages as follows:
+
+import {set} from "lodash";
+
+const input = {
+  "one.one": "1.1",
+  "one.two": "1.2",
+  "two.one.one": "2.1.1"
+};
+
+const output = Object.entries(input).reduce(
+  (acc, [key, value]) => set(acc, key, value),
+  {}
+);
+
+// Output:
+//
+// {
+//   "one": {
+//     "one": "1.1",
+//     "two": "1.2"
+//   },
+//   "two": {
+//     "one": {
+//       "one": "2.1.1"
+//     }
+//   }
+// }
+] {
+  code: 'INVALID_KEY',
+  originalMessage: 'Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.\n' +
+    '\n' +
+    'Invalid key: List of all installments under this contract.\n' +
+    '\n' +
+    "If you're migrating from a flat structure, you can convert your messages as follows:\n" +
+    '\n' +
+    'import {set} from "lodash";\n' +
+    '\n' +
+    'const input = {\n' +
+    '  "one.one": "1.1",\n' +
+    '  "one.two": "1.2",\n' +
+    '  "two.one.one": "2.1.1"\n' +
+    '};\n' +
+    '\n' +
+    'const output = Object.entries(input).reduce(\n' +
+    '  (acc, [key, value]) => set(acc, key, value),\n' +
+    '  {}\n' +
+    ');\n' +
+    '\n' +
+    '// Output:\n' +
+    '//\n' +
+    '// {\n' +
+    '//   "one": {\n' +
+    '//     "one": "1.1",\n' +
+    '//     "two": "1.2"\n' +
+    '//   },\n' +
+    '//   "two": {\n' +
+    '//     "one": {\n' +
+    '//       "one": "2.1.1"\n' +
+    '//     }\n' +
+    '//   }\n' +
+    '// }\n'
+}
+Error: INVALID_KEY: Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.
+
+Invalid key: List of all installments under this contract.
+
+If you're migrating from a flat structure, you can convert your messages as follows:
+
+import {set} from "lodash";
+
+const input = {
+  "one.one": "1.1",
+  "one.two": "1.2",
+  "two.one.one": "2.1.1"
+};
+
+const output = Object.entries(input).reduce(
+  (acc, [key, value]) => set(acc, key, value),
+  {}
+);
+
+// Output:
+//
+// {
+//   "one": {
+//     "one": "1.1",
+//     "two": "1.2"
+//   },
+//   "two": {
+//     "one": {
+//       "one": "2.1.1"
+//     }
+//   }
+// }
+
+    at async RootLayout (src\app\layout.tsx:71:16)
+  69 | 	const session = await auth();
+  70 |
+> 71 | 	const locale = await getLocale();
+     | 	              ^
+  72 | 	const messages = await getMessages();
+  73 | 	const {dir} = await getCheckedLocale();
+  74 | {
+  code: 'INVALID_KEY',
+  originalMessage: 'Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.\n' +
+    '\n' +
+    'Invalid key: List of all installments under this contract.\n' +
+    '\n' +
+    "If you're migrating from a flat structure, you can convert your messages as follows:\n" +
+    '\n' +
+    'import {set} from "lodash";\n' +
+    '\n' +
+    'const input = {\n' +
+    '  "one.one": "1.1",\n' +
+    '  "one.two": "1.2",\n' +
+    '  "two.one.one": "2.1.1"\n' +
+    '};\n' +
+    '\n' +
+    'const output = Object.entries(input).reduce(\n' +
+    '  (acc, [key, value]) => set(acc, key, value),\n' +
+    '  {}\n' +
+    ');\n' +
+    '\n' +
+    '// Output:\n' +
+    '//\n' +
+    '// {\n' +
+    '//   "one": {\n' +
+    '//     "one": "1.1",\n' +
+    '//     "two": "1.2"\n' +
+    '//   },\n' +
+    '//   "two": {\n' +
+    '//     "one": {\n' +
+    '//       "one": "2.1.1"\n' +
+    '//     }\n' +
+    '//   }\n' +
+    '// }\n'
+}
+[Error: INVALID_KEY: Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.
+
+Invalid key: List of all installments under this contract.
+
+If you're migrating from a flat structure, you can convert your messages as follows:
+
+import {set} from "lodash";
+
+const input = {
+  "one.one": "1.1",
+  "one.two": "1.2",
+  "two.one.one": "2.1.1"
+};
+
+const output = Object.entries(input).reduce(
+  (acc, [key, value]) => set(acc, key, value),
+  {}
+);
+
+// Output:
+//
+// {
+//   "one": {
+//     "one": "1.1",
+//     "two": "1.2"
+//   },
+//   "two": {
+//     "one": {
+//       "one": "2.1.1"
+//     }
+//   }
+// }
+] {
+  code: 'INVALID_KEY',
+  originalMessage: 'Namespace keys can not contain the character "." as this is used to express nesting. Please remove it or replace it with another character.\n' +
+    '\n' +
+    'Invalid key: List of all installments under this contract.\n' +
+    '\n' +
+    "If you're migrating from a flat structure, you can convert your messages as follows:\n" +
+    '\n' +
+    'import {set} from "lodash";\n' +
+    '\n' +
+    'const input = {\n' +
+    '  "one.one": "1.1",\n' +
+    '  "one.two": "1.2",\n' +
+    '  "two.one.one": "2.1.1"\n' +
+    '};\n' +
+    '\n' +
+    'const output = Object.entries(input).reduce(\n' +
+    '  (acc, [key, value]) => set(acc, key, value),\n' +
+    '  {}\n' +
+    ');\n' +
+    '\n' +
+    '// Output:\n' +
+    '//\n' +
+    '// {\n' +
+    '//   "one": {\n' +
+    '//     "one": "1.1",\n' +
+    '//     "two": "1.2"\n' +
+    '//   },\n' +
+    '//   "two": {\n' +
+    '//     "one": {\n' +
+    '//       "one": "2.1.1"\n' +
+    '//     }\n' +
+    '//   }\n' +
+    '// }\n'
+}
+Credentials authorize failed: AggregateError: 
+    at async Object.authorize (src\auth.ts:31:18)
+  29 |
+  30 | 				try {
+> 31 | 					const user = await db
+     | 					            ^
+  32 | 						.select()
+  33 | 						.from(users)
+  34 | 						.where(eq(users.username, credentials.username)) {
+  code: 'ECONNREFUSED'
+}
+[31m[auth][error][0m CredentialsSignin: Read more at https://errors.authjs.dev#credentialssignin
+    at callback (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:4282:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AuthInternal (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5139:24)
+    at async Auth (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\chunks\node_modules_@auth_core_355e2c0e._.js:5378:34)
+    at async AppRouteRouteModule.do (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:34112)
+    at async AppRouteRouteModule.handle (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:26:41338)
+    at async doRender (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1518:42)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1920:28)
+    at async DevServer.renderPageComponent (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:2408:24)
+    at async DevServer.renderToResponseImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:2445:32)
+    at async DevServer.pipeImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:1008:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\next-server.js:305:17)
+    at async DevServer.handleRequestImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\base-server.js:900:17)
+    at async C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\dev\next-dev-server.js:371:20
+    at async Span.traceAsyncFn (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\trace\trace.js:157:20)
+    at async DevServer.handleRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\dev\next-dev-server.js:368:24)
+    at async invokeRender (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:237:21)
+    at async handleRequest (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:428:24)
+    at async requestHandlerImpl (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\router-server.js:452:13)
+    at async Server.requestListener (C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\node_modules\next\dist\server\lib\start-server.js:158:13)
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\edge\chunks\_22a6c6f8._.js']
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\edge\chunks\_22a6c6f8._.js']
+[Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\static\development\_buildManifest.js.tmp.i6r5ycgjo6m'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main\\.next\\static\\development\\_buildManifest.js.tmp.i6r5ycgjo6m'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\static\development\_buildManifest.js.tmp.4438usagb4x'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main\\.next\\static\\development\\_buildManifest.js.tmp.4438usagb4x'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\static\development\_buildManifest.js.tmp.xszsrzph00h'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main\\.next\\static\\development\\_buildManifest.js.tmp.xszsrzph00h'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\static\development\_buildManifest.js.tmp.7k1p5nc04qa'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main\\.next\\static\\development\\_buildManifest.js.tmp.7k1p5nc04qa'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\edge\chunks\_22a6c6f8._.js']
+[Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\static\development\_buildManifest.js.tmp.xvm7is9ki5k'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main\\.next\\static\\development\\_buildManifest.js.tmp.xvm7is9ki5k'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\static\development\_buildManifest.js.tmp.9vq8xbj2of7'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main\\.next\\static\\development\\_buildManifest.js.tmp.9vq8xbj2of7'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\server\edge\chunks\_22a6c6f8._.js']
+[Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\static\development\_buildManifest.js.tmp.f7tbbwy4s0s'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main\\.next\\static\\development\\_buildManifest.js.tmp.f7tbbwy4s0s'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\nssal\OneDrive\سطح المكتب\craft-flow-main\craft-flow-main\.next\static\development\_buildManifest.js.tmp.lcea6uuchbf'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main\\.next\\static\\development\\_buildManifest.js.tmp.lcea6uuchbf'
+}
+^C

@@ -1,0 +1,48 @@
+
+> craft-flow@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.3.8 (Turbopack)
+   - Local:        http://localhost:3001
+   - Network:      http://192.168.100.68:3001
+
+ ✓ Starting...
+Creating turbopack project {
+  dir: 'C:\\Users\\nssal\\OneDrive\\سطح المكتب\\craft-flow-main\\craft-flow-main',
+  testMode: true
+}
+ ✓ Compiled middleware in 379ms
+ ✓ Ready in 2.5s
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 2.1s
+ GET /api/auth/csrf 500 in 3767ms
+ GET /api/auth/providers 500 in 3764ms
+ GET /api/auth/providers 500 in 126ms
+ ✓ Compiled middleware in 21ms
+ ✓ Compiled in 3ms
+ GET /api/auth/providers 200 in 270ms
+ GET /api/auth/csrf 200 in 281ms
+ GET /api/auth/csrf 200 in 88ms
+ POST /api/auth/callback/credentials 302 in 106ms
+ GET /api/auth/error?error=Configuration 500 in 86ms
+ POST /api/auth/callback/credentials 302 in 85ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 4.9s
+ GET /login?error=MissingCSRF 500 in 5612ms
+ ✓ Compiled in 912ms
+ GET /api/auth/csrf 200 in 3347ms
+ POST /api/auth/callback/credentials 302 in 784ms
+ ✓ Compiled /login in 365ms
+ GET /login 200 in 3649ms
+ GET /login?error=CredentialsSignin 200 in 281ms
+ GET /api/auth/csrf 200 in 303ms
+ POST /api/auth/callback/credentials 302 in 443ms
+ ✓ Compiled in 1243ms
+ ✓ Compiled middleware in 240ms
+ ✓ Compiled in 1654ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 4.3s
+ ○ Compiling /_not-found/page ...
+ ✓ Compiled /_not-found/page in 7.3s
+ ✓ Compiled in 1749ms
+ ✓ Compiled in 4.5s

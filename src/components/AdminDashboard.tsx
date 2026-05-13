@@ -1,0 +1,2198 @@
+'use client';
+
+import React, {useEffect, useState} from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	PieChart,
+	Pie,
+	LabelList
+} from 'recharts';
+import {
+	ChartConfig,
+	ChartContainer,
+	ChartTooltip,
+	ChartTooltipContent,
+} from "@/components/ui/chart";
+import { Building2, Users, CheckCircle, TrendingUp } from 'lucide-react';
+import StatusBadge from "@/components/StatusBadgeSystem";
+import axios from "axios";
+import Spinner from "@/components/Spinner";
+import {useTranslations} from "use-intl";
+import { toast } from "sonner";
+import { useSession } from "next-auth/react";
+import { useProjectStore } from "@/store/projectStore";
+import { ProjectVisibilityFilter } from "@/components/project-visibility-filter";
+import { useCheckedLocale } from "@/lib/client-utils";
+import {
+	filterProjectItemsByVisibility,
+	filterProjectsByVisibility,
+	ProjectVisibilityScope,
+} from "@/lib/project-visibility";
+
+type ProjectStatus = 'in_progress' | 'not_started' | 'completed' | 'on_hold';
+type RecentActivityStatus = ProjectStatus | 'needs_review';
+type ActionCategory = 'overdue' | 'client_action' | 'recent';
+type ActionPriority = 'high' | 'medium' | 'low';
+type DashboardTab = 'projects' | 'tasks' | 'analysis' | 'activity';
+
+type DashboardData = {
+	overview: {
+		totalProjects: number;
+		activeProjects: number;
+		completedProjects: number;
+		totalUsers: number;
+		adminUsers: number;
+		employeeUsers: number;
+		clientUsers: number;
+	};
+	projectsByStatus: Array<{
+		status: ProjectStatus;
+		count: number;
+		fill: string;
+	}>;
+	projectsByType: Array<{
+		name: string;
+		count: number;
+		percentage: number;
+	}>;
+	cityDistribution: Array<{
+		city: string;
+		projects: number;
+		tasks: number;
+	}>;
+	monthlyProgress: Array<{
+		month: string;
+		completed: number;
+		started: number;
+	}>;
+	taskMetrics: {
+		totalTasks: number;
+		foundationTasks: number;
+		finishTasks: number;
+		completedTasks: number;
+		pendingTasks: number;
+	};
+	taskTypes: Array<{
+		type: 'foundation' | 'finish';
+		count: number;
+		fill: string;
+	}>;
+	recentActivity: Array<{
+		project: string;
+		status: RecentActivityStatus;
+		city: string;
+		date: string;
+	}>;
+};
+
+type MetricCardProps = {
+	title: string;
+	value: number;
+	subtitle: string;
+	icon: React.ComponentType<{ className?: string }>;
+};
+
+type DetailedTask = {
+	taskId: string;
+	taskName?: string | null;
+	taskStatus?: string | null;
+	taskType?: string | null;
+	startDate?: string | Date | null;
+	endDate?: string | Date | null;
+	updatedAt?: string | Date | null;
+	createdAt?: string | Date | null;
+	notes?: string | null;
+};
+
+type DetailedProject = {
+	id: string;
+	name: string;
+	city?: string | null;
+	client?: {
+		id?: string | null;
+		name?: string | null;
+		email?: string | null;
+	} | null;
+	employees?: Array<{
+		id?: string | null;
+		name?: string | null;
+		email?: string | null;
+		role?: string | null;
+	}> | null;
+	tasks?: DetailedTask[] | null;
+};
+
+type CityAnalysisSummary = {
+	city: string;
+	projects: number;
+	tasks: number;
+	uniqueClients: number;
+	completedTasks: number;
+	overdueTasks: number;
+	avgCompletionDays: number | null;
+	recentActivityCount: number;
+};
+
+type EmployeeAnalysisSummary = {
+	id: string;
+	name: string;
+	assignedProjects: number;
+	totalTasks: number;
+	completedTasks: number;
+	overdueTasks: number;
+	completionRate: number;
+	lastActivity: string | null;
+};
+
+type EmployeeAnalysisSection = 'assignedTasks' | 'completedTasks' | 'overdueTasks' | 'assignedProjects';
+
+type EmployeeTaskDetail = {
+	id: string;
+	taskName: string;
+	projectName: string;
+	status: string | null;
+	dueDate: string | null;
+	updatedAt: string | null;
+	completedAt: string | null;
+	overdueDays: number | null;
+	delayReason: string | null;
+};
+
+type EmployeeProjectDetail = {
+	id: string;
+	projectName: string;
+	totalTasks: number;
+	completedTasks: number;
+	overdueTasks: number;
+};
+
+type EmployeeAnalysisDetails = {
+	id: string;
+	name: string;
+	assignedTasks: EmployeeTaskDetail[];
+	completedTasks: EmployeeTaskDetail[];
+	overdueTasks: EmployeeTaskDetail[];
+	assignedProjects: EmployeeProjectDetail[];
+};
+
+type WeeklyLocationSummary = {
+	city: string;
+	activityCount: number;
+	activeProjects: number;
+	totalProjects: number;
+	sharePercentage: number;
+	latestActivity: string | null;
+	statusText: string;
+	adminNote: string;
+};
+
+type MockActionItem = {
+	id: string;
+	typeKey: string;
+	category: ActionCategory;
+	projectNameKey: string;
+	descriptionKey: string;
+	projectId: string;
+	taskId: string;
+	date: string;
+	priority: ActionPriority;
+};
+
+type ActivityNote = {
+	content: string;
+	authorName: string;
+};
+
+type SessionUserLike = {
+	name?: string | null;
+	username?: string | null;
+};
+
+const ANALYTICS_EMPTY_STATE = 'لا توجد بيانات كافية للتحليل حاليًا.';
+const WEEKLY_ANALYSIS_EMPTY_STATE = 'لا توجد بيانات كافية لهذا الأسبوع';
+const EMPLOYEE_ANALYSIS_SECTION_EMPTY_STATE = 'لا توجد تفاصيل متاحة لهذا القسم';
+
+const EMPLOYEE_ANALYSIS_SECTION_META: Record<
+	EmployeeAnalysisSection,
+	{
+		title: string;
+		description: string;
+	}
+> = {
+	assignedTasks: {
+		title: 'المهام المسندة',
+		description: 'يعرض جميع المهام المرتبطة بالمشاريع المسندة لهذا الموظف.',
+	},
+	completedTasks: {
+		title: 'المهام المكتملة',
+		description: 'يعرض المهام المكتملة فقط مع معلومات الإكمال الأساسية.',
+	},
+	overdueTasks: {
+		title: 'المهام المتأخرة',
+		description: 'يعرض المهام المتأخرة مع مدة التأخير وأي ملاحظات مرتبطة بها.',
+	},
+	assignedProjects: {
+		title: 'المشاريع المسندة',
+		description: 'يعرض المشاريع المسندة لهذا الموظف مع ملخص المهام داخل كل مشروع.',
+	},
+};
+
+const getAllowedDashboardTabs = (role?: string | null): DashboardTab[] =>
+	role === 'admin'
+		? ['projects', 'tasks', 'analysis', 'activity']
+		: ['projects', 'tasks', 'activity'];
+
+const getDateValue = (value?: string | Date | null) => {
+	if (!value) return null;
+
+	const date = value instanceof Date ? value : new Date(value);
+	return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getSafePercentage = (value: number, total: number) =>
+	total > 0 ? Math.round((value / total) * 100) : 0;
+
+const getNormalizedCityName = (city?: string | null) => city?.trim() || 'غير محدد';
+
+const getEmployeeProgressIndicatorClassName = (completionRate: number) => {
+	if (completionRate > 85) return 'bg-emerald-500';
+	if (completionRate >= 70) return 'bg-amber-400';
+	return 'bg-rose-500';
+};
+
+const getStartOfWeek = (referenceDate = new Date()) => {
+	const date = new Date(referenceDate);
+	date.setHours(0, 0, 0, 0);
+	date.setDate(date.getDate() - date.getDay());
+	return date;
+};
+
+const getEndOfWeek = (referenceDate = new Date()) => {
+	const date = getStartOfWeek(referenceDate);
+	date.setDate(date.getDate() + 6);
+	date.setHours(23, 59, 59, 999);
+	return date;
+};
+
+const isDateWithinWeek = (date: Date, referenceDate = new Date()) => {
+	const startOfWeek = getStartOfWeek(referenceDate);
+	const endOfWeek = getEndOfWeek(referenceDate);
+	return date.getTime() >= startOfWeek.getTime() && date.getTime() <= endOfWeek.getTime();
+};
+
+const getTaskActivityDate = (task: DetailedTask) =>
+	getDateValue(task.updatedAt) ?? getDateValue(task.createdAt) ?? getDateValue(task.startDate);
+
+const isTaskCompleted = (status?: string | null) => status === 'completed';
+
+const isTaskOverdue = (task: DetailedTask, referenceDate = new Date()) => {
+	const taskEndDate = getDateValue(task.endDate);
+	if (!taskEndDate) return false;
+
+	return taskEndDate.getTime() < referenceDate.getTime() && !isTaskCompleted(task.taskStatus);
+};
+
+const getTaskCompletionDays = (task: DetailedTask) => {
+	if (!isTaskCompleted(task.taskStatus)) return null;
+
+	const taskStartDate = getDateValue(task.startDate) ?? getDateValue(task.createdAt);
+	const taskCompletionDate = getDateValue(task.updatedAt) ?? getDateValue(task.endDate);
+
+	if (!taskStartDate || !taskCompletionDate) return null;
+
+	const diffInMs = taskCompletionDate.getTime() - taskStartDate.getTime();
+	if (diffInMs < 0) return null;
+
+	return Math.max(1, Math.round(diffInMs / (1000 * 60 * 60 * 24)));
+};
+
+const formatAnalyticsDate = (value?: string | Date | null) => {
+	const date = getDateValue(value);
+	if (!date) return null;
+
+	return date.toISOString().split('T')[0];
+};
+
+const getTaskStatusLabel = (status?: string | null) => {
+	switch (status) {
+		case 'completed':
+			return 'مكتملة';
+		case 'in_progress':
+			return 'قيد التنفيذ';
+		case 'not_started':
+			return 'لم تبدأ';
+		case 'on_hold':
+			return 'متوقفة';
+		case 'needs_review':
+			return 'تحتاج مراجعة';
+		default:
+			return 'غير متوفر';
+	}
+};
+
+const getTaskStatusBadgeClassName = (status?: string | null) => {
+	switch (status) {
+		case 'completed':
+			return 'border-emerald-500/25 bg-emerald-500/12 text-emerald-300';
+		case 'in_progress':
+			return 'border-sky-500/25 bg-sky-500/12 text-sky-300';
+		case 'not_started':
+			return 'border-slate-500/25 bg-slate-500/12 text-slate-300';
+		case 'on_hold':
+			return 'border-amber-500/25 bg-amber-500/12 text-amber-300';
+		case 'needs_review':
+			return 'border-violet-500/25 bg-violet-500/12 text-violet-300';
+		default:
+			return 'border-border/60 bg-muted/30 text-muted-foreground';
+	}
+};
+
+const getOverdueDays = (task: DetailedTask, referenceDate = new Date()) => {
+	const taskEndDate = getDateValue(task.endDate);
+	if (!taskEndDate || !isTaskOverdue(task, referenceDate)) return null;
+
+	const diffInMs = referenceDate.getTime() - taskEndDate.getTime();
+	return Math.max(1, Math.ceil(diffInMs / (1000 * 60 * 60 * 24)));
+};
+
+const getWeeklyDistributionStatus = (weeklyLocations: WeeklyLocationSummary[]) => {
+	const topLocation = weeklyLocations[0];
+	if (!topLocation) {
+		return {
+			label: 'غير متاح',
+			detail: WEEKLY_ANALYSIS_EMPTY_STATE,
+		};
+	}
+
+	if (topLocation.sharePercentage >= 60) {
+		return {
+			label: 'متركز',
+			detail: `العمل هذا الأسبوع متركز بوضوح في ${topLocation.city}.`,
+		};
+	}
+
+	if (weeklyLocations.length >= 3 && topLocation.sharePercentage <= 45) {
+		return {
+			label: 'متوازن',
+			detail: 'النشاط موزع بشكل جيد بين المواقع النشطة.',
+		};
+	}
+
+	return {
+		label: 'شبه متوازن',
+		detail: 'هناك موقع متقدم نسبيًا مع حضور مناسب لبقية المواقع.',
+	};
+};
+
+const getWeeklyAdministrativeStatus = (weeklyLocations: WeeklyLocationSummary[]) => {
+	const topLocation = weeklyLocations[0];
+	if (!topLocation) {
+		return {
+			label: 'غير متاح',
+			detail: WEEKLY_ANALYSIS_EMPTY_STATE,
+		};
+	}
+
+	if (weeklyLocations.length === 1 || topLocation.sharePercentage >= 65) {
+		return {
+			label: 'تحتاج متابعة',
+			detail: 'التركيز المرتفع في موقع واحد يستدعي متابعة إدارية أقرب.',
+		};
+	}
+
+	if (weeklyLocations.length >= 2 && topLocation.sharePercentage <= 50) {
+		return {
+			label: 'مستقرة',
+			detail: 'لا توجد مؤشرات حرجة في القراءة الإدارية لهذا الأسبوع.',
+		};
+	}
+
+	return {
+		label: 'مراقبة خفيفة',
+		detail: 'الوضع العام جيد مع حاجة لمراقبة خفيفة لتوازن التنفيذ.',
+	};
+};
+
+const getWeeklyReportSummary = (weeklyLocations: WeeklyLocationSummary[]) => {
+	const topLocation = weeklyLocations[0];
+	if (!topLocation) return WEEKLY_ANALYSIS_EMPTY_STATE;
+
+	if (topLocation.sharePercentage >= 60) {
+		return `هذا الأسبوع كان النشاط متركزًا في ${topLocation.city} مع استقرار نسبي في بقية المواقع.`;
+	}
+
+	if (weeklyLocations.length >= 3 && topLocation.sharePercentage <= 45) {
+		return 'هذا الأسبوع يظهر توزيع متوازن للنشاط مع عدم وجود مؤشرات حرجة.';
+	}
+
+	if (weeklyLocations.length === 1) {
+		return `هذا الأسبوع سجل ${topLocation.city} الجزء الأكبر من الحركة التشغيلية مع حضور محدود لبقية المواقع.`;
+	}
+
+	return `هذا الأسبوع حافظت ${topLocation.city} على الصدارة مع توزيع مقبول للنشاط بين المواقع الأخرى.`;
+};
+
+const buildWeeklyHighlights = (weeklyLocations: WeeklyLocationSummary[]) => {
+	if (weeklyLocations.length === 0) return [];
+
+	const topLocation = weeklyLocations[0];
+	const secondLocation = weeklyLocations[1];
+	const distributionStatus = getWeeklyDistributionStatus(weeklyLocations);
+
+	const highlights = [
+		`${topLocation.city} هي الموقع الأعلى نشاطًا هذا الأسبوع.`,
+		secondLocation
+			? `${secondLocation.city} ${secondLocation.sharePercentage >= 25 ? 'مستقرة ولا تحتاج تدخل عاجل.' : 'أهدأ نسبيًا وتحتاج متابعة خفيفة فقط.'}`
+			: 'بقية المواقع حضورها محدود مقارنة بالموقع الرئيسي.',
+		distributionStatus.label === 'متوازن'
+			? 'توزيع العمل هذا الأسبوع متوازن ولا توجد مؤشرات حرجة.'
+			: 'توزيع العمل يميل للتركز في موقع واحد ويحتاج متابعة إدارية.',
+	];
+
+	return highlights.slice(0, 3);
+};
+
+const getWeeklyLocationDecision = (location: WeeklyLocationSummary, topSharePercentage: number) => {
+	if (location.sharePercentage >= 55 || (location.sharePercentage === topSharePercentage && topSharePercentage >= 45)) {
+		return {
+			status: 'يحتاج مراقبة',
+			reason: 'النشاط مركز بشكل واضح في هذا الموقع.',
+			action: 'مراجعة توزيع المهام أو متابعة الموقع إداريًا.',
+		};
+	}
+
+	if (location.activityCount <= 1 && location.totalProjects > location.activeProjects) {
+		return {
+			status: 'يحتاج تدخل',
+			reason: 'الحضور الأسبوعي منخفض مقارنة بحجم الموقع.',
+			action: 'مراجعة أسباب بطء الحركة والتأكد من عدم وجود عوائق تشغيلية.',
+		};
+	}
+
+	return {
+		status: 'مستقر',
+		reason: 'النشاط الحالي متوازن ولا يظهر ضغط استثنائي.',
+		action: 'لا يوجد إجراء عاجل مع الاستمرار في المتابعة الدورية.',
+	};
+};
+
+const buildWeeklyLocationSummaries = (
+	detailedProjects: DetailedProject[],
+	referenceDate = new Date()
+): WeeklyLocationSummary[] => {
+	const cityMap = new Map<
+		string,
+		{
+			city: string;
+			activityCount: number;
+			totalProjectIds: Set<string>;
+			activeProjectIds: Set<string>;
+			latestActivityDate: Date | null;
+		}
+	>();
+
+	detailedProjects.forEach((project) => {
+		const city = getNormalizedCityName(project.city);
+		const current = cityMap.get(city) ?? {
+			city,
+			activityCount: 0,
+			totalProjectIds: new Set<string>(),
+			activeProjectIds: new Set<string>(),
+			latestActivityDate: null,
+		};
+
+		current.totalProjectIds.add(project.id);
+
+		(project.tasks ?? []).forEach((task) => {
+			const activityDate = getTaskActivityDate(task);
+			if (!activityDate || !isDateWithinWeek(activityDate, referenceDate)) {
+				return;
+			}
+
+			current.activityCount += 1;
+			current.activeProjectIds.add(project.id);
+
+			if (!current.latestActivityDate || activityDate.getTime() > current.latestActivityDate.getTime()) {
+				current.latestActivityDate = activityDate;
+			}
+		});
+
+		cityMap.set(city, current);
+	});
+
+	const activityEntries = [...cityMap.values()].filter((entry) => entry.activityCount > 0);
+	const totalActivityCount = activityEntries.reduce((sum, entry) => sum + entry.activityCount, 0);
+
+	return activityEntries
+		.map((entry) => {
+			const sharePercentage = getSafePercentage(entry.activityCount, totalActivityCount);
+			const statusText =
+				sharePercentage >= 50
+					? 'الأعلى نشاطًا هذا الأسبوع'
+					: sharePercentage >= 25
+						? 'أداء مستقر'
+						: 'تحتاج مراقبة';
+			const adminNote =
+				sharePercentage >= 50
+					? 'يستحسن الحفاظ على نفس وتيرة المتابعة الحالية.'
+					: sharePercentage >= 25
+						? 'لا توجد ملاحظات إدارية حرجة حاليًا.'
+						: 'يفضل مراجعة مستوى التفاعل خلال الأيام القادمة.';
+
+			return {
+				city: entry.city,
+				activityCount: entry.activityCount,
+				activeProjects: entry.activeProjectIds.size,
+				totalProjects: entry.totalProjectIds.size,
+				sharePercentage,
+				latestActivity: formatAnalyticsDate(entry.latestActivityDate),
+				statusText,
+				adminNote,
+			};
+		})
+		.sort((left, right) => right.activityCount - left.activityCount || right.activeProjects - left.activeProjects);
+};
+
+const buildCityAnalysisSummaries = (
+	dashboardData: DashboardData,
+	detailedProjects: DetailedProject[]
+): CityAnalysisSummary[] => {
+	const cityMap = new Map<
+		string,
+		CityAnalysisSummary & {
+			clientRefs: Set<string>;
+			completionDurations: number[];
+		}
+	>();
+
+	dashboardData.cityDistribution.forEach((entry) => {
+		const normalizedCity = getNormalizedCityName(entry.city);
+		cityMap.set(normalizedCity, {
+			city: normalizedCity,
+			projects: entry.projects ?? 0,
+			tasks: entry.tasks ?? 0,
+			uniqueClients: 0,
+			completedTasks: 0,
+			overdueTasks: 0,
+			avgCompletionDays: null,
+			recentActivityCount: dashboardData.recentActivity.filter(
+				(activity) => getNormalizedCityName(activity.city) === normalizedCity
+			).length,
+			clientRefs: new Set<string>(),
+			completionDurations: [],
+		});
+	});
+
+	detailedProjects.forEach((project) => {
+		const normalizedCity = getNormalizedCityName(project.city);
+		const current = cityMap.get(normalizedCity) ?? {
+			city: normalizedCity,
+			projects: 0,
+			tasks: 0,
+			uniqueClients: 0,
+			completedTasks: 0,
+			overdueTasks: 0,
+			avgCompletionDays: null,
+			recentActivityCount: dashboardData.recentActivity.filter(
+				(activity) => getNormalizedCityName(activity.city) === normalizedCity
+			).length,
+			clientRefs: new Set<string>(),
+			completionDurations: [],
+		};
+
+		if (!cityMap.has(normalizedCity)) {
+			current.projects += 1;
+		}
+
+		const projectTasks = project.tasks ?? [];
+		if (!dashboardData.cityDistribution.some((entry) => getNormalizedCityName(entry.city) === normalizedCity)) {
+			current.tasks += projectTasks.length;
+		}
+
+		const clientRef = project.client?.id?.trim() || project.client?.email?.trim() || project.client?.name?.trim();
+		if (clientRef) {
+			current.clientRefs.add(clientRef);
+		}
+
+		projectTasks.forEach((task) => {
+			if (isTaskCompleted(task.taskStatus)) {
+				current.completedTasks += 1;
+			}
+
+			if (isTaskOverdue(task)) {
+				current.overdueTasks += 1;
+			}
+
+			const completionDays = getTaskCompletionDays(task);
+			if (completionDays !== null) {
+				current.completionDurations.push(completionDays);
+			}
+		});
+
+		cityMap.set(normalizedCity, current);
+	});
+
+	return [...cityMap.values()]
+		.map((entry) => ({
+			city: entry.city,
+			projects: entry.projects,
+			tasks: entry.tasks,
+			uniqueClients: entry.clientRefs.size,
+			completedTasks: entry.completedTasks,
+			overdueTasks: entry.overdueTasks,
+			avgCompletionDays:
+				entry.completionDurations.length > 0
+					? Math.round(
+						entry.completionDurations.reduce((sum, days) => sum + days, 0) / entry.completionDurations.length
+					)
+					: null,
+			recentActivityCount: entry.recentActivityCount,
+		}))
+		.sort((left, right) => right.projects - left.projects || right.tasks - left.tasks);
+};
+
+const buildEmployeeAnalysisSummaries = (detailedProjects: DetailedProject[]): EmployeeAnalysisSummary[] => {
+	const employeeMap = new Map<
+		string,
+		EmployeeAnalysisSummary & {
+			projectIds: Set<string>;
+			lastActivityDate: Date | null;
+		}
+	>();
+
+	detailedProjects.forEach((project) => {
+		const projectTasks = project.tasks ?? [];
+		const completedTasks = projectTasks.filter((task) => isTaskCompleted(task.taskStatus)).length;
+		const overdueTasks = projectTasks.filter((task) => isTaskOverdue(task)).length;
+		const latestActivityDate = projectTasks.reduce<Date | null>((latest, task) => {
+			const taskDate = getDateValue(task.updatedAt) ?? getDateValue(task.createdAt);
+			if (!taskDate) return latest;
+			if (!latest || taskDate.getTime() > latest.getTime()) return taskDate;
+			return latest;
+		}, null);
+
+		(project.employees ?? []).forEach((employee, index) => {
+			const employeeKey =
+				employee.id?.trim() || employee.email?.trim() || employee.name?.trim() || `${project.id}-employee-${index}`;
+			const employeeName = employee.name?.trim() || employee.email?.trim() || 'غير معروف';
+			const current = employeeMap.get(employeeKey) ?? {
+				id: employeeKey,
+				name: employeeName,
+				assignedProjects: 0,
+				totalTasks: 0,
+				completedTasks: 0,
+				overdueTasks: 0,
+				completionRate: 0,
+				lastActivity: null,
+				projectIds: new Set<string>(),
+				lastActivityDate: null,
+			};
+
+			if (!current.projectIds.has(project.id)) {
+				current.projectIds.add(project.id);
+				current.assignedProjects += 1;
+			}
+
+			current.totalTasks += projectTasks.length;
+			current.completedTasks += completedTasks;
+			current.overdueTasks += overdueTasks;
+
+			if (latestActivityDate && (!current.lastActivityDate || latestActivityDate.getTime() > current.lastActivityDate.getTime())) {
+				current.lastActivityDate = latestActivityDate;
+			}
+
+			current.completionRate = getSafePercentage(current.completedTasks, current.totalTasks);
+			current.lastActivity = formatAnalyticsDate(current.lastActivityDate);
+
+			employeeMap.set(employeeKey, current);
+		});
+	});
+
+	return [...employeeMap.values()]
+		.map((entry) => ({
+			id: entry.id,
+			name: entry.name,
+			assignedProjects: entry.assignedProjects,
+			totalTasks: entry.totalTasks,
+			completedTasks: entry.completedTasks,
+			overdueTasks: entry.overdueTasks,
+			completionRate: entry.completionRate,
+			lastActivity: entry.lastActivity,
+		}))
+		.sort(
+			(left, right) =>
+				right.completionRate - left.completionRate ||
+				right.completedTasks - left.completedTasks ||
+				right.assignedProjects - left.assignedProjects
+		);
+};
+
+const buildEmployeeAnalysisDetails = (
+	detailedProjects: DetailedProject[],
+	referenceDate = new Date()
+) => {
+	const employeeMap = new Map<
+		string,
+		EmployeeAnalysisDetails & {
+			projectIds: Set<string>;
+		}
+	>();
+
+	detailedProjects.forEach((project) => {
+		const projectName = project.name?.trim() || 'غير متوفر';
+		const projectTasks = project.tasks ?? [];
+		const projectCompletedTasks = projectTasks.filter((task) => isTaskCompleted(task.taskStatus)).length;
+		const projectOverdueTasks = projectTasks.filter((task) => isTaskOverdue(task, referenceDate)).length;
+
+		(project.employees ?? []).forEach((employee, employeeIndex) => {
+			const employeeKey =
+				employee.id?.trim() || employee.email?.trim() || employee.name?.trim() || `${project.id}-employee-${employeeIndex}`;
+			const employeeName = employee.name?.trim() || employee.email?.trim() || 'غير معروف';
+			const current = employeeMap.get(employeeKey) ?? {
+				id: employeeKey,
+				name: employeeName,
+				assignedTasks: [],
+				completedTasks: [],
+				overdueTasks: [],
+				assignedProjects: [],
+				projectIds: new Set<string>(),
+			};
+
+			if (!current.projectIds.has(project.id)) {
+				current.projectIds.add(project.id);
+				current.assignedProjects.push({
+					id: project.id,
+					projectName,
+					totalTasks: projectTasks.length,
+					completedTasks: projectCompletedTasks,
+					overdueTasks: projectOverdueTasks,
+				});
+			}
+
+			projectTasks.forEach((task, taskIndex) => {
+				const taskDetail: EmployeeTaskDetail = {
+					id: `${project.id}-${task.taskId || taskIndex}`,
+					taskName: task.taskName?.trim() || 'بدون اسم',
+					projectName,
+					status: task.taskStatus ?? null,
+					dueDate: formatAnalyticsDate(task.endDate),
+					updatedAt: formatAnalyticsDate(getTaskActivityDate(task)),
+					completedAt: formatAnalyticsDate(getDateValue(task.updatedAt) ?? getDateValue(task.endDate)),
+					overdueDays: getOverdueDays(task, referenceDate),
+					delayReason: task.notes?.trim() || null,
+				};
+
+				current.assignedTasks.push(taskDetail);
+
+				if (isTaskCompleted(task.taskStatus)) {
+					current.completedTasks.push(taskDetail);
+				}
+
+				if (isTaskOverdue(task, referenceDate)) {
+					current.overdueTasks.push(taskDetail);
+				}
+			});
+
+			employeeMap.set(employeeKey, current);
+		});
+	});
+
+	return new Map(
+		[...employeeMap.entries()].map(([employeeKey, entry]) => {
+			const assignedTasks = [...entry.assignedTasks].sort((left, right) => {
+				const rightDate = getDateValue(right.updatedAt)?.getTime() ?? 0;
+				const leftDate = getDateValue(left.updatedAt)?.getTime() ?? 0;
+				return rightDate - leftDate;
+			});
+
+			const completedTasks = [...entry.completedTasks].sort((left, right) => {
+				const rightDate = getDateValue(right.completedAt)?.getTime() ?? 0;
+				const leftDate = getDateValue(left.completedAt)?.getTime() ?? 0;
+				return rightDate - leftDate;
+			});
+
+			const overdueTasks = [...entry.overdueTasks].sort(
+				(left, right) => (right.overdueDays ?? 0) - (left.overdueDays ?? 0)
+			);
+
+			const assignedProjects = [...entry.assignedProjects].sort(
+				(left, right) => right.totalTasks - left.totalTasks || right.completedTasks - left.completedTasks
+			);
+
+			return [
+				employeeKey,
+				{
+					id: entry.id,
+					name: entry.name,
+					assignedTasks,
+					completedTasks,
+					overdueTasks,
+					assignedProjects,
+				},
+			];
+		})
+	);
+};
+
+const mockActionFeed: MockActionItem[] = [
+	{
+		id: 'activity-001',
+		typeKey: 'activityTaskOverdue',
+		category: 'overdue',
+		projectNameKey: 'activityVillaHeightsPhase1',
+		descriptionKey: 'activityFoundationReviewPending',
+		projectId: 'prj-riyadh-001',
+		taskId: 'tsk-prj-riyadh-001-025',
+		date: '2026-04-24',
+		priority: 'high',
+	},
+	{
+		id: 'activity-002',
+		typeKey: 'activityClientApprovalNeeded',
+		category: 'client_action',
+		projectNameKey: 'activityRoyalPalaceComplex',
+		descriptionKey: 'activityClientApprovalNeededDescription',
+		projectId: 'prj-riyadh-002',
+		taskId: 'tsk-prj-riyadh-002-021',
+		date: '2026-04-26',
+		priority: 'high',
+	},
+	{
+		id: 'activity-003',
+		typeKey: 'activityProgressUpdate',
+		category: 'recent',
+		projectNameKey: 'activityGreenValleyVillas',
+		descriptionKey: 'activityProgressUpdateDescription',
+		projectId: 'prj-qassim-001',
+		taskId: 'tsk-prj-qassim-001-017',
+		date: '2026-04-27',
+		priority: 'medium',
+	},
+	{
+		id: 'activity-004',
+		typeKey: 'activityClientFeedbackPending',
+		category: 'client_action',
+		projectNameKey: 'activityDesertPearlResidence',
+		descriptionKey: 'activityClientFeedbackPendingDescription',
+		projectId: 'prj-qassim-002',
+		taskId: 'tsk-prj-qassim-002-021',
+		date: '2026-04-25',
+		priority: 'medium',
+	},
+	{
+		id: 'activity-005',
+		typeKey: 'activityRecentUpload',
+		category: 'recent',
+		projectNameKey: 'activityAlNakheelEstate',
+		descriptionKey: 'activityRecentUploadDescription',
+		projectId: 'prj-riyadh-004',
+		taskId: 'tsk-prj-riyadh-004-020',
+		date: '2026-04-28',
+		priority: 'low',
+	},
+];
+
+const getActivityNoteKey = ({ projectId, taskId }: Pick<MockActionItem, 'projectId' | 'taskId'>) =>
+	`${projectId}:${taskId}`;
+
+const ACTIVITY_NOTE_AUTHOR_PREFIX = '__activity_note_author__:';
+const UNKNOWN_ACTIVITY_NOTE_AUTHOR = 'غير معروف';
+
+const getActivityNoteAuthorName = (user?: SessionUserLike | null) => {
+	const normalizedName = user?.name?.trim();
+	if (normalizedName) return normalizedName;
+
+	const normalizedUsername = user?.username?.trim();
+	if (normalizedUsername) return normalizedUsername;
+
+	return UNKNOWN_ACTIVITY_NOTE_AUTHOR;
+};
+
+const parseActivityNote = (note: string): ActivityNote => {
+	const trimmedNote = note.trim();
+	const noteLines = trimmedNote.split('\n');
+	const trailingLine = noteLines.at(-1)?.trim();
+
+	if (trailingLine?.startsWith(ACTIVITY_NOTE_AUTHOR_PREFIX)) {
+		const parsedAuthorName = trailingLine.slice(ACTIVITY_NOTE_AUTHOR_PREFIX.length).trim();
+		const content = noteLines.slice(0, -1).join('\n').trim();
+
+		return {
+			content: content || trimmedNote,
+			authorName: parsedAuthorName || UNKNOWN_ACTIVITY_NOTE_AUTHOR,
+		};
+	}
+
+	return {
+		content: trimmedNote,
+		authorName: UNKNOWN_ACTIVITY_NOTE_AUTHOR,
+	};
+};
+
+const parseActivityNotes = (notes?: string | null) =>
+	(notes ?? '')
+		.split(/\n\s*\n+/)
+		.map((note) => parseActivityNote(note))
+		.filter(Boolean);
+
+
+
+// const dashboardData = {
+// 	overview: {
+// 		totalProjects: 24,
+// 		activeProjects: 18,
+// 		completedProjects: 6,
+// 		totalUsers: 156,
+// 		// role: admin
+// 		adminUsers: 3,
+// 		// role: employee, moderator
+// 		employeeUsers: 28,
+// 		// role: client
+// 		clientUsers: 125
+// 	},
+// 	projectsByStatus: [
+// 		{ status: "in_progress", count: 12, fill: "var(--color-in_progress)" },
+// 		{ status: "not_started", count: 6, fill: "var(--color-not_started)" },
+// 		{ status: "completed", count: 4, fill: "var(--color-completed)" },
+// 		{ status: "on_hold", count: 2, fill: "var(--color-on_hold)" }
+// 	],
+// 	projectsByType: [
+// 		{ name: 'Villa', count: 16, percentage: 67 },
+// 		{ name: 'Palace', count: 8, percentage: 33 }
+// 	],
+// 	cityDistribution: [
+// 		{ city: 'Riyadh', projects: 10, tasks: 60 },
+// 		{ city: 'Jeddah', projects: 8, tasks: 45 },
+// 		{ city: 'Dammam', projects: 6, tasks: 30 },
+// 		{ city: 'Mecca', projects: 12, tasks: 52 },
+// 		{ city: 'Medina', projects: 4, tasks: 20 },
+// 		{ city: 'Khobar', projects: 6, tasks: 23 }
+// 	],
+// 	monthlyProgress: [
+// 		{ month: 'January', completed: 2, started: 4 },
+// 		{ month: 'February', completed: 3, started: 3 },
+// 		{ month: 'March', completed: 1, started: 5 },
+// 		{ month: 'April', completed: 4, started: 2 },
+// 		{ month: 'May', completed: 2, started: 6 },
+// 		{ month: 'June', completed: 3, started: 4 }
+// 	],
+// 	taskMetrics: {
+// 		totalTasks: 138,
+// 		foundationTasks: 82,
+// 		finishTasks: 56,
+// 		completedTasks: 89,
+// 		pendingTasks: 49
+// 	},
+// 	taskTypes: [
+// 		{ type: "foundation", count: 82, fill: "var(--color-foundation)" },
+// 		{ type: "finish", count: 56, fill: "var(--color-finish)" }
+// 	],
+// 	// latest 3 activities of the project it should be the latest updatedAt
+// 	recentActivity: [
+// 		{ project: 'Villa Heights Phase 1', status: 'completed', city: 'Riyadh', date: '2025-06-01' },
+// 		{ project: 'Royal Palace Complex', status: 'in_progress', city: 'Jeddah', date: '2025-05-28' },
+// 		{ project: 'Green Valley Villas', status: 'needs_review', city: 'Medina', date: '2025-05-25' },
+// 	]
+// };
+
+
+export default function AdminDashboard() {
+	const [activeTab, setActiveTab] = useState<DashboardTab>('projects');
+	const [selectedEmployeePanel, setSelectedEmployeePanel] = useState<{
+		employeeId: string;
+		section: EmployeeAnalysisSection;
+	} | null>(null);
+	const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [selectedActionItem, setSelectedActionItem] = useState<MockActionItem | null>(null);
+	const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+	const [noteText, setNoteText] = useState('');
+	const [existingNotes, setExistingNotes] = useState('');
+	const [isLoadingTaskNote, setIsLoadingTaskNote] = useState(false);
+	const [isSavingNote, setIsSavingNote] = useState(false);
+	const [activityNotesByTaskKey, setActivityNotesByTaskKey] = useState<Record<string, ActivityNote[]>>({});
+	const [activityNotesLoadErrors, setActivityNotesLoadErrors] = useState<Record<string, boolean>>({});
+	const [loadingActivityNotes, setLoadingActivityNotes] = useState<Record<string, boolean>>({});
+	const [analysisProjectDetails, setAnalysisProjectDetails] = useState<DetailedProject[]>([]);
+	const [isAnalysisDetailsLoading, setIsAnalysisDetailsLoading] = useState(false);
+	const [analysisDetailsLoadError, setAnalysisDetailsLoadError] = useState(false);
+	const [loadedAnalysisProjectIdsKey, setLoadedAnalysisProjectIdsKey] = useState('');
+	const [projectVisibilityScope, setProjectVisibilityScope] = useState<ProjectVisibilityScope>('all');
+	const noteTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+	const t = useTranslations();
+	const { data: session } = useSession();
+	const user = session?.user;
+	const currentActivityNoteAuthor = getActivityNoteAuthorName(user as SessionUserLike | undefined);
+	const { projects, fetchProjects } = useProjectStore();
+	const { dir } = useCheckedLocale();
+	const userRole = typeof user?.role === 'string' ? user.role : null;
+	const isAdmin = userRole === 'admin';
+	const allowedTabs = getAllowedDashboardTabs(userRole);
+	const tabListColumnsClassName = isAdmin ? 'grid-cols-4' : 'grid-cols-3';
+
+	useEffect(() => {
+		const getDashboard = async () => {
+			try {
+				const response = await axios.get<DashboardData>('/api/dashboard');
+				setDashboardData(response.data);
+			} catch (err) {
+				console.error('Failed to fetch dashboard data:', err);
+				setError('Failed to load dashboard data');
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		getDashboard();
+	}, []);
+
+	useEffect(() => {
+		if (!user || user.role === "client") return;
+
+		fetchProjects();
+	}, [fetchProjects, user]);
+
+	useEffect(() => {
+		const nextAllowedTabs = getAllowedDashboardTabs(userRole);
+		if (!nextAllowedTabs.includes(activeTab)) {
+			setActiveTab(nextAllowedTabs[0]);
+		}
+	}, [activeTab, userRole]);
+
+	// Chart configurations
+	const projectStatusConfig = {
+		count: {
+			label: `${t("Projects")}`,
+		},
+		in_progress: {
+			label: "In Progress",
+			color: "var(--chart-1)",
+		},
+		not_started: {
+			label: "Not Started",
+			color: "var(--chart-2)",
+		},
+		completed: {
+			label: "Completed",
+			color: "var(--chart-3)",
+		},
+		on_hold: {
+			label: "On Hold",
+			color: "var(--chart-4)",
+		},
+	} satisfies ChartConfig;
+
+	const monthlyProgressConfig = {
+		completed: {
+			label: "Completed",
+			color: "var(--chart-1)",
+		},
+		started: {
+			label: "Started",
+			color: "var(--chart-2)",
+		},
+	} satisfies ChartConfig;
+
+	const cityDistributionConfig = {
+		projects: {
+			label: t("Projects"),
+			color: "var(--chart-1)",
+		},
+		tasks: {
+			label: t("Tasks"),
+			color: "var(--chart-2)",
+		},
+	} satisfies ChartConfig;
+
+	const taskTypesConfig = {
+		count: {
+			label: `${t("Tasks")}`,
+		},
+		foundation: {
+			label: "Foundations",
+			color: "var(--chart-1)",
+		},
+		finish: {
+			label: "Finishes",
+			color: "var(--chart-2)",
+		},
+	} satisfies ChartConfig;
+
+	const MetricCard = ({ title, value, subtitle, icon: Icon }: MetricCardProps) => (
+		<Card className="hover:shadow-md/10 transition-all">
+			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+				<CardTitle className="text-sm font-medium">{t(title)}</CardTitle>
+				<Icon className="h-4 w-4 text-muted-foreground" />
+			</CardHeader>
+			<CardContent>
+				<div className="text-2xl font-bold">{value}</div>
+				<p className="text-xs text-muted-foreground">{subtitle}</p>
+			</CardContent>
+		</Card>
+	);
+
+	const activitySections: Array<{
+		key: ActionCategory;
+		titleKey: string;
+		descriptionKey: string;
+	}> = [
+		{
+			key: 'overdue',
+			titleKey: 'activityOverdue',
+			descriptionKey: 'activityOverdueDescription',
+		},
+		{
+			key: 'client_action',
+			titleKey: 'activityNeedsClientAction',
+			descriptionKey: 'activityNeedsClientActionDescription',
+		},
+		{
+			key: 'recent',
+			titleKey: 'activityRecentlyUpdated',
+			descriptionKey: 'activityRecentlyUpdatedDescription',
+		},
+	];
+
+	const getPriorityClasses = (priority: ActionPriority) => {
+		const classes: Record<ActionPriority, string> = {
+			high: 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200',
+			medium: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200',
+			low: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200',
+		};
+
+		return classes[priority];
+	};
+
+	const showProjectVisibilityFilter = !!user && user.role !== "client";
+	const visibleProjects = filterProjectsByVisibility(projects, user, projectVisibilityScope);
+	const visibleActionItems = filterProjectItemsByVisibility(
+		mockActionFeed,
+		projects,
+		user,
+		projectVisibilityScope,
+		(item) => item.projectId
+	);
+	const analysisProjectIds = isAdmin
+		? projects
+			.map((project) => {
+				if (typeof project?.id === 'string' && project.id.trim()) return project.id;
+				if (typeof project?.projectId === 'string' && project.projectId.trim()) return project.projectId;
+				return null;
+			})
+			.filter((projectId): projectId is string => !!projectId)
+		: [];
+	const analysisProjectIdsKey = [...analysisProjectIds].sort().join('|');
+
+	useEffect(() => {
+		if (activeTab !== 'activity') return;
+
+		let isCancelled = false;
+		const uniqueItems = visibleActionItems.filter(
+			(item, index, items) =>
+				items.findIndex((candidate) => getActivityNoteKey(candidate) === getActivityNoteKey(item)) === index
+		);
+		const pendingItems = uniqueItems.filter((item) => {
+			const noteKey = getActivityNoteKey(item);
+			return (
+				activityNotesByTaskKey[noteKey] === undefined &&
+				!activityNotesLoadErrors[noteKey] &&
+				!loadingActivityNotes[noteKey]
+			);
+		});
+
+		if (pendingItems.length === 0) {
+			return () => {
+				isCancelled = true;
+			};
+		}
+
+		const pendingKeys = pendingItems.map((item) => getActivityNoteKey(item));
+		setLoadingActivityNotes((current) => {
+			const next = { ...current };
+			pendingKeys.forEach((key) => {
+				next[key] = true;
+			});
+			return next;
+		});
+
+		void Promise.allSettled(
+			pendingItems.map(async (item) => {
+				const response = await axios.get<{ notes?: string | null }>(`/api/projects/${item.projectId}/tasks/${item.taskId}`);
+				return {
+					noteKey: getActivityNoteKey(item),
+					notes: parseActivityNotes(response.data.notes),
+				};
+			})
+		)
+			.then((results) => {
+				if (isCancelled) return;
+
+				const nextNotes: Record<string, string[]> = {};
+				const nextErrors: Record<string, boolean> = {};
+
+				results.forEach((result, index) => {
+					const noteKey = pendingKeys[index];
+					if (result.status === 'fulfilled') {
+						nextNotes[noteKey] = result.value.notes;
+						nextErrors[noteKey] = false;
+						return;
+					}
+
+					console.error('Failed to load activity card notes:', result.reason);
+					nextErrors[noteKey] = true;
+				});
+
+				if (Object.keys(nextNotes).length > 0) {
+					setActivityNotesByTaskKey((current) => ({
+						...current,
+						...nextNotes,
+					}));
+				}
+
+				setActivityNotesLoadErrors((current) => ({
+					...current,
+					...nextErrors,
+				}));
+			})
+			.finally(() => {
+				if (isCancelled) return;
+
+				setLoadingActivityNotes((current) => {
+					const next = { ...current };
+					pendingKeys.forEach((key) => {
+						next[key] = false;
+					});
+					return next;
+				});
+			});
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [activeTab, activityNotesByTaskKey, activityNotesLoadErrors, visibleActionItems]);
+
+	useEffect(() => {
+		if (!isAdmin || activeTab !== 'analysis') return;
+
+		if (!analysisProjectIdsKey) {
+			setAnalysisProjectDetails([]);
+			setLoadedAnalysisProjectIdsKey('');
+			setAnalysisDetailsLoadError(false);
+			return;
+		}
+
+		if (loadedAnalysisProjectIdsKey === analysisProjectIdsKey) {
+			return;
+		}
+
+		let isCancelled = false;
+		setIsAnalysisDetailsLoading(true);
+		setAnalysisDetailsLoadError(false);
+
+		void Promise.allSettled(
+			analysisProjectIds.map(async (projectId) => {
+				const response = await axios.get<DetailedProject>(`/api/projects/${projectId}`);
+				return response.data;
+			})
+		)
+			.then((results) => {
+				if (isCancelled) return;
+
+				const fulfilledProjects = results
+					.filter((result): result is PromiseFulfilledResult<DetailedProject> => result.status === 'fulfilled')
+					.map((result) => result.value);
+
+				setAnalysisProjectDetails(fulfilledProjects);
+				setAnalysisDetailsLoadError(fulfilledProjects.length === 0);
+
+				if (fulfilledProjects.length > 0 || analysisProjectIds.length === 0) {
+					setLoadedAnalysisProjectIdsKey(analysisProjectIdsKey);
+				}
+			})
+			.finally(() => {
+				if (isCancelled) return;
+				setIsAnalysisDetailsLoading(false);
+			});
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [activeTab, analysisProjectIds, analysisProjectIdsKey, isAdmin, loadedAnalysisProjectIdsKey]);
+
+	if (loading) {
+		return (
+			<div className="flex justify-center items-center min-h-[calc(100vh-8rem)]">
+				<Spinner className="h-6 w-6 text-muted-foreground" />
+				<span className="mx-2 text-muted-foreground">{t("Loading dashboard please wait")}...</span>
+			</div>
+		);
+
+	}
+
+	if (error) {
+		return <div className="text-destructive">{error}</div>;
+	}
+
+	if (!dashboardData) {
+		return null;
+	}
+
+	const totalTaskCompletionRate = getSafePercentage(
+		dashboardData.taskMetrics.completedTasks,
+		dashboardData.taskMetrics.totalTasks
+	);
+	const weeklyLocationSummaries = buildWeeklyLocationSummaries(analysisProjectDetails);
+	const weeklyReportSummary = getWeeklyReportSummary(weeklyLocationSummaries);
+	const weeklyHighlights = buildWeeklyHighlights(weeklyLocationSummaries);
+	const topWeeklyLocationShare = weeklyLocationSummaries[0]?.sharePercentage ?? 0;
+	const employeeAnalysisSummaries = buildEmployeeAnalysisSummaries(analysisProjectDetails);
+	const employeeAnalysisDetails = buildEmployeeAnalysisDetails(analysisProjectDetails);
+	const selectedEmployeeDetails = selectedEmployeePanel
+		? employeeAnalysisDetails.get(selectedEmployeePanel.employeeId) ?? null
+		: null;
+	const selectedEmployeeSectionMeta = selectedEmployeePanel
+		? EMPLOYEE_ANALYSIS_SECTION_META[selectedEmployeePanel.section]
+		: null;
+	const selectedEmployeeSectionCount =
+		selectedEmployeePanel && selectedEmployeeDetails
+			? selectedEmployeeDetails[selectedEmployeePanel.section].length
+			: 0;
+	const handleActiveTabChange = (value: string) => {
+		if (allowedTabs.includes(value as DashboardTab)) {
+			setActiveTab(value as DashboardTab);
+		}
+	};
+
+	const openAddNoteModal = async (item: MockActionItem) => {
+		setSelectedActionItem(item);
+		setNoteText('');
+		setExistingNotes('');
+		setIsAddNoteOpen(true);
+		setIsLoadingTaskNote(true);
+
+		try {
+			const response = await axios.get<{ notes?: string | null }>(`/api/projects/${item.projectId}/tasks/${item.taskId}`);
+			const normalizedNotes = response.data.notes?.trim() || '';
+			setExistingNotes(normalizedNotes);
+			setActivityNotesByTaskKey((current) => ({
+				...current,
+				[getActivityNoteKey(item)]: parseActivityNotes(normalizedNotes),
+			}));
+			setActivityNotesLoadErrors((current) => ({ ...current, [getActivityNoteKey(item)]: false }));
+		} catch (err) {
+			console.error('Failed to load task notes:', err);
+			toast.error(t("activityAddNoteLoadError"));
+		} finally {
+			setIsLoadingTaskNote(false);
+		}
+	};
+
+	const handleAddNoteSave = async () => {
+		if (!selectedActionItem) return;
+
+		const trimmedNote = noteText.trim();
+		if (!trimmedNote) {
+			toast.error(t("activityAddNoteEmptyError"));
+			return;
+		}
+
+		setIsSavingNote(true);
+
+		try {
+			const noteEntry = [
+				`[${new Date().toISOString().split('T')[0]}] ${t("activityNotePrefix")}: ${trimmedNote}`,
+				`${ACTIVITY_NOTE_AUTHOR_PREFIX} ${currentActivityNoteAuthor}`,
+			].join('\n');
+			const appendedNotes = existingNotes ? `${noteEntry}\n\n${existingNotes}` : noteEntry;
+
+			await axios.put(`/api/projects/${selectedActionItem.projectId}/tasks/${selectedActionItem.taskId}`, {
+				notes: appendedNotes,
+			});
+
+			toast.success(t("activityAddNoteSuccess"));
+			setExistingNotes(appendedNotes);
+			setActivityNotesByTaskKey((current) => ({
+				...current,
+				[getActivityNoteKey(selectedActionItem)]: parseActivityNotes(appendedNotes),
+			}));
+			setActivityNotesLoadErrors((current) => ({
+				...current,
+				[getActivityNoteKey(selectedActionItem)]: false,
+			}));
+			setNoteText('');
+			setIsAddNoteOpen(false);
+			setSelectedActionItem(null);
+		} catch (err) {
+			console.error('Failed to save note:', err);
+			toast.error(t("activityAddNoteSaveError"));
+		} finally {
+			setIsSavingNote(false);
+		}
+	};
+
+	return (
+		<div className="bg-background space-y-4 md:pt-4">
+			{/*<div className="flex items-center justify-between">*/}
+			{/*	<div>*/}
+			{/*		<h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>*/}
+			{/*		<p className="text-muted-foreground">Construction project management overview</p>*/}
+			{/*	</div>*/}
+			{/*	<Badge variant="outline" className="text-sm">*/}
+			{/*		Last updated: {new Date().toLocaleDateString()}*/}
+			{/*	</Badge>*/}
+			{/*</div>*/}
+
+			{/* Key Metrics Cards */}
+			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+				<MetricCard
+					title="Total Projects"
+					value={dashboardData.overview.totalProjects}
+					subtitle={`${dashboardData.overview.activeProjects} ${t("active projects")}`}
+					icon={Building2}
+				/>
+				<MetricCard
+					title="Total Users"
+					value={dashboardData.overview.totalUsers}
+					subtitle={`${dashboardData.overview.clientUsers} ${t("clients")}, ${dashboardData.overview.employeeUsers} ${t("employees")}`}
+					icon={Users}
+				/>
+				<MetricCard
+					title="Completed Tasks"
+					value={dashboardData.taskMetrics.completedTasks}
+					subtitle={`${dashboardData.taskMetrics.pendingTasks} ${t("pending tasks")}`}
+					icon={CheckCircle}
+				/>
+				<Card className="hover:shadow-md/10 transition-all">
+					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+						<CardTitle className="text-sm font-medium">{t("Task Progress")}</CardTitle>
+						<TrendingUp className="h-4 w-4 text-muted-foreground" />
+					</CardHeader>
+					<CardContent>
+						<div className="text-2xl font-bold">{totalTaskCompletionRate}%</div>
+						<Progress value={totalTaskCompletionRate} className="mt-2" />
+					</CardContent>
+				</Card>
+			</div>
+
+			<Tabs value={activeTab} className="gap-4" onValueChange={handleActiveTabChange}>
+				<TabsList className={`grid w-full ${tabListColumnsClassName}`}>
+					<TabsTrigger value="projects">{t("Projects")}</TabsTrigger>
+					<TabsTrigger value="tasks">{t("Tasks")}</TabsTrigger>
+					{isAdmin && <TabsTrigger value="analysis">التحليل</TabsTrigger>}
+					<TabsTrigger value="activity">{t("Activity")}</TabsTrigger>
+				</TabsList>
+
+				<TabsContent value="projects" className="space-y-4">
+					<div className="grid gap-4 md:grid-cols-2">
+						{/* Project Status Pie Chart */}
+						<Card className="flex flex-col">
+							<CardHeader className="items-center pb-0">
+								<CardTitle>{t("Project Status Distribution")}</CardTitle>
+								<CardDescription>{t("Overview of all project statuses")}</CardDescription>
+							</CardHeader>
+							<CardContent className="flex-1 pb-0">
+								<ChartContainer
+									config={projectStatusConfig}
+									className="mx-auto aspect-square max-h-[300px]"
+								>
+									<PieChart>
+										<ChartTooltip
+											content={<ChartTooltipContent nameKey="count" hideLabel />}
+										/>
+										<Pie data={dashboardData.projectsByStatus} dataKey="count">
+											<LabelList
+												dataKey="status"
+												className="fill-background"
+												stroke="none"
+												fontSize={12}
+												formatter={(value: keyof typeof projectStatusConfig) =>
+													t(projectStatusConfig[value]?.label)
+												}
+											/>
+										</Pie>
+									</PieChart>
+								</ChartContainer>
+							</CardContent>
+							<CardFooter className="flex-col gap-2 text-sm">
+								<div className="flex items-center gap-2 leading-none font-medium">
+									{dashboardData.overview.activeProjects} {t("active projects")} <TrendingUp className="h-4 w-4" />
+								</div>
+								<div className="text-muted-foreground leading-none">
+									{t("Showing current project distribution")}
+								</div>
+							</CardFooter>
+						</Card>
+
+						{/* Project Types Progress */}
+						<Card>
+							<CardHeader>
+								<CardTitle>{t("Project Types")}</CardTitle>
+								<CardDescription>{t("Villa vs Palace distribution")}</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								{dashboardData.projectsByType.map((type) => (
+									<div key={type.name} className="space-y-2">
+										<div className="flex justify-between text-sm">
+											<span>{t(type.name)}</span>
+											<span>{type.count} {t("projects")} ({type.percentage}%)</span>
+										</div>
+										<Progress value={type.percentage} />
+									</div>
+								))}
+							</CardContent>
+							<CardFooter>
+								<div className="text-muted-foreground text-sm">
+									{t("Total of")} {dashboardData.overview.totalProjects} {t("projects")}
+								</div>
+							</CardFooter>
+						</Card>
+					</div>
+
+					{/* Monthly Progress Bar Chart */}
+					{/*<Card>*/}
+					{/*	<CardHeader>*/}
+					{/*		<CardTitle>Monthly Project Progress</CardTitle>*/}
+					{/*		<CardDescription>Projects completed vs started each month</CardDescription>*/}
+					{/*	</CardHeader>*/}
+					{/*	<CardContent>*/}
+					{/*		<ChartContainer config={monthlyProgressConfig}>*/}
+					{/*			<BarChart accessibilityLayer data={dashboardData.monthlyProgress}>*/}
+					{/*				<CartesianGrid vertical={false} />*/}
+					{/*				<XAxis*/}
+					{/*					dataKey="month"*/}
+					{/*					tickLine={false}*/}
+					{/*					tickMargin={10}*/}
+					{/*					axisLine={false}*/}
+					{/*					tickFormatter={(value) => value.slice(0, 3)}*/}
+					{/*				/>*/}
+					{/*				<ChartTooltip*/}
+					{/*					cursor={false}*/}
+					{/*					content={<ChartTooltipContent indicator="dashed" />}*/}
+					{/*				/>*/}
+					{/*				<Bar dataKey="completed" fill="var(--color-completed)" radius={4} />*/}
+					{/*				<Bar dataKey="started" fill="var(--color-started)" radius={4} />*/}
+					{/*			</BarChart>*/}
+					{/*		</ChartContainer>*/}
+					{/*	</CardContent>*/}
+					{/*	<CardFooter className="flex-col items-start gap-2 text-sm">*/}
+					{/*		<div className="flex gap-2 leading-none font-medium">*/}
+					{/*			Steady project progress this year <TrendingUp className="h-4 w-4" />*/}
+					{/*		</div>*/}
+					{/*		<div className="text-muted-foreground leading-none">*/}
+					{/*			Showing project completion vs initiation trends*/}
+					{/*		</div>*/}
+					{/*	</CardFooter>*/}
+					{/*</Card>*/}
+				</TabsContent>
+
+				<TabsContent value="tasks" className="space-y-4">
+					<div className="grid gap-4 md:grid-cols-3">
+						<Card>
+							<CardHeader>
+								<CardTitle>{t("Task Overview")}</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="flex justify-between items-center">
+									<span className="text-sm">{t("Total Tasks")}</span>
+									<StatusBadge status={dashboardData.taskMetrics.totalTasks} />
+								</div>
+								<div className="flex justify-between items-center">
+									<span className="text-sm">{t("Foundations Tasks")}</span>
+									<StatusBadge status={dashboardData.taskMetrics.foundationTasks} />
+								</div>
+								<div className="flex justify-between items-center">
+									<span className="text-sm">{t("Finishes Tasks")}</span>
+									<StatusBadge status={dashboardData.taskMetrics.finishTasks} />
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardHeader>
+								<CardTitle>{t("Task Completion Rate")}</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<div className="text-3xl font-bold mb-2">{totalTaskCompletionRate}%</div>
+								<Progress value={totalTaskCompletionRate} className="mb-2" />
+								<p className="text-sm text-muted-foreground">
+									{dashboardData.taskMetrics.completedTasks} {t("of")} {dashboardData.taskMetrics.totalTasks} {t("tasks completed")}
+								</p>
+							</CardContent>
+						</Card>
+
+						{/* Task Types Pie Chart */}
+						<Card className="flex flex-col">
+							<CardHeader className="items-center pb-0">
+								<CardTitle>{t("Task Types")}</CardTitle>
+								<CardDescription>{t("Foundation vs Finish tasks")}</CardDescription>
+							</CardHeader>
+							<CardContent className="flex-1 pb-0">
+								<ChartContainer
+									config={taskTypesConfig}
+									className="mx-auto aspect-square max-h-[200px]"
+								>
+									<PieChart>
+										<ChartTooltip
+											content={<ChartTooltipContent nameKey="count" hideLabel />}
+										/>
+										<Pie data={dashboardData.taskTypes} dataKey="count">
+											<LabelList
+												dataKey="type"
+												className="fill-background"
+												stroke="none"
+												fontSize={12}
+												formatter={(value: keyof typeof taskTypesConfig) =>
+													t(taskTypesConfig[value]?.label)
+												}
+											/>
+										</Pie>
+									</PieChart>
+								</ChartContainer>
+							</CardContent>
+						</Card>
+					</div>
+				</TabsContent>
+
+				{isAdmin && (
+					<TabsContent value="analysis" className="space-y-4">
+						<Card>
+							<CardHeader>
+								<CardTitle>التحليل</CardTitle>
+								<CardDescription>
+									عرض إداري لتحليل المدن والموظفين بالاعتماد على بيانات لوحة التحكم والمشاريع الحالية.
+								</CardDescription>
+							</CardHeader>
+						</Card>
+
+						<div dir={dir} className="space-y-4 text-right">
+							<Card className="border border-border/70 bg-background shadow-sm">
+								<CardHeader className="space-y-3">
+									<div className="space-y-1">
+										<CardTitle className="text-xl font-semibold">تقرير الأسبوع</CardTitle>
+										<CardDescription>
+											قراءة إدارية مختصرة لحالة المواقع خلال هذا الأسبوع دون تكرار تفاصيل صفحة النشاط.
+										</CardDescription>
+									</div>
+									<p className="max-w-3xl text-sm leading-7 text-foreground/85">
+										{isAnalysisDetailsLoading && weeklyLocationSummaries.length === 0
+											? 'جارٍ تجهيز قراءة هذا الأسبوع...'
+											: weeklyReportSummary}
+									</p>
+								</CardHeader>
+								<CardContent className="space-y-5">
+									{isAnalysisDetailsLoading && weeklyLocationSummaries.length === 0 ? (
+										<div className="flex items-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
+											<Spinner className="h-4 w-4 text-muted-foreground" />
+											<span>جارٍ تحميل بيانات هذا الأسبوع...</span>
+										</div>
+									) : weeklyLocationSummaries.length === 0 ? (
+										<div className="rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
+											{WEEKLY_ANALYSIS_EMPTY_STATE}
+										</div>
+									) : (
+										<>
+											<Card className="border border-border/60 bg-background/60 shadow-sm">
+												<CardHeader>
+													<CardTitle className="text-base font-semibold">تقرير المواقع الأسبوعي</CardTitle>
+													<CardDescription>
+														ملخص تنفيذي يركز على الاستنتاجات والقرارات الإدارية بدل الرسوم البيانية.
+													</CardDescription>
+												</CardHeader>
+												<CardContent>
+													<p className="text-sm leading-7 text-foreground/85">{weeklyReportSummary}</p>
+												</CardContent>
+											</Card>
+
+											<Card className="border border-border/60 bg-background/60 shadow-sm">
+												<CardHeader>
+													<CardTitle className="text-base font-semibold">أبرز الملاحظات</CardTitle>
+													<CardDescription>ثلاث ملاحظات سريعة تساعد على قراءة وضع المواقع هذا الأسبوع.</CardDescription>
+												</CardHeader>
+												<CardContent className="space-y-3">
+													{weeklyHighlights.map((highlight, index) => (
+														<div key={`weekly-highlight-${index}`} className="rounded-xl border border-border/50 bg-background/40 px-4 py-3">
+															<p className="text-sm leading-6 text-foreground/85">{highlight}</p>
+														</div>
+													))}
+												</CardContent>
+											</Card>
+
+											<div className="space-y-3">
+												<div className="space-y-1">
+													<h3 className="text-base font-semibold">قرارات مقترحة حسب الموقع</h3>
+													<p className="text-sm text-muted-foreground">
+														قراءة مختصرة لكل موقع مع الحالة والسبب والإجراء الإداري المقترح.
+													</p>
+												</div>
+												<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+													{weeklyLocationSummaries.map((location) => {
+														const decision = getWeeklyLocationDecision(location, topWeeklyLocationShare);
+
+														return (
+															<div key={location.city} className="rounded-2xl border border-border/60 bg-background/60 p-4 shadow-sm">
+																<div className="flex items-start justify-between gap-3">
+																	<div className="space-y-1">
+																		<h4 className="text-sm font-semibold text-foreground">{location.city}</h4>
+																		<p className="text-xs text-muted-foreground">
+																			{location.latestActivity ? `آخر ظهور: ${location.latestActivity}` : 'هذا الأسبوع'}
+																		</p>
+																	</div>
+																	<span className="rounded-full border border-border/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+																		{decision.status}
+																	</span>
+																</div>
+																<div className="mt-4 space-y-3 text-sm">
+																	<div>
+																		<p className="text-xs text-muted-foreground">السبب المختصر</p>
+																		<p className="mt-1 leading-6 text-foreground/85">{decision.reason}</p>
+																	</div>
+																	<div>
+																		<p className="text-xs text-muted-foreground">القرار المقترح</p>
+																		<p className="mt-1 leading-6 text-foreground/85">{decision.action}</p>
+																	</div>
+																</div>
+															</div>
+														);
+													})}
+												</div>
+											</div>
+										</>
+									)}
+								</CardContent>
+							</Card>
+						</div>
+
+						<div className="space-y-4">
+							<div className="space-y-1">
+								<h3 className="text-lg font-semibold">تحليل الموظفين</h3>
+								<p className="text-sm text-muted-foreground">
+									يعتمد هذا القسم على المشاريع المسندة لكل موظف لأن إسناد المهمة على مستوى الفرد غير متوفر حاليًا.
+								</p>
+							</div>
+
+							{isAnalysisDetailsLoading ? (
+								<div className="flex items-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
+									<Spinner className="h-4 w-4 text-muted-foreground" />
+									<span>جارٍ تحميل بيانات التحليل...</span>
+								</div>
+							) : analysisDetailsLoadError && employeeAnalysisSummaries.length === 0 ? (
+								<div className="rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
+									{ANALYTICS_EMPTY_STATE}
+								</div>
+							) : employeeAnalysisSummaries.length === 0 ? (
+								<div className="rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
+									{ANALYTICS_EMPTY_STATE}
+								</div>
+							) : (
+								<Card className="border border-border/70 bg-background shadow-sm">
+									<CardHeader className="space-y-3">
+										{selectedEmployeePanel ? (
+											<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+												<div className="space-y-1">
+													<CardTitle>{selectedEmployeeSectionMeta?.title ?? 'تفاصيل الموظف'}</CardTitle>
+													<CardDescription>
+														{selectedEmployeeDetails?.name ?? 'غير متوفر'}
+														{selectedEmployeeSectionMeta ? ` • ${selectedEmployeeSectionMeta.description}` : ''}
+													</CardDescription>
+												</div>
+												<div className="flex items-center gap-2">
+													<Badge variant="outline" className="border-border/60 bg-background text-foreground">
+														{selectedEmployeeSectionCount}
+													</Badge>
+													<Button
+														type="button"
+														variant="outline"
+														onClick={() => setSelectedEmployeePanel(null)}
+													>
+														رجوع إلى أداء الموظفين
+													</Button>
+												</div>
+											</div>
+										) : (
+											<>
+												<CardTitle>أداء الموظفين</CardTitle>
+												<CardDescription>ملخص الأداء وآخر النشاط اعتمادًا على المشاريع المسندة.</CardDescription>
+											</>
+										)}
+									</CardHeader>
+									<CardContent className="space-y-4">
+										{!selectedEmployeePanel ? (
+											employeeAnalysisSummaries.slice(0, 6).map((employee) => (
+												<div key={employee.id} className="space-y-3 rounded-lg border border-border/60 bg-background/60 p-4">
+													<div className="flex items-center justify-between gap-3">
+														<div>
+															<p className="text-sm font-semibold">{employee.name}</p>
+															<p className="text-xs text-muted-foreground">
+																آخر نشاط: {employee.lastActivity ?? 'غير متوفر'}
+															</p>
+														</div>
+														<span className="text-sm font-semibold">{employee.completionRate}%</span>
+													</div>
+													<Progress
+														value={employee.completionRate}
+														showValueLabel={false}
+														indicatorClassName={getEmployeeProgressIndicatorClassName(employee.completionRate)}
+													/>
+													<div className="grid grid-cols-2 gap-3 text-sm text-muted-foreground">
+														<button
+															type="button"
+															onClick={() => setSelectedEmployeePanel({ employeeId: employee.id, section: 'assignedTasks' })}
+															className="block w-full rounded-md border border-border/50 px-3 py-2 text-right transition hover:border-border hover:bg-background/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+														>
+															<p className="text-xs">المهام المسندة</p>
+															<p className="mt-1 font-medium text-foreground">{employee.totalTasks}</p>
+														</button>
+														<button
+															type="button"
+															onClick={() => setSelectedEmployeePanel({ employeeId: employee.id, section: 'completedTasks' })}
+															className="block w-full rounded-md border border-border/50 px-3 py-2 text-right transition hover:border-border hover:bg-background/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+														>
+															<p className="text-xs">المهام المكتملة</p>
+															<p className="mt-1 font-medium text-foreground">{employee.completedTasks}</p>
+														</button>
+														<button
+															type="button"
+															onClick={() => setSelectedEmployeePanel({ employeeId: employee.id, section: 'overdueTasks' })}
+															className="block w-full rounded-md border border-border/50 px-3 py-2 text-right transition hover:border-border hover:bg-background/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+														>
+															<p className="text-xs">المهام المتأخرة</p>
+															<p className="mt-1 font-medium text-foreground">{employee.overdueTasks}</p>
+														</button>
+														<button
+															type="button"
+															onClick={() => setSelectedEmployeePanel({ employeeId: employee.id, section: 'assignedProjects' })}
+															className="block w-full rounded-md border border-border/50 px-3 py-2 text-right transition hover:border-border hover:bg-background/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+														>
+															<p className="text-xs">المشاريع المسندة</p>
+															<p className="mt-1 font-medium text-foreground">{employee.assignedProjects}</p>
+														</button>
+													</div>
+												</div>
+											))
+										) : !selectedEmployeeDetails || selectedEmployeeSectionCount === 0 ? (
+											<div className="rounded-xl border border-dashed border-border/60 bg-background px-4 py-6 text-sm text-muted-foreground">
+												{EMPLOYEE_ANALYSIS_SECTION_EMPTY_STATE}
+											</div>
+										) : (
+											<>
+												{selectedEmployeePanel.section === 'assignedTasks' &&
+													selectedEmployeeDetails.assignedTasks.map((task) => (
+														<div key={task.id} className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+															<div className="flex items-start justify-between gap-3">
+																<div className="space-y-1">
+																	<h4 className="text-sm font-semibold text-foreground">{task.taskName}</h4>
+																	<p className="text-xs text-muted-foreground">{task.projectName}</p>
+																</div>
+																<Badge variant="outline" className={getTaskStatusBadgeClassName(task.status)}>
+																	{getTaskStatusLabel(task.status)}
+																</Badge>
+															</div>
+															<div className="mt-4 grid gap-3 sm:grid-cols-2">
+																<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+																	<p className="text-xs text-muted-foreground">تاريخ الاستحقاق</p>
+																	<p className="mt-1 text-sm font-medium text-foreground">{task.dueDate ?? 'غير متوفر'}</p>
+																</div>
+																<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+																	<p className="text-xs text-muted-foreground">آخر تحديث</p>
+																	<p className="mt-1 text-sm font-medium text-foreground">{task.updatedAt ?? 'غير متوفر'}</p>
+																</div>
+															</div>
+														</div>
+													))}
+
+												{selectedEmployeePanel.section === 'completedTasks' &&
+													selectedEmployeeDetails.completedTasks.map((task) => (
+														<div key={task.id} className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+															<div className="space-y-1">
+																<h4 className="text-sm font-semibold text-foreground">{task.taskName}</h4>
+																<p className="text-xs text-muted-foreground">{task.projectName}</p>
+															</div>
+															<div className="mt-4 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+																<p className="text-xs text-muted-foreground">تاريخ اكتمال المهمة</p>
+																<p className="mt-1 text-sm font-medium text-foreground">{task.completedAt ?? 'غير متوفر'}</p>
+															</div>
+														</div>
+													))}
+
+												{selectedEmployeePanel.section === 'overdueTasks' &&
+													selectedEmployeeDetails.overdueTasks.map((task) => (
+														<div key={task.id} className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+															<div className="flex items-start justify-between gap-3">
+																<div className="space-y-1">
+																	<h4 className="text-sm font-semibold text-foreground">{task.taskName}</h4>
+																	<p className="text-xs text-muted-foreground">{task.projectName}</p>
+																</div>
+																<Badge variant="outline" className="border-rose-500/25 bg-rose-500/12 text-rose-300">
+																	متأخرة
+																</Badge>
+															</div>
+															<div className="mt-4 grid gap-3 sm:grid-cols-2">
+																<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+																	<p className="text-xs text-muted-foreground">تاريخ الاستحقاق</p>
+																	<p className="mt-1 text-sm font-medium text-foreground">{task.dueDate ?? 'غير متوفر'}</p>
+																</div>
+																<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+																	<p className="text-xs text-muted-foreground">عدد أيام التأخير</p>
+																	<p className="mt-1 text-sm font-medium text-foreground">
+																		{task.overdueDays !== null ? `${task.overdueDays} يوم` : 'غير متوفر'}
+																	</p>
+																</div>
+															</div>
+															<div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+																<p className="text-xs text-muted-foreground">سبب التأخير</p>
+																<p className="mt-1 text-sm font-medium text-foreground">{task.delayReason ?? 'غير متوفر'}</p>
+															</div>
+														</div>
+													))}
+
+												{selectedEmployeePanel.section === 'assignedProjects' &&
+													selectedEmployeeDetails.assignedProjects.map((project) => (
+														<div key={project.id} className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+															<div className="space-y-1">
+																<h4 className="text-sm font-semibold text-foreground">{project.projectName}</h4>
+																<p className="text-xs text-muted-foreground">ملخص المشروع المرتبط بهذا الموظف</p>
+															</div>
+															<div className="mt-4 grid gap-3 sm:grid-cols-2">
+																<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+																	<p className="text-xs text-muted-foreground">عدد المهام</p>
+																	<p className="mt-1 text-sm font-medium text-foreground">{project.totalTasks}</p>
+																</div>
+																<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+																	<p className="text-xs text-muted-foreground">عدد المهام المكتملة</p>
+																	<p className="mt-1 text-sm font-medium text-foreground">{project.completedTasks}</p>
+																</div>
+																<div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2 sm:col-span-2">
+																	<p className="text-xs text-muted-foreground">عدد المهام المتأخرة</p>
+																	<p className="mt-1 text-sm font-medium text-foreground">{project.overdueTasks}</p>
+																</div>
+															</div>
+														</div>
+													))}
+											</>
+										)}
+									</CardContent>
+								</Card>
+							)}
+						</div>
+					</TabsContent>
+				)}
+
+				<TabsContent value="activity" className="space-y-4">
+					<Card>
+						<CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
+							<div className="space-y-1">
+								<CardTitle>{t("activityCenterTitle")}</CardTitle>
+								<CardDescription>{t("activityCenterDescription")}</CardDescription>
+							</div>
+							{showProjectVisibilityFilter && (
+								<ProjectVisibilityFilter
+									value={projectVisibilityScope}
+									onValueChange={setProjectVisibilityScope}
+								/>
+							)}
+						</CardHeader>
+					</Card>
+
+					{projectVisibilityScope === 'mine' && visibleProjects.length === 0 && (
+						<div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+							{t("No projects assigned to you yet")}
+						</div>
+					)}
+
+					<div className="grid gap-4 lg:grid-cols-3">
+						{activitySections.map((section) => {
+							const sectionItems = visibleActionItems.filter((item) => item.category === section.key);
+
+							return (
+								<Card key={section.key} className="flex flex-col">
+									<CardHeader>
+										<CardTitle>{t(section.titleKey)}</CardTitle>
+										<CardDescription>{t(section.descriptionKey)}</CardDescription>
+									</CardHeader>
+									<CardContent className="flex-1 space-y-3">
+										{sectionItems.length === 0 ? (
+											<div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+												{t("activityEmptyState")}
+											</div>
+										) : (
+											sectionItems.map((item) => (
+												<div key={item.id} className="space-y-3 rounded-lg border p-4">
+													{(() => {
+														const noteKey = getActivityNoteKey(item);
+														const itemNotes = activityNotesByTaskKey[noteKey] ?? [];
+														const hasNotesLoadError = activityNotesLoadErrors[noteKey];
+														const isNotesLoading = loadingActivityNotes[noteKey];
+
+														return (
+															<>
+																<div className="space-y-3">
+																	<div className="flex items-start justify-between gap-3">
+																		<div className="space-y-1">
+																			<p className="text-sm font-semibold">{t(item.projectNameKey)}</p>
+																			<p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+																				{t(item.typeKey)}
+																			</p>
+																		</div>
+																		<span
+																			className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${getPriorityClasses(item.priority)}`}
+																		>
+																			{t(item.priority === 'high' ? 'High' : item.priority === 'medium' ? 'Medium' : 'Low')}
+																		</span>
+																	</div>
+																	<p className="text-sm leading-6 text-muted-foreground">{t(item.descriptionKey)}</p>
+																	<div className="text-xs text-muted-foreground">{item.date}</div>
+																</div>
+																<div className="border-t border-border/60 pt-4">
+																	<div className="rounded-xl border border-border/60 bg-muted/15 p-4">
+																		<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+																			<div className="space-y-1">
+																				<h4 className="text-sm font-semibold">{t("notes")}</h4>
+																				<p className="text-xs text-muted-foreground">{t("activityAddNoteDialogDescription")}</p>
+																			</div>
+																			<Button
+																				type="button"
+																				variant="outline"
+																				size="sm"
+																				onClick={() => openAddNoteModal(item)}
+																				className="w-full sm:w-auto"
+																			>
+																				{t("activityAddNote")}
+																			</Button>
+																		</div>
+																		<div className="mt-4 space-y-2">
+																			{hasNotesLoadError ? (
+																				<p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+																					{t("Failed to load notes")}
+																				</p>
+																			) : isNotesLoading ? (
+																				<div className="flex items-center gap-2 rounded-lg border border-dashed border-border/60 px-3 py-3 text-sm text-muted-foreground">
+																					<Spinner className="h-3.5 w-3.5 text-muted-foreground" />
+																					<span>{t("Loading notes")}</span>
+																				</div>
+																			) : itemNotes.length === 0 ? (
+																				<p className="rounded-lg border border-dashed border-border/60 px-3 py-3 text-sm text-muted-foreground">
+																					{t("No notes yet")}
+																				</p>
+																			) : (
+																				itemNotes.map((note, noteIndex) => (
+																					<div
+																						key={`${noteKey}-${noteIndex}`}
+																						className="space-y-2 rounded-lg border border-border/60 bg-background/60 px-3 py-3"
+																					>
+																						<p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+																							{note.content}
+																						</p>
+																						<p className="text-xs text-muted-foreground/80">
+																							{`كتبت بواسطة ${note.authorName || UNKNOWN_ACTIVITY_NOTE_AUTHOR}`}
+																						</p>
+																					</div>
+																				))
+																			)}
+																		</div>
+																	</div>
+																</div>
+															</>
+														);
+													})()}
+												</div>
+											))
+										)}
+									</CardContent>
+								</Card>
+							);
+						})}
+					</div>
+				</TabsContent>
+			</Tabs>
+
+			<Dialog
+				open={isAddNoteOpen}
+				onOpenChange={(open) => {
+					setIsAddNoteOpen(open);
+					if (!open) {
+						setSelectedActionItem(null);
+						setNoteText('');
+						setExistingNotes('');
+						setIsLoadingTaskNote(false);
+					}
+				}}
+			>
+				<DialogContent
+					overlayClassName="bg-black/75 backdrop-blur-md"
+					onOpenAutoFocus={(event) => {
+						event.preventDefault();
+						noteTextareaRef.current?.focus();
+					}}
+					className="fixed top-1/2 left-1/2 z-[60] max-h-[calc(100vh-2rem)] w-[min(92vw,44rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[28px] border border-white/[0.14] p-0 text-white shadow-[0_35px_100px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.05)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[28px] before:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_80%_90%,rgba(216,199,163,0.10),transparent_32%)] before:opacity-75 before:content-[''] after:pointer-events-none after:inset-[1px] after:absolute after:rounded-[27px] after:border after:border-white/[0.06] after:content-['']"
+					style={{
+						background:
+							"linear-gradient(135deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.045) 35%, rgba(0,0,0,0.35) 100%)",
+						backdropFilter: "blur(28px) saturate(140%)",
+						WebkitBackdropFilter: "blur(28px) saturate(140%)",
+					}}
+				>
+					<DialogHeader className="relative z-[1]">
+						<DialogTitle className="px-8 pt-8 text-white">{t("activityAddNote")}</DialogTitle>
+						<DialogDescription className="px-8 text-white/60">{t("activityAddNoteDialogDescription")}</DialogDescription>
+					</DialogHeader>
+
+					<div className="relative z-[1] space-y-5 overflow-y-auto px-8 py-4">
+						<div className="space-y-1">
+							<p className="text-sm font-medium text-white">{t("Project Name")}</p>
+							<p className="text-sm text-white/60">
+								{selectedActionItem ? t(selectedActionItem.projectNameKey) : ''}
+							</p>
+						</div>
+
+						<div className="space-y-2">
+							<p className="text-sm font-medium text-white">{t("activityNoteLabel")}</p>
+							<Textarea
+								ref={noteTextareaRef}
+								value={noteText}
+								onChange={(event) => setNoteText(event.target.value)}
+								placeholder={t("activityNotePlaceholder")}
+								disabled={isSavingNote}
+								className="pointer-events-auto relative z-[2] min-h-40 rounded-[22px] border border-[rgba(216,199,163,0.18)] bg-[rgba(255,255,255,0.04)] px-4 py-3 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] placeholder:text-white/35 focus-visible:border-[rgba(216,199,163,0.35)] focus-visible:ring-[rgba(216,199,163,0.16)]"
+							/>
+						</div>
+					</div>
+
+					<DialogFooter className="relative z-[1] border-t border-white/[0.08] px-8 py-6">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setIsAddNoteOpen(false)}
+							disabled={isSavingNote}
+							className="border-white/[0.08] bg-[rgba(255,255,255,0.04)] text-white shadow-none hover:bg-[rgba(216,199,163,0.12)] hover:text-[#d8c7a3]"
+						>
+							{t("Cancel")}
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							onClick={handleAddNoteSave}
+							disabled={isSavingNote || isLoadingTaskNote}
+							className="gap-2 border border-[rgba(216,199,163,0.45)] bg-transparent px-4 text-[#d8c7a3] shadow-[0_0_25px_rgba(216,199,163,0.18),inset_0_0_10px_rgba(216,199,163,0.05)] hover:bg-[rgba(216,199,163,0.12)] hover:text-[#d8c7a3] hover:shadow-[0_0_35px_rgba(216,199,163,0.28),inset_0_0_12px_rgba(216,199,163,0.08)]"
+						>
+							{isSavingNote ? t("Saving") : t("Save")}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</div>
+	);
+}
