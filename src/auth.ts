@@ -10,6 +10,7 @@ import { getLocalDevAuthUser } from '@/lib/dev-auth-users';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
 	secret: AUTH_SECRET,
+	trustHost: true,
 	adapter: HAS_DATABASE_URL ? DrizzleAdapter(db) : undefined,
 	session: {
 		strategy: 'jwt',
@@ -33,21 +34,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 					const password = String(credentials.password);
 					if (!username) return null;
 
-					if (process.env.NODE_ENV === "development") {
-						const localDevUser = getLocalDevAuthUser(username, password);
-						if (localDevUser) {
-							return localDevUser;
-						}
+					const localDevUser = getLocalDevAuthUser(username, password);
+					if (localDevUser) {
+						return localDevUser;
 					}
-
-					return {
-						id: 'dev-admin',
-						username,
-						email: `${username}@local.dev`,
-						name: username,
-						role: 'admin',
-						image: null,
-					};
+					return null;
 				}
 
 				try {
@@ -80,6 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 	],
 	pages: {
 		signIn: '/login',
+		error: '/login',
 	},
 	callbacks: {
 		async jwt({ token, user }) {

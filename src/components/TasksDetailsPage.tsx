@@ -3,14 +3,13 @@
 import React, {useEffect, useState} from "react";
 import {DataTable, DataTableColumnHeader, DataTableFacetedFilter} from "@/components/data-table";
 import {Button} from "@/components/ui/button";
-import {EditIcon, EyeIcon, ImagePlus, Loader2Icon, PlusCircleIcon} from "lucide-react";
+import {ImagePlus, Loader2Icon, PlusCircleIcon} from "lucide-react";
 import Link from "next/link";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {useRouter, useSearchParams} from "next/navigation";
 import {useSession} from "next-auth/react";
 import {formatStatus, hasRole} from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadgeSystem";
-import DeleteDialog from "@/components/DeleteDialog";
 import {useTaskStore} from "@/store/taskStore";
 import {useProjectStore} from "@/store/projectStore";
 import CustomLink from "@/components/CustomLink";
@@ -19,20 +18,17 @@ import {useTranslations} from "use-intl";
 import {formatDistanceToNow} from "date-fns";
 import {ar, enUS} from "date-fns/locale";
 import {useCheckedLocale} from "@/lib/client-utils";
+import TaskTimelineView from "@/components/tasks/TaskTimelineView";
 
 
 export function TasksPage({tasks, projectId}: { tasks: any[], projectId: string }) {
-	const [selectedTask, setSelectedTask] = useState(null);
+	const [viewMode, setViewMode] = useState<"table" | "timeline">("table");
 	const {deleteTask, setProjectId} = useTaskStore();
 	const {fetchOneProject, selectedProject, removeTaskFromProject} = useProjectStore();
 	const searchParams = useSearchParams();
 	const typeParam = searchParams.get("type");
 	const t = useTranslations();
 	const {lang} = useCheckedLocale();
-
-	function sortTasksByCreatedAtAsc(tasks: any[]) {
-		return tasks.slice().sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-	}
 
 	function sortTasksByEffectiveDate(tasks: any[]) {
 		return tasks.slice().sort((a, b) => {
@@ -45,33 +41,17 @@ export function TasksPage({tasks, projectId}: { tasks: any[], projectId: string 
 
 	const sortedTasks = sortTasksByEffectiveDate(tasks);
 
-	const taskStatusOrder = [
-		"in_progress",
-		"not_started",
-		"needs_review",
-		"on_hold",
-		"completed"
-	];
-
-	function customStatusSort(rowA: any, rowB: any, columnId: string) {
-		const valueA = rowA.getValue(columnId);
-		const valueB = rowB.getValue(columnId);
-
-		const indexA = taskStatusOrder.indexOf(valueA);
-		const indexB = taskStatusOrder.indexOf(valueB);
-
-		return indexA - indexB;
-	}
-
 
 	useEffect(() => {
 		setProjectId(projectId);
-	}, [projectId]);
+		if (!selectedProject || selectedProject.id !== projectId) {
+			fetchOneProject(projectId);
+		}
+	}, [fetchOneProject, projectId, selectedProject?.id, setProjectId]);
 
 	const {data: session} = useSession();
 	const user = session?.user;
 	const router = useRouter();
-	const [deleting, setDeleting] = useState(false)
 
 	const columns = [
 		{
@@ -98,7 +78,6 @@ export function TasksPage({tasks, projectId}: { tasks: any[], projectId: string 
 			cell: ({row}: any) => (
 				<StatusBadge status={formatStatus(row.original.taskStatus)}/>
 			),
-			// sortingFn: customStatusSort,
 		},
 		{
 			accessorKey: "taskType",
@@ -174,14 +153,6 @@ export function TasksPage({tasks, projectId}: { tasks: any[], projectId: string 
 		}
 	];
 
-	const handleEdit = (item: any) => {
-		router.push(`/projects/${projectId}/tasks/edit/${item.taskId}`);
-	};
-
-	const handleView = (item: any) => {
-		router.push(`/projects/${projectId}/tasks/${item.taskId}`);
-	};
-
 	const handleUpload = (item: any) => {
 		router.push(`/projects/${projectId}/tasks/upload/${item.taskId}`);
 	};
@@ -244,25 +215,55 @@ export function TasksPage({tasks, projectId}: { tasks: any[], projectId: string 
 		<div className="print:hidden">
 			<Card className="md:bg-card rounded-none bg-transparent border-0 md:border">
 				<CardHeader className="md:px-6 p-0">
-					<CardTitle>
-						<div className="flex justify-between items-center">
+					<CardTitle className="space-y-4">
+						<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 							<span>{t("Tasks")}</span>
+							<div className="flex flex-wrap items-center gap-3">
+								<div className="inline-flex rounded-full border border-border/60 bg-muted/30 p-1">
+									<Button
+										type="button"
+										size="sm"
+										variant={viewMode === "table" ? "default" : "ghost"}
+										className="rounded-full px-4"
+										onClick={() => setViewMode("table")}
+									>
+										{t("Table")}
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										variant={viewMode === "timeline" ? "default" : "ghost"}
+										className="rounded-full px-4"
+										onClick={() => setViewMode("timeline")}
+									>
+										{t("Timeline")}
+									</Button>
+								</div>
+								{customActions}
+							</div>
 						</div>
 					</CardTitle>
 					<CardDescription>{t("Task information details table")}.</CardDescription>
 				</CardHeader>
 				<CardContent className="md:px-6 p-0">
-					<DataTable
-						data={sortedTasks}
-						columns={columns}
-						globalFilter={true}
-						customActions={customActions}
-						loading={false}
-						facetedFilter={facetedFilter}
-						initialPageSize={tasks.length}
-						// initialSorting={[{id: "taskStatus", desc: false}]}
-						emptyTableMessage={t("There are no tasks at this stage")}
-					/>
+					{viewMode === "timeline" ? (
+						<TaskTimelineView
+							projectId={projectId}
+							tasks={sortedTasks}
+							projectTeam={selectedProject?.employees ?? []}
+						/>
+					) : (
+						<DataTable
+							data={sortedTasks}
+							columns={columns}
+							globalFilter={true}
+							loading={false}
+							facetedFilter={facetedFilter}
+							initialPageSize={tasks.length}
+							// initialSorting={[{id: "taskStatus", desc: false}]}
+							emptyTableMessage={t("There are no tasks at this stage")}
+						/>
+					)}
 				</CardContent>
 			</Card>
 		</div>

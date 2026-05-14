@@ -3,17 +3,11 @@ import {projects, tasks, users} from '@/drizzle/schema';
 import {and, count, eq, gte, lte, sql, SQL} from 'drizzle-orm';
 import {db} from "@/drizzle/db";
 import {authenticate} from "@/lib/authenticate";
-import {USE_DEV_AUTH_FALLBACK} from "@/lib/auth-config";
-import {getMockDashboardData} from "@/lib/dev-mock-data";
 import {hasRole} from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
 	const { user: userAuth } = await authenticate(request);
 	try {
-		if (USE_DEV_AUTH_FALLBACK && hasRole(userAuth, ["admin", "moderator", "employee"])) {
-			return NextResponse.json(getMockDashboardData());
-		}
-
 	if (!hasRole(userAuth, ["admin", "moderator"])) {
 			return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 		}

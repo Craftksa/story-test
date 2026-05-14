@@ -465,5 +465,17 @@
   "Retry": "Retry",
   "Upload Document": "Upload Document",
   "Recently uploaded": "Recently uploaded",
-  "Loading notes": "Loading notes..."
+  "Loading notes": "Loading notes...",
+  "Table": "Table",
+  "Construction Roadmap": "Construction Roadmap",
+  "A premium gantt view of the active task plan and weekly priorities": "A premium gantt view of the active task plan and weekly priorities",
+  "Task bars reflect task start dates, due dates, milestones, and sequenced dependencies": "Task bars reflect task start dates, due dates, milestones, and sequenced dependencies",
+  "This Week": "This Week",
+  "Owner": "Owner",
+  "Priority": "Priority",
+  "Due date": "Due date",
+  "Project Team": "Project Team",
+  "No scheduled tasks for this week": "No scheduled tasks for this week",
+  "Weekly execution focus across active tasks": "Weekly execution focus across active tasks",
+  "Gantt": "Gantt"
 }

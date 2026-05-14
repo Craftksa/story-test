@@ -5,8 +5,6 @@ import { z } from "zod";
 import { authenticate } from "@/lib/authenticate";
 import { hasRole, isValidId } from "@/lib/utils";
 import { eq, inArray } from "drizzle-orm";
-import { USE_DEV_AUTH_FALLBACK } from "@/lib/auth-config";
-import { getMockTasksResponse } from "@/lib/dev-mock-data";
 
 // ✅ Schema
 const createTaskSchema = z.object({
@@ -83,12 +81,8 @@ export async function GET(
 	req: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
-	const { user } = await authenticate(req);
+	await authenticate(req);
 	const projectId = params.id;
-
-	if (USE_DEV_AUTH_FALLBACK) {
-		return NextResponse.json(getMockTasksResponse(projectId));
-	}
 
 	const taskList = await db
 		.select()

@@ -2,18 +2,12 @@ import {taskImages, tasks} from "@/drizzle/schema";
 import { and, eq, sql, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import {db} from "@/drizzle/db";
-import { USE_DEV_AUTH_FALLBACK } from "@/lib/auth-config";
-import { getMockProjectActivity } from "@/lib/dev-mock-data";
 
 export async function GET(
 	req: Request,
 	{ params }: { params: { id: string } }
 ) {
 	const { id: projectId } = params;
-
-	if (USE_DEV_AUTH_FALLBACK) {
-		return NextResponse.json(getMockProjectActivity(projectId));
-	}
 
 	const activities = await db
 		.select({

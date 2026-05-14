@@ -34,10 +34,11 @@ import {useTranslations} from "use-intl";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useProjectStore } from "@/store/projectStore";
+import TaskTimelineView from "@/components/tasks/TaskTimelineView";
+import { type TimelineSourceTask } from "@/components/tasks/task-timeline-utils";
 import { ProjectVisibilityFilter } from "@/components/project-visibility-filter";
 import { useCheckedLocale } from "@/lib/client-utils";
 import {
-	filterProjectItemsByVisibility,
 	filterProjectsByVisibility,
 	ProjectVisibilityScope,
 } from "@/lib/project-visibility";
@@ -135,6 +136,12 @@ type DetailedProject = {
 	tasks?: DetailedTask[] | null;
 };
 
+type DashboardTimelineTask = TimelineSourceTask & {
+	projectId: string;
+	ownerName?: string | null;
+	projectName?: string | null;
+};
+
 type CityAnalysisSummary = {
 	city: string;
 	projects: number;
@@ -199,14 +206,15 @@ type WeeklyLocationSummary = {
 	adminNote: string;
 };
 
-type MockActionItem = {
+type ActivityActionItem = {
 	id: string;
-	typeKey: string;
+	labelKey: string;
 	category: ActionCategory;
-	projectNameKey: string;
-	descriptionKey: string;
 	projectId: string;
+	projectName: string;
 	taskId: string;
+	taskName: string;
+	description: string;
 	date: string;
 	priority: ActionPriority;
 };
@@ -267,6 +275,28 @@ const getSafePercentage = (value: number, total: number) =>
 
 const getNormalizedCityName = (city?: string | null) => city?.trim() || 'غير محدد';
 
+const getProjectTaskOwnerLabel = (project: DetailedProject) => {
+	const teamMembers = (project.employees ?? [])
+		.map((member) => member.name?.trim() || member.email?.trim() || '')
+		.filter(Boolean);
+
+	return teamMembers.length > 0 ? teamMembers.join(', ') : null;
+};
+
+const buildDashboardTimelineTasks = (
+	projects: DetailedProject[]
+): DashboardTimelineTask[] =>
+	projects.flatMap((project) => {
+		const ownerName = getProjectTaskOwnerLabel(project);
+
+		return (project.tasks ?? []).map((task) => ({
+			...task,
+			projectId: project.id,
+			projectName: project.name,
+			ownerName,
+		}));
+	});
+
 const getEmployeeProgressIndicatorClassName = (completionRate: number) => {
 	if (completionRate > 85) return 'bg-emerald-500';
 	if (completionRate >= 70) return 'bg-amber-400';
@@ -324,6 +354,92 @@ const formatAnalyticsDate = (value?: string | Date | null) => {
 	if (!date) return null;
 
 	return date.toISOString().split('T')[0];
+};
+
+const buildActivityItemsFromProjects = (
+	projects: DetailedProject[],
+	t: ReturnType<typeof useTranslations>,
+	referenceDate = new Date()
+): ActivityActionItem[] => {
+	const overdueItems: Array<ActivityActionItem & { sortTime: number }> = [];
+	const clientActionItems: Array<ActivityActionItem & { sortTime: number }> = [];
+	const recentItems: Array<ActivityActionItem & { sortTime: number }> = [];
+
+	projects.forEach((project) => {
+		(project.tasks ?? []).forEach((task) => {
+			const taskId = typeof task.taskId === 'string' ? task.taskId.trim() : '';
+			const taskName = typeof task.taskName === 'string' ? task.taskName.trim() : '';
+			if (!project.id || !taskId || !taskName) return;
+
+			const activityDate = getTaskActivityDate(task);
+			const sortTime = activityDate?.getTime() ?? 0;
+			const formattedActivityDate = formatAnalyticsDate(activityDate) ?? t("Not set");
+			const formattedDueDate = formatAnalyticsDate(task.endDate) ?? t("Not set");
+
+			if (isTaskOverdue(task, referenceDate)) {
+				overdueItems.push({
+					id: `overdue:${project.id}:${taskId}`,
+					labelKey: 'activityTaskOverdue',
+					category: 'overdue',
+					projectId: project.id,
+					projectName: project.name,
+					taskId,
+					taskName,
+					description: `${taskName} • ${t("Due date")}: ${formattedDueDate}`,
+					date: formattedDueDate,
+					priority: 'high',
+					sortTime,
+				});
+			}
+
+			if (task.taskStatus === 'needs_review' || task.taskStatus === 'on_hold') {
+				clientActionItems.push({
+					id: `client:${project.id}:${taskId}`,
+					labelKey:
+						task.taskStatus === 'needs_review'
+							? 'activityClientApprovalNeeded'
+							: 'activityClientFeedbackPending',
+					category: 'client_action',
+					projectId: project.id,
+					projectName: project.name,
+					taskId,
+					taskName,
+					description: `${taskName} • ${t("Last Updated")}: ${formattedActivityDate}`,
+					date: formattedActivityDate,
+					priority: task.taskStatus === 'needs_review' ? 'high' : 'medium',
+					sortTime,
+				});
+			}
+
+			if (activityDate) {
+				recentItems.push({
+					id: `recent:${project.id}:${taskId}`,
+					labelKey: 'activityProgressUpdate',
+					category: 'recent',
+					projectId: project.id,
+					projectName: project.name,
+					taskId,
+					taskName,
+					description: `${taskName} • ${t("Last Updated")}: ${formattedActivityDate}`,
+					date: formattedActivityDate,
+					priority: task.taskStatus === 'completed' ? 'low' : 'medium',
+					sortTime,
+				});
+			}
+		});
+	});
+
+	const sortAndTrim = (items: Array<ActivityActionItem & { sortTime: number }>) =>
+		items
+			.sort((left, right) => right.sortTime - left.sortTime)
+			.slice(0, 6)
+			.map(({ sortTime: _sortTime, ...item }) => item);
+
+	return [
+		...sortAndTrim(overdueItems),
+		...sortAndTrim(clientActionItems),
+		...sortAndTrim(recentItems),
+	];
 };
 
 const getTaskStatusLabel = (status?: string | null) => {
@@ -847,65 +963,7 @@ const buildEmployeeAnalysisDetails = (
 	);
 };
 
-const mockActionFeed: MockActionItem[] = [
-	{
-		id: 'activity-001',
-		typeKey: 'activityTaskOverdue',
-		category: 'overdue',
-		projectNameKey: 'activityVillaHeightsPhase1',
-		descriptionKey: 'activityFoundationReviewPending',
-		projectId: 'prj-riyadh-001',
-		taskId: 'tsk-prj-riyadh-001-025',
-		date: '2026-04-24',
-		priority: 'high',
-	},
-	{
-		id: 'activity-002',
-		typeKey: 'activityClientApprovalNeeded',
-		category: 'client_action',
-		projectNameKey: 'activityRoyalPalaceComplex',
-		descriptionKey: 'activityClientApprovalNeededDescription',
-		projectId: 'prj-riyadh-002',
-		taskId: 'tsk-prj-riyadh-002-021',
-		date: '2026-04-26',
-		priority: 'high',
-	},
-	{
-		id: 'activity-003',
-		typeKey: 'activityProgressUpdate',
-		category: 'recent',
-		projectNameKey: 'activityGreenValleyVillas',
-		descriptionKey: 'activityProgressUpdateDescription',
-		projectId: 'prj-qassim-001',
-		taskId: 'tsk-prj-qassim-001-017',
-		date: '2026-04-27',
-		priority: 'medium',
-	},
-	{
-		id: 'activity-004',
-		typeKey: 'activityClientFeedbackPending',
-		category: 'client_action',
-		projectNameKey: 'activityDesertPearlResidence',
-		descriptionKey: 'activityClientFeedbackPendingDescription',
-		projectId: 'prj-qassim-002',
-		taskId: 'tsk-prj-qassim-002-021',
-		date: '2026-04-25',
-		priority: 'medium',
-	},
-	{
-		id: 'activity-005',
-		typeKey: 'activityRecentUpload',
-		category: 'recent',
-		projectNameKey: 'activityAlNakheelEstate',
-		descriptionKey: 'activityRecentUploadDescription',
-		projectId: 'prj-riyadh-004',
-		taskId: 'tsk-prj-riyadh-004-020',
-		date: '2026-04-28',
-		priority: 'low',
-	},
-];
-
-const getActivityNoteKey = ({ projectId, taskId }: Pick<MockActionItem, 'projectId' | 'taskId'>) =>
+const getActivityNoteKey = ({ projectId, taskId }: Pick<ActivityActionItem, 'projectId' | 'taskId'>) =>
 	`${projectId}:${taskId}`;
 
 const ACTIVITY_NOTE_AUTHOR_PREFIX = '__activity_note_author__:';
@@ -1018,7 +1076,7 @@ export default function AdminDashboard() {
 	const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [selectedActionItem, setSelectedActionItem] = useState<MockActionItem | null>(null);
+	const [selectedActionItem, setSelectedActionItem] = useState<ActivityActionItem | null>(null);
 	const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
 	const [noteText, setNoteText] = useState('');
 	const [existingNotes, setExistingNotes] = useState('');
@@ -1027,6 +1085,10 @@ export default function AdminDashboard() {
 	const [activityNotesByTaskKey, setActivityNotesByTaskKey] = useState<Record<string, ActivityNote[]>>({});
 	const [activityNotesLoadErrors, setActivityNotesLoadErrors] = useState<Record<string, boolean>>({});
 	const [loadingActivityNotes, setLoadingActivityNotes] = useState<Record<string, boolean>>({});
+	const [taskTimelineProjectDetails, setTaskTimelineProjectDetails] = useState<DetailedProject[]>([]);
+	const [isTaskTimelineLoading, setIsTaskTimelineLoading] = useState(false);
+	const [taskTimelineLoadError, setTaskTimelineLoadError] = useState(false);
+	const [loadedTaskTimelineProjectIdsKey, setLoadedTaskTimelineProjectIdsKey] = useState('');
 	const [analysisProjectDetails, setAnalysisProjectDetails] = useState<DetailedProject[]>([]);
 	const [isAnalysisDetailsLoading, setIsAnalysisDetailsLoading] = useState(false);
 	const [analysisDetailsLoadError, setAnalysisDetailsLoadError] = useState(false);
@@ -1179,13 +1241,15 @@ export default function AdminDashboard() {
 
 	const showProjectVisibilityFilter = !!user && user.role !== "client";
 	const visibleProjects = filterProjectsByVisibility(projects, user, projectVisibilityScope);
-	const visibleActionItems = filterProjectItemsByVisibility(
-		mockActionFeed,
-		projects,
-		user,
-		projectVisibilityScope,
-		(item) => item.projectId
-	);
+	const visibleActionItems = buildActivityItemsFromProjects(taskTimelineProjectDetails, t);
+	const taskTimelineProjectIds = visibleProjects
+		.map((project) => {
+			if (typeof project?.id === 'string' && project.id.trim()) return project.id;
+			if (typeof project?.projectId === 'string' && project.projectId.trim()) return project.projectId;
+			return null;
+		})
+		.filter((projectId): projectId is string => !!projectId);
+	const taskTimelineProjectIdsKey = [...taskTimelineProjectIds].sort().join('|');
 	const analysisProjectIds = isAdmin
 		? projects
 			.map((project) => {
@@ -1286,6 +1350,59 @@ export default function AdminDashboard() {
 	}, [activeTab, activityNotesByTaskKey, activityNotesLoadErrors, visibleActionItems]);
 
 	useEffect(() => {
+		if (activeTab !== 'tasks' && activeTab !== 'activity') return;
+
+		if (!taskTimelineProjectIdsKey) {
+			setTaskTimelineProjectDetails([]);
+			setLoadedTaskTimelineProjectIdsKey('');
+			setTaskTimelineLoadError(false);
+			return;
+		}
+
+		if (loadedTaskTimelineProjectIdsKey === taskTimelineProjectIdsKey) {
+			return;
+		}
+
+		let isCancelled = false;
+		setIsTaskTimelineLoading(true);
+		setTaskTimelineLoadError(false);
+
+		void Promise.allSettled(
+			taskTimelineProjectIds.map(async (projectId) => {
+				const response = await axios.get<DetailedProject>(`/api/projects/${projectId}`);
+				return response.data;
+			})
+		)
+			.then((results) => {
+				if (isCancelled) return;
+
+				const fulfilledProjects = results
+					.filter((result): result is PromiseFulfilledResult<DetailedProject> => result.status === 'fulfilled')
+					.map((result) => result.value);
+
+				setTaskTimelineProjectDetails(fulfilledProjects);
+				setTaskTimelineLoadError(fulfilledProjects.length === 0 && taskTimelineProjectIds.length > 0);
+
+				if (fulfilledProjects.length > 0 || taskTimelineProjectIds.length === 0) {
+					setLoadedTaskTimelineProjectIdsKey(taskTimelineProjectIdsKey);
+				}
+			})
+			.finally(() => {
+				if (isCancelled) return;
+				setIsTaskTimelineLoading(false);
+			});
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [
+		activeTab,
+		loadedTaskTimelineProjectIdsKey,
+		taskTimelineProjectIds,
+		taskTimelineProjectIdsKey,
+	]);
+
+	useEffect(() => {
 		if (!isAdmin || activeTab !== 'analysis') return;
 
 		if (!analysisProjectIdsKey) {
@@ -1355,6 +1472,15 @@ export default function AdminDashboard() {
 		dashboardData.taskMetrics.completedTasks,
 		dashboardData.taskMetrics.totalTasks
 	);
+	const dashboardTimelineTasks = buildDashboardTimelineTasks(taskTimelineProjectDetails);
+	const dashboardTaskHrefById = new Map(
+		dashboardTimelineTasks.map((task) => [
+			task.taskId,
+			typeof task.taskId === 'string' && task.taskId.trim()
+				? `/projects/${task.projectId}/tasks/${task.taskId}`
+				: null,
+		])
+	);
 	const weeklyLocationSummaries = buildWeeklyLocationSummaries(analysisProjectDetails);
 	const weeklyReportSummary = getWeeklyReportSummary(weeklyLocationSummaries);
 	const weeklyHighlights = buildWeeklyHighlights(weeklyLocationSummaries);
@@ -1377,7 +1503,7 @@ export default function AdminDashboard() {
 		}
 	};
 
-	const openAddNoteModal = async (item: MockActionItem) => {
+	const openAddNoteModal = async (item: ActivityActionItem) => {
 		setSelectedActionItem(item);
 		setNoteText('');
 		setExistingNotes('');
@@ -1445,7 +1571,7 @@ export default function AdminDashboard() {
 	};
 
 	return (
-		<div className="bg-background space-y-4 md:pt-4">
+		<div className="bg-background min-w-0 max-w-full space-y-4 overflow-x-hidden md:pt-4">
 			{/*<div className="flex items-center justify-between">*/}
 			{/*	<div>*/}
 			{/*		<h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>*/}
@@ -1488,7 +1614,7 @@ export default function AdminDashboard() {
 				</Card>
 			</div>
 
-			<Tabs value={activeTab} className="gap-4" onValueChange={handleActiveTabChange}>
+			<Tabs value={activeTab} className="min-w-0 max-w-full gap-4 overflow-x-hidden" onValueChange={handleActiveTabChange}>
 				<TabsList className={`grid w-full ${tabListColumnsClassName}`}>
 					<TabsTrigger value="projects">{t("Projects")}</TabsTrigger>
 					<TabsTrigger value="tasks">{t("Tasks")}</TabsTrigger>
@@ -1599,72 +1725,26 @@ export default function AdminDashboard() {
 					{/*</Card>*/}
 				</TabsContent>
 
-				<TabsContent value="tasks" className="space-y-4">
-					<div className="grid gap-4 md:grid-cols-3">
-						<Card>
-							<CardHeader>
-								<CardTitle>{t("Task Overview")}</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="flex justify-between items-center">
-									<span className="text-sm">{t("Total Tasks")}</span>
-									<StatusBadge status={dashboardData.taskMetrics.totalTasks} />
-								</div>
-								<div className="flex justify-between items-center">
-									<span className="text-sm">{t("Foundations Tasks")}</span>
-									<StatusBadge status={dashboardData.taskMetrics.foundationTasks} />
-								</div>
-								<div className="flex justify-between items-center">
-									<span className="text-sm">{t("Finishes Tasks")}</span>
-									<StatusBadge status={dashboardData.taskMetrics.finishTasks} />
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card>
-							<CardHeader>
-								<CardTitle>{t("Task Completion Rate")}</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<div className="text-3xl font-bold mb-2">{totalTaskCompletionRate}%</div>
-								<Progress value={totalTaskCompletionRate} className="mb-2" />
-								<p className="text-sm text-muted-foreground">
-									{dashboardData.taskMetrics.completedTasks} {t("of")} {dashboardData.taskMetrics.totalTasks} {t("tasks completed")}
-								</p>
-							</CardContent>
-						</Card>
-
-						{/* Task Types Pie Chart */}
-						<Card className="flex flex-col">
-							<CardHeader className="items-center pb-0">
-								<CardTitle>{t("Task Types")}</CardTitle>
-								<CardDescription>{t("Foundation vs Finish tasks")}</CardDescription>
-							</CardHeader>
-							<CardContent className="flex-1 pb-0">
-								<ChartContainer
-									config={taskTypesConfig}
-									className="mx-auto aspect-square max-h-[200px]"
-								>
-									<PieChart>
-										<ChartTooltip
-											content={<ChartTooltipContent nameKey="count" hideLabel />}
-										/>
-										<Pie data={dashboardData.taskTypes} dataKey="count">
-											<LabelList
-												dataKey="type"
-												className="fill-background"
-												stroke="none"
-												fontSize={12}
-												formatter={(value: keyof typeof taskTypesConfig) =>
-													t(taskTypesConfig[value]?.label)
-												}
-											/>
-										</Pie>
-									</PieChart>
-								</ChartContainer>
-							</CardContent>
-						</Card>
-					</div>
+				<TabsContent value="tasks" className="min-w-0 max-w-full space-y-4 overflow-hidden">
+					{isTaskTimelineLoading ? (
+						<div className="flex items-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
+							<Spinner className="h-4 w-4 text-muted-foreground" />
+							<span>{t("Loading dashboard please wait")}...</span>
+						</div>
+					) : taskTimelineLoadError ? (
+						<div className="rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
+							{t("There are no tasks at this stage")}
+						</div>
+					) : (
+						<div className="min-w-0 max-w-full overflow-hidden">
+							<TaskTimelineView
+								tasks={dashboardTimelineTasks}
+								getTaskHref={(taskId) => dashboardTaskHrefById.get(taskId) ?? null}
+								showWeeklyTable={false}
+								compact
+							/>
+						</div>
+					)}
 				</TabsContent>
 
 				{isAdmin && (
@@ -2042,9 +2122,9 @@ export default function AdminDashboard() {
 																<div className="space-y-3">
 																	<div className="flex items-start justify-between gap-3">
 																		<div className="space-y-1">
-																			<p className="text-sm font-semibold">{t(item.projectNameKey)}</p>
+																			<p className="text-sm font-semibold">{item.projectName}</p>
 																			<p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-																				{t(item.typeKey)}
+																				{t(item.labelKey)}
 																			</p>
 																		</div>
 																		<span
@@ -2053,7 +2133,7 @@ export default function AdminDashboard() {
 																			{t(item.priority === 'high' ? 'High' : item.priority === 'medium' ? 'Medium' : 'Low')}
 																		</span>
 																	</div>
-																	<p className="text-sm leading-6 text-muted-foreground">{t(item.descriptionKey)}</p>
+																	<p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
 																	<div className="text-xs text-muted-foreground">{item.date}</div>
 																</div>
 																<div className="border-t border-border/60 pt-4">
@@ -2154,7 +2234,7 @@ export default function AdminDashboard() {
 						<div className="space-y-1">
 							<p className="text-sm font-medium text-white">{t("Project Name")}</p>
 							<p className="text-sm text-white/60">
-								{selectedActionItem ? t(selectedActionItem.projectNameKey) : ''}
+								{selectedActionItem?.projectName ?? ''}
 							</p>
 						</div>
 

@@ -21,7 +21,7 @@ export default function AppLayout({children}: { children: React.ReactNode }) {
 
 	return (
 		<>
-			{pathname === '/login' ? <div>{children}</div> : <div className="app-shell-theme"><SidebarProvider>
+			{pathname === '/login' ? <div>{children}</div> : <div className="app-shell-theme min-w-0 max-w-full overflow-x-hidden"><SidebarProvider>
 				<AppSidebar side={dir === 'rtl' ? 'right' : 'left'}/>
 				<SidebarInset>
 					<header
@@ -50,7 +50,7 @@ export default function AppLayout({children}: { children: React.ReactNode }) {
 							<ModeToggle/>
 						</div>
 					</header>
-					<div className="app-shell-content flex flex-col gap-4 p-4 md:pt-0 pt-20">
+					<div className="app-shell-content flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden p-4 md:pt-0 pt-20">
 						{children}
 						<div className="mt-16">
 						<MobileNavigation />

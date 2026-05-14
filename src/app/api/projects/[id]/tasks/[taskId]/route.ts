@@ -4,8 +4,6 @@ import {eq, and, inArray} from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/authenticate";
 import { isValidId, hasRole } from "@/lib/utils";
-import { USE_DEV_AUTH_FALLBACK } from "@/lib/auth-config";
-import { getMockTaskDetails, updateMockTaskDetails } from "@/lib/dev-mock-data";
 import {deleteFilesFromUploadThing, extractFileKey} from "@/app/api/uploadthing/delete-files";
 
 // GET: Fetch task details and images
@@ -25,15 +23,6 @@ export async function GET(
 	}
 
 	try {
-		if (USE_DEV_AUTH_FALLBACK) {
-			const task = getMockTaskDetails(projectId, taskId);
-			if (!task) {
-				return NextResponse.json({ error: "Task not found for this project" }, { status: 404 });
-			}
-
-			return NextResponse.json(task);
-		}
-
 		const task = await db
 			.select()
 			.from(tasks)
@@ -95,18 +84,6 @@ export async function PUT(
 						? body[field] ? new Date(body[field]) : null
 						: body[field];
 			}
-		}
-
-		if (USE_DEV_AUTH_FALLBACK) {
-			const updatedTask = updateMockTaskDetails(projectId, taskId, updates);
-			if (!updatedTask) {
-				return NextResponse.json({ error: "Task not found for this project" }, { status: 404 });
-			}
-
-			return NextResponse.json({
-				message: "Task updated",
-				task: updatedTask,
-			});
 		}
 
 		// 1. Update task fields

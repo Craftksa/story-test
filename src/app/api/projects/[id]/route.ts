@@ -5,8 +5,6 @@ import {and, eq, inArray} from "drizzle-orm";
 import {alias} from "drizzle-orm/pg-core";
 import {hasRole, isValidId} from "@/lib/utils";
 import {authenticate} from "@/lib/authenticate";
-import {USE_DEV_AUTH_FALLBACK} from "@/lib/auth-config";
-import {getMockProjectById} from "@/lib/dev-mock-data";
 import {deleteFilesFromUploadThing, extractFileKey} from "../../uploadthing/delete-files";
 
 const client = alias(users, "client");
@@ -24,15 +22,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 	}
 
 	try {
-		if (USE_DEV_AUTH_FALLBACK) {
-			const project = getMockProjectById(id);
-			if (!project) {
-				return NextResponse.json({ error: "Project not found" }, { status: 404 });
-			}
-
-			return NextResponse.json(project);
-		}
-
 		// Fetch project info with client
 		const project = await db
 			.select({

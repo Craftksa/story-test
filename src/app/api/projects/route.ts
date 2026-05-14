@@ -5,8 +5,6 @@ import { z } from "zod";
 import { db } from "@/drizzle/db";
 import { alias } from "drizzle-orm/pg-core";
 import {authenticate} from "@/lib/authenticate";
-import {USE_DEV_AUTH_FALLBACK} from "@/lib/auth-config";
-import {getMockProjectsResponse} from "@/lib/dev-mock-data";
 import {hasRole} from "@/lib/utils";
 
 // Schema for project creation
@@ -46,10 +44,6 @@ const projectSelectFields = {
 
 export async function GET(req: NextRequest) {
 	const { user } = await authenticate(req);
-
-	if (USE_DEV_AUTH_FALLBACK) {
-		return NextResponse.json(getMockProjectsResponse(user));
-	}
 
 	const userRole = user?.role!;
 	const userId = user?.id!;

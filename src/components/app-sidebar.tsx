@@ -25,7 +25,6 @@ import {useParams} from "next/navigation";
 import {useCheckedLocale} from "@/lib/client-utils";
 import {useTranslations} from "use-intl";
 
-// This is sample data.
 export const getNavigationData = (
   role: "admin" | "moderator" | "employee" | "client"
 ) => {
