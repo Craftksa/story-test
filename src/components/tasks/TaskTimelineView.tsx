@@ -137,6 +137,7 @@ type TaskTimelineViewProps = {
 	getTaskHref?: (taskId: string) => string | null;
 	showWeeklyTable?: boolean;
 	compact?: boolean;
+	title?: string;
 };
 
 export default function TaskTimelineView({
@@ -146,6 +147,7 @@ export default function TaskTimelineView({
 	getTaskHref,
 	showWeeklyTable = true,
 	compact = false,
+	title,
 }: TaskTimelineViewProps) {
 	const t = useTranslations();
 	const router = useRouter();
@@ -153,6 +155,7 @@ export default function TaskTimelineView({
 	const locale = lang === "ar" ? ar : enUS;
 	const today = new Date();
 	const layout = compact ? COMPACT_LAYOUT : DEFAULT_LAYOUT;
+	const timelineTitle = title ?? t("Construction Roadmap");
 
 	const resolveTaskHref = (taskId: string) =>
 		getTaskHref?.(taskId) ?? (projectId ? `/projects/${projectId}/tasks/${taskId}` : null);
@@ -189,7 +192,7 @@ export default function TaskTimelineView({
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 					<div>
 						<CardTitle className="text-xl tracking-[0.08em]">
-							{t("Construction Roadmap")}
+							{timelineTitle}
 						</CardTitle>
 						<p className="mt-2 text-sm text-muted-foreground">
 							{t("A premium gantt view of the active task plan and weekly priorities")}
@@ -212,7 +215,7 @@ export default function TaskTimelineView({
 					<div className="flex flex-col gap-3 border-b border-white/8 px-4 py-4 text-white/80 lg:flex-row lg:items-center lg:justify-between">
 						<div className="space-y-1">
 							<p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
-								{t("Construction Roadmap")}
+								{timelineTitle}
 							</p>
 							{!compact && (
 								<p className="text-xs text-white/55">

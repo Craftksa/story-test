@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
 	Dialog,
 	DialogContent,
@@ -1089,6 +1090,10 @@ export default function AdminDashboard() {
 	const [isTaskTimelineLoading, setIsTaskTimelineLoading] = useState(false);
 	const [taskTimelineLoadError, setTaskTimelineLoadError] = useState(false);
 	const [loadedTaskTimelineProjectIdsKey, setLoadedTaskTimelineProjectIdsKey] = useState('');
+	const [selectedTimelineProjectId, setSelectedTimelineProjectId] = useState("");
+	const [selectedTimelineProjectDetails, setSelectedTimelineProjectDetails] = useState<DetailedProject | null>(null);
+	const [isSelectedTimelineProjectLoading, setIsSelectedTimelineProjectLoading] = useState(false);
+	const [selectedTimelineProjectLoadError, setSelectedTimelineProjectLoadError] = useState(false);
 	const [analysisProjectDetails, setAnalysisProjectDetails] = useState<DetailedProject[]>([]);
 	const [isAnalysisDetailsLoading, setIsAnalysisDetailsLoading] = useState(false);
 	const [analysisDetailsLoadError, setAnalysisDetailsLoadError] = useState(false);
@@ -1100,7 +1105,7 @@ export default function AdminDashboard() {
 	const user = session?.user;
 	const currentActivityNoteAuthor = getActivityNoteAuthorName(user as SessionUserLike | undefined);
 	const { projects, fetchProjects } = useProjectStore();
-	const { dir } = useCheckedLocale();
+	const { dir, lang } = useCheckedLocale();
 	const userRole = typeof user?.role === 'string' ? user.role : null;
 	const isAdmin = userRole === 'admin';
 	const allowedTabs = getAllowedDashboardTabs(userRole);
@@ -1241,6 +1246,23 @@ export default function AdminDashboard() {
 
 	const showProjectVisibilityFilter = !!user && user.role !== "client";
 	const visibleProjects = filterProjectsByVisibility(projects, user, projectVisibilityScope);
+	const timelineProjectOptions = visibleProjects
+		.map((project) => {
+			const projectId =
+				typeof project?.id === 'string' && project.id.trim()
+					? project.id
+					: typeof project?.projectId === 'string' && project.projectId.trim()
+						? project.projectId
+						: null;
+			const projectName =
+				typeof project?.name === 'string' && project.name.trim()
+					? project.name.trim()
+					: null;
+
+			if (!projectId || !projectName) return null;
+			return { id: projectId, name: projectName };
+		})
+		.filter((project): project is { id: string; name: string } => !!project);
 	const visibleActionItems = buildActivityItemsFromProjects(taskTimelineProjectDetails, t);
 	const taskTimelineProjectIds = visibleProjects
 		.map((project) => {
@@ -1260,6 +1282,17 @@ export default function AdminDashboard() {
 			.filter((projectId): projectId is string => !!projectId)
 		: [];
 	const analysisProjectIdsKey = [...analysisProjectIds].sort().join('|');
+
+	useEffect(() => {
+		if (
+			selectedTimelineProjectId &&
+			!timelineProjectOptions.some((project) => project.id === selectedTimelineProjectId)
+		) {
+			setSelectedTimelineProjectId("");
+			setSelectedTimelineProjectDetails(null);
+			setSelectedTimelineProjectLoadError(false);
+		}
+	}, [selectedTimelineProjectId, timelineProjectOptions]);
 
 	useEffect(() => {
 		if (activeTab !== 'activity') return;
@@ -1350,7 +1383,7 @@ export default function AdminDashboard() {
 	}, [activeTab, activityNotesByTaskKey, activityNotesLoadErrors, visibleActionItems]);
 
 	useEffect(() => {
-		if (activeTab !== 'tasks' && activeTab !== 'activity') return;
+		if (activeTab !== 'activity') return;
 
 		if (!taskTimelineProjectIdsKey) {
 			setTaskTimelineProjectDetails([]);
@@ -1401,6 +1434,43 @@ export default function AdminDashboard() {
 		taskTimelineProjectIds,
 		taskTimelineProjectIdsKey,
 	]);
+
+	useEffect(() => {
+		if (activeTab !== 'tasks') return;
+
+		if (!selectedTimelineProjectId) {
+			setSelectedTimelineProjectDetails(null);
+			setSelectedTimelineProjectLoadError(false);
+			setIsSelectedTimelineProjectLoading(false);
+			return;
+		}
+
+		let isCancelled = false;
+		setIsSelectedTimelineProjectLoading(true);
+		setSelectedTimelineProjectLoadError(false);
+
+		void axios
+			.get<DetailedProject>(`/api/projects/${selectedTimelineProjectId}`)
+			.then((response) => {
+				if (isCancelled) return;
+				setSelectedTimelineProjectDetails(response.data);
+				setSelectedTimelineProjectLoadError(false);
+			})
+			.catch((err) => {
+				if (isCancelled) return;
+				console.error('Failed to load selected timeline project:', err);
+				setSelectedTimelineProjectDetails(null);
+				setSelectedTimelineProjectLoadError(true);
+			})
+			.finally(() => {
+				if (isCancelled) return;
+				setIsSelectedTimelineProjectLoading(false);
+			});
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [activeTab, selectedTimelineProjectId]);
 
 	useEffect(() => {
 		if (!isAdmin || activeTab !== 'analysis') return;
@@ -1472,7 +1542,13 @@ export default function AdminDashboard() {
 		dashboardData.taskMetrics.completedTasks,
 		dashboardData.taskMetrics.totalTasks
 	);
-	const dashboardTimelineTasks = buildDashboardTimelineTasks(taskTimelineProjectDetails);
+	const selectedTimelineProjectName =
+		selectedTimelineProjectDetails?.name ||
+		timelineProjectOptions.find((project) => project.id === selectedTimelineProjectId)?.name ||
+		"";
+	const dashboardTimelineTasks = selectedTimelineProjectDetails
+		? buildDashboardTimelineTasks([selectedTimelineProjectDetails])
+		: [];
 	const dashboardTaskHrefById = new Map(
 		dashboardTimelineTasks.map((task) => [
 			task.taskId,
@@ -1726,19 +1802,61 @@ export default function AdminDashboard() {
 				</TabsContent>
 
 				<TabsContent value="tasks" className="min-w-0 max-w-full space-y-4 overflow-hidden">
-					{isTaskTimelineLoading ? (
+					<Card className="border-border/60 shadow-sm">
+						<CardHeader className="space-y-4">
+							<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+								<div className="space-y-1">
+									<CardTitle>{t("Tasks")}</CardTitle>
+									<CardDescription>
+										{t("Choose a project to view its dedicated timeline")}
+									</CardDescription>
+								</div>
+								<div className="w-full max-w-sm">
+									<Select value={selectedTimelineProjectId} onValueChange={setSelectedTimelineProjectId}>
+										<SelectTrigger className="w-full bg-background">
+											<SelectValue placeholder={t("Select a project")} />
+										</SelectTrigger>
+										<SelectContent>
+											{timelineProjectOptions.map((project) => (
+												<SelectItem key={project.id} value={project.id}>
+													{project.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</CardHeader>
+					</Card>
+
+					{!selectedTimelineProjectId ? (
+						<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
+							{t("Select a project to view its timeline")}
+						</div>
+					) : isSelectedTimelineProjectLoading ? (
 						<div className="flex items-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
 							<Spinner className="h-4 w-4 text-muted-foreground" />
 							<span>{t("Loading dashboard please wait")}...</span>
 						</div>
-					) : taskTimelineLoadError ? (
+					) : selectedTimelineProjectLoadError ? (
 						<div className="rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
 							{t("There are no tasks at this stage")}
+						</div>
+					) : dashboardTimelineTasks.length === 0 ? (
+						<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
+							{t("No scheduled tasks for this project")}
 						</div>
 					) : (
 						<div className="min-w-0 max-w-full overflow-hidden">
 							<TaskTimelineView
+								projectId={selectedTimelineProjectId}
+								title={
+									lang === "ar"
+										? `خارطة تنفيذ المشروع: ${selectedTimelineProjectName}`
+										: `Construction Roadmap: ${selectedTimelineProjectName}`
+								}
 								tasks={dashboardTimelineTasks}
+								projectTeam={selectedTimelineProjectDetails?.employees ?? []}
 								getTaskHref={(taskId) => dashboardTaskHrefById.get(taskId) ?? null}
 								showWeeklyTable={false}
 								compact

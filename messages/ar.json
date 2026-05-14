@@ -477,7 +477,11 @@
   "Project Team": "فريق المشروع",
   "No scheduled tasks for this week": "لا توجد مهام مجدولة لهذا الأسبوع",
   "Weekly execution focus across active tasks": "تركيز التنفيذ الأسبوعي عبر المهام النشطة",
-  "Gantt": "المخطط الزمني"
+  "Gantt": "المخطط الزمني",
+  "Select a project": "اختر مشروعاً",
+  "Select a project to view its timeline": "اختر مشروعاً لعرض المخطط الزمني الخاص به",
+  "Choose a project to view its dedicated timeline": "اختر مشروعاً لعرض المخطط الزمني الخاص به",
+  "No scheduled tasks for this project": "لا توجد مهام مجدولة لهذا المشروع"
 }
 
 
