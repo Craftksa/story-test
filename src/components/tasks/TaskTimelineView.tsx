@@ -458,7 +458,7 @@ export default function TaskTimelineView({
 
 										<div className="col-span-2 border-t border-white/8">
 											<div
-												className="overflow-y-auto overscroll-contain"
+												className="overflow-x-hidden overflow-y-auto overscroll-contain"
 												style={{ maxHeight: `${roadmapViewportHeight}px` }}
 											>
 												<div
