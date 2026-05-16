@@ -1,5 +1,4 @@
 import {
-	addDays,
 	differenceInCalendarDays,
 	endOfWeek,
 	isValid,
@@ -35,6 +34,8 @@ export type TimelineTask = {
 	startDate: Date;
 	endDate: Date;
 	dueDate: Date;
+	hasExplicitStartDate: boolean;
+	hasExplicitEndDate: boolean;
 	createdAt: Date | null;
 	updatedAt: Date | null;
 	notes: string | null;
@@ -147,8 +148,10 @@ export function createTimelineTasks(
 
 		const createdAt = toDate(task.createdAt);
 		const updatedAt = toDate(task.updatedAt);
-		const startDate = toDate(task.startDate) ?? createdAt ?? referenceDate;
-		const endDateCandidate = toDate(task.endDate) ?? toDate(task.dueDate) ?? addDays(startDate, 3);
+		const actualStartDate = toDate(task.startDate);
+		const actualEndDate = toDate(task.endDate) ?? toDate(task.dueDate);
+		const startDate = actualStartDate ?? createdAt ?? referenceDate;
+		const endDateCandidate = actualEndDate ?? startDate;
 		const endDate =
 			endDateCandidate.getTime() < startDate.getTime() ? startDate : endDateCandidate;
 		const status =
@@ -160,7 +163,13 @@ export function createTimelineTasks(
 		const ownerLabel = getOwnerLabel(task, projectTeam);
 		const notes = typeof task.notes === "string" ? task.notes : null;
 
-		const isOverdue = status !== "completed" && endDate.getTime() < referenceDate.getTime();
+		const isOverdue =
+			Boolean(actualEndDate) &&
+			status !== "completed" &&
+			endDate.getTime() < referenceDate.getTime();
+		const durationDays = actualEndDate
+			? Math.max(1, differenceInCalendarDays(endDate, startDate) + 1)
+			: 1;
 
 		timelineTasks.push({
 			id,
@@ -171,6 +180,8 @@ export function createTimelineTasks(
 			startDate,
 			endDate,
 			dueDate: endDate,
+			hasExplicitStartDate: Boolean(actualStartDate),
+			hasExplicitEndDate: Boolean(actualEndDate),
 			createdAt,
 			updatedAt,
 			notes,
@@ -179,7 +190,7 @@ export function createTimelineTasks(
 			progress: getTaskProgress(status, startDate, endDate, referenceDate),
 			priority: getTaskPriority(status, isOverdue),
 			isOverdue,
-			durationDays: Math.max(1, differenceInCalendarDays(endDate, startDate) + 1),
+			durationDays,
 			originalTask: task,
 		});
 	}

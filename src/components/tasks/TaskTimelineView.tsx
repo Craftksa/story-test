@@ -45,16 +45,22 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 };
 
 function getTaskBarClasses(task: TimelineTask) {
-	if (task.isOverdue || task.status === "on_hold") {
+	if (
+		task.isOverdue ||
+		task.status === "on_hold" ||
+		task.status === "paused" ||
+		task.status === "stopped"
+	) {
 		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
 	}
 
 	switch (task.status) {
 		case "completed":
 			return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white";
+		case "not_started":
+			return "border-[rgba(112,118,128,0.42)] bg-[rgba(112,118,128,0.28)] text-white";
 		case "in_progress":
 		case "needs_review":
-		case "not_started":
 		default:
 			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 	}
@@ -92,12 +98,14 @@ function getTaskLayouts(
 ) {
 	const entries = tasks.map((task, index) => {
 		const startOffset = differenceInCalendarDays(task.startDate, timelineStart);
-		const barLeft = startOffset * layout.dayColumnWidth + 8;
-		const durationDays = Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1);
-		const barWidth = Math.max(
-			layout.dayColumnWidth - 12,
-			durationDays * layout.dayColumnWidth - 12
+		const durationDays = Math.max(
+			1,
+			differenceInCalendarDays(task.endDate, task.startDate) + 1
 		);
+		const barLeft = startOffset * layout.dayColumnWidth;
+		const barWidth = task.hasExplicitEndDate
+			? durationDays * layout.dayColumnWidth
+			: Math.max(42, Math.round(layout.dayColumnWidth * 0.72));
 
 		return [
 			task.id,
@@ -180,6 +188,8 @@ export default function TaskTimelineView({
 	const taskLayouts = getTaskLayouts(timelineTasks, timelineRange.start, layout);
 	const noScheduledTasksLabel =
 		lang === "ar" ? "لا توجد مهام في هذه المرحلة" : "There are no tasks at this stage";
+	const missingEndDateTooltip =
+		lang === "ar" ? "لا يوجد تاريخ انتهاء محدد" : "No end date is defined";
 
 	useEffect(() => {
 		if (process.env.NODE_ENV !== "development") return;
@@ -387,8 +397,11 @@ export default function TaskTimelineView({
 										const taskLayout = taskLayouts[task.id];
 										const taskHref = resolveTaskHref(task.id);
 										const barClasses = getTaskBarClasses(task);
-										const minimumVisibleBarWidth = layout.dayColumnWidth - 12;
-										const showInlineContent = taskLayout.barWidth >= 88;
+										const showInlineContent =
+											task.hasExplicitEndDate && taskLayout.barWidth >= 96;
+										const taskTitle = task.hasExplicitEndDate
+											? task.name
+											: `${task.name} - ${missingEndDateTooltip}`;
 
 										return (
 											<div
@@ -403,16 +416,16 @@ export default function TaskTimelineView({
 													type="button"
 													onClick={() => openTask(task.id)}
 													disabled={!taskHref}
-													title={task.name}
+													title={taskTitle}
 													aria-label={task.name}
 													className={cn(
-														"absolute flex h-6 items-center overflow-hidden rounded-md border px-2 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default",
+														"absolute flex h-6 items-center overflow-hidden rounded-md border px-[10px] text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default",
 														barClasses
 													)}
 													style={{
 														left: taskLayout.barLeft,
 														top: (layout.rowHeight - 24) / 2,
-														width: Math.max(taskLayout.barWidth, minimumVisibleBarWidth),
+														width: taskLayout.barWidth,
 													}}
 												>
 													<div
@@ -424,7 +437,7 @@ export default function TaskTimelineView({
 														{showInlineContent ? (
 															<span
 																className="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.04em] text-white"
-																title={task.name}
+																title={taskTitle}
 															>
 																{task.name}
 															</span>
