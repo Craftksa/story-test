@@ -34,7 +34,6 @@ export type TimelineTask = {
 	type: string;
 	startDate: Date;
 	endDate: Date;
-	dueDate: Date;
 	createdAt: Date | null;
 	updatedAt: Date | null;
 	notes: string | null;
@@ -44,6 +43,21 @@ export type TimelineTask = {
 	priority: "high" | "medium" | "low";
 	isOverdue: boolean;
 	durationDays: number;
+	originalTask: TimelineSourceTask;
+};
+
+export type TimelineMissingEndDateTask = {
+	id: string;
+	title: string;
+	name: string;
+	status: string;
+	type: string;
+	startDate: Date;
+	createdAt: Date | null;
+	updatedAt: Date | null;
+	notes: string | null;
+	owner: string | null;
+	ownerLabel: string | null;
 	originalTask: TimelineSourceTask;
 };
 
@@ -131,65 +145,92 @@ export function createTimelineTasks(
 	}
 ) {
 	const referenceDate = startOfDay(options?.referenceDate ?? new Date());
+	const scheduledTasks: TimelineTask[] = [];
+	const missingEndDateTasks: TimelineMissingEndDateTask[] = [];
 
-	return tasks
-		.flatMap<TimelineTask>((task) => {
-			const id =
-				typeof task.taskId === "string" && task.taskId.trim() ? task.taskId.trim() : null;
-			const name =
-				typeof task.taskName === "string" && task.taskName.trim()
-					? task.taskName.trim()
-					: null;
+	for (const task of tasks) {
+		const id =
+			typeof task.taskId === "string" && task.taskId.trim() ? task.taskId.trim() : null;
+		const name =
+			typeof task.taskName === "string" && task.taskName.trim()
+				? task.taskName.trim()
+				: null;
 
-			if (!id || !name) {
-				return [];
-			}
+		if (!id || !name) {
+			continue;
+		}
 
-			const createdAt = toDate(task.createdAt);
-			const updatedAt = toDate(task.updatedAt);
-			const startDate = toDate(task.startDate) ?? createdAt ?? referenceDate;
-			const endDateCandidate =
-				toDate(task.endDate) ??
-				toDate(task.dueDate) ??
-				addDays(startDate, 3);
+		const createdAt = toDate(task.createdAt);
+		const updatedAt = toDate(task.updatedAt);
+		const actualStartDate = toDate(task.startDate);
+		const actualEndDate = toDate(task.endDate);
+		const status =
+			typeof task.taskStatus === "string" && task.taskStatus.trim()
+				? task.taskStatus
+				: "not_started";
+		const type =
+			(typeof task.taskType === "string" && task.taskType.trim()) || "general";
+		const ownerLabel = getOwnerLabel(task, projectTeam);
+		const notes = typeof task.notes === "string" ? task.notes : null;
+
+		if (actualStartDate && actualEndDate) {
 			const endDate =
-				endDateCandidate.getTime() < startDate.getTime() ? startDate : endDateCandidate;
-			const status =
-				typeof task.taskStatus === "string" && task.taskStatus.trim()
-					? task.taskStatus
-					: "not_started";
+				actualEndDate.getTime() < actualStartDate.getTime()
+					? actualStartDate
+					: actualEndDate;
 			const isOverdue =
 				status !== "completed" && endDate.getTime() < referenceDate.getTime();
 
-			return [
-				{
-					id,
-					title: name,
-					name,
-					status,
-					type:
-						(typeof task.taskType === "string" && task.taskType.trim()) || "general",
-					startDate,
-					endDate,
-					dueDate: endDate,
-					createdAt,
-					updatedAt,
-					notes: typeof task.notes === "string" ? task.notes : null,
-					owner: getOwnerLabel(task, projectTeam),
-					ownerLabel: getOwnerLabel(task, projectTeam),
-					progress: getTaskProgress(status, startDate, endDate, referenceDate),
-					priority: getTaskPriority(status, isOverdue),
-					isOverdue,
-					durationDays: Math.max(1, differenceInCalendarDays(endDate, startDate) + 1),
-					originalTask: task,
-				},
-			];
-		})
-		.sort(
+			scheduledTasks.push({
+				id,
+				title: name,
+				name,
+				status,
+				type,
+				startDate: actualStartDate,
+				endDate,
+				createdAt,
+				updatedAt,
+				notes,
+				owner: ownerLabel,
+				ownerLabel,
+				progress: getTaskProgress(status, actualStartDate, endDate, referenceDate),
+				priority: getTaskPriority(status, isOverdue),
+				isOverdue,
+				durationDays: Math.max(1, differenceInCalendarDays(endDate, actualStartDate) + 1),
+				originalTask: task,
+			});
+			continue;
+		}
+
+		if (actualStartDate && !actualEndDate) {
+			missingEndDateTasks.push({
+				id,
+				title: name,
+				name,
+				status,
+				type,
+				startDate: actualStartDate,
+				createdAt,
+				updatedAt,
+				notes,
+				owner: ownerLabel,
+				ownerLabel,
+				originalTask: task,
+			});
+		}
+	}
+
+	return {
+		scheduledTasks: scheduledTasks.sort(
 			(left, right) =>
 				left.startDate.getTime() - right.startDate.getTime() ||
 				left.endDate.getTime() - right.endDate.getTime()
-		);
+		),
+		missingEndDateTasks: missingEndDateTasks.sort(
+			(left, right) => left.startDate.getTime() - right.startDate.getTime()
+		),
+	};
 }
 
 export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date()): TimelineRange {

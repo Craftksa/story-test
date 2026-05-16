@@ -160,7 +160,10 @@ export default function TaskTimelineView({
 		router.push(href);
 	};
 
-	const timelineTasks = createTimelineTasks(tasks, projectTeam, {
+	const {
+		scheduledTasks: timelineTasks,
+		missingEndDateTasks,
+	} = createTimelineTasks(tasks, projectTeam, {
 		referenceDate: today,
 	});
 	const timelineRange = getTimelineRange(timelineTasks, today);
@@ -179,6 +182,20 @@ export default function TaskTimelineView({
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
 	const taskLayouts = getTaskLayouts(timelineTasks, timelineRange.start, layout);
+	const missingEndDateTitle =
+		lang === "ar" ? "مهام تحتاج تاريخ انتهاء" : "Tasks Missing End Date";
+	const missingEndDateHint =
+		lang === "ar"
+			? "أضف تاريخ انتهاء لإظهارها بشكل صحيح في المخطط الزمني"
+			: "Add an end date to render correctly in the timeline";
+	const noScheduledTasksLabel =
+		lang === "ar"
+			? "لا توجد مهام مجدولة بالكامل في هذه المرحلة"
+			: "There are no fully scheduled tasks at this stage";
+	const noMissingEndDateTasksLabel =
+		lang === "ar"
+			? "كل المهام المجدولة الحالية تحتوي على تاريخ انتهاء."
+			: "All current scheduled tasks already include an end date.";
 
 	useEffect(() => {
 		if (process.env.NODE_ENV !== "development") return;
@@ -253,7 +270,7 @@ export default function TaskTimelineView({
 
 					{timelineTasks.length === 0 ? (
 						<div className="px-6 py-14 text-center text-sm text-white/60">
-							{t("There are no tasks at this stage")}
+							{noScheduledTasksLabel}
 						</div>
 					) : (
 						<div className="min-w-0 max-w-full overflow-hidden">
@@ -439,6 +456,49 @@ export default function TaskTimelineView({
 					)}
 				</div>
 
+				<div className="rounded-[24px] border border-white/8 bg-[#10161d] p-4 text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+					<div className="mb-4 flex items-center justify-between gap-3">
+						<div>
+							<h3 className="text-sm font-semibold tracking-[0.12em] text-white/92">
+								{missingEndDateTitle}
+							</h3>
+						</div>
+					</div>
+
+					{missingEndDateTasks.length === 0 ? (
+						<p className="text-sm text-white/55">{noMissingEndDateTasksLabel}</p>
+					) : (
+						<div className="space-y-3">
+							{missingEndDateTasks.map((task) => (
+								<div
+									key={task.id}
+									className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+								>
+									<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+										<div className="min-w-0 space-y-1">
+											<p className="truncate text-sm font-semibold text-white/92">
+												{task.name}
+											</p>
+											<div className="flex flex-wrap items-center gap-2 text-xs text-white/55">
+												<span>{t(formatStatus(task.status))}</span>
+												<span className="text-white/20">|</span>
+												<span>
+													{format(task.startDate, "d MMM yyyy", { locale })}
+												</span>
+												<span className="text-white/20">|</span>
+												<span>{task.ownerLabel || t("Not set")}</span>
+											</div>
+										</div>
+										<p className="max-w-xl text-sm text-[#dac58f]">
+											{missingEndDateHint}
+										</p>
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+				</div>
+
 				{showWeeklyTable && (
 				<div className="space-y-4">
 					<div>
@@ -538,7 +598,7 @@ export default function TaskTimelineView({
 													</div>
 												</td>
 												<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
-													{format(task.dueDate, "d MMM yyyy", { locale })}
+													{format(task.endDate, "d MMM yyyy", { locale })}
 												</td>
 												<td className="px-4 py-4">
 													<span
