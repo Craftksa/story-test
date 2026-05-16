@@ -26,40 +26,43 @@ export type TimelineTeamMember = {
 	email?: string | null;
 };
 
-export type TimelineTask = {
+type TimelineTaskBase = {
 	id: string;
 	title: string;
 	name: string;
 	status: string;
 	type: string;
-	startDate: Date;
-	endDate: Date;
 	createdAt: Date | null;
 	updatedAt: Date | null;
 	notes: string | null;
 	owner: string | null;
 	ownerLabel: string | null;
+	originalTask: TimelineSourceTask;
+};
+
+export type TimelineTask = TimelineTaskBase & {
+	rowType: "scheduled";
+	startDate: Date;
+	endDate: Date;
 	progress: number;
 	priority: "high" | "medium" | "low";
 	isOverdue: boolean;
 	durationDays: number;
-	originalTask: TimelineSourceTask;
 };
 
-export type TimelineMissingEndDateTask = {
-	id: string;
-	title: string;
-	name: string;
-	status: string;
-	type: string;
+export type TimelineMissingEndDateTask = TimelineTaskBase & {
+	rowType: "missing_end_date";
 	startDate: Date;
-	createdAt: Date | null;
-	updatedAt: Date | null;
-	notes: string | null;
-	owner: string | null;
-	ownerLabel: string | null;
-	originalTask: TimelineSourceTask;
 };
+
+export type TimelineUnscheduledTask = TimelineTaskBase & {
+	rowType: "unscheduled";
+};
+
+export type TimelineRowTask =
+	| TimelineTask
+	| TimelineMissingEndDateTask
+	| TimelineUnscheduledTask;
 
 export type TimelineRange = {
 	start: Date;
@@ -147,6 +150,8 @@ export function createTimelineTasks(
 	const referenceDate = startOfDay(options?.referenceDate ?? new Date());
 	const scheduledTasks: TimelineTask[] = [];
 	const missingEndDateTasks: TimelineMissingEndDateTask[] = [];
+	const unscheduledTasks: TimelineUnscheduledTask[] = [];
+	const timelineRows: TimelineRowTask[] = [];
 
 	for (const task of tasks) {
 		const id =
@@ -172,6 +177,19 @@ export function createTimelineTasks(
 			(typeof task.taskType === "string" && task.taskType.trim()) || "general";
 		const ownerLabel = getOwnerLabel(task, projectTeam);
 		const notes = typeof task.notes === "string" ? task.notes : null;
+		const baseTask = {
+			id,
+			title: name,
+			name,
+			status,
+			type,
+			createdAt,
+			updatedAt,
+			notes,
+			owner: ownerLabel,
+			ownerLabel,
+			originalTask: task,
+		} satisfies TimelineTaskBase;
 
 		if (actualStartDate && actualEndDate) {
 			const endDate =
@@ -181,44 +199,38 @@ export function createTimelineTasks(
 			const isOverdue =
 				status !== "completed" && endDate.getTime() < referenceDate.getTime();
 
-			scheduledTasks.push({
-				id,
-				title: name,
-				name,
-				status,
-				type,
+			const scheduledTask: TimelineTask = {
+				...baseTask,
+				rowType: "scheduled",
 				startDate: actualStartDate,
 				endDate,
-				createdAt,
-				updatedAt,
-				notes,
-				owner: ownerLabel,
-				ownerLabel,
 				progress: getTaskProgress(status, actualStartDate, endDate, referenceDate),
 				priority: getTaskPriority(status, isOverdue),
 				isOverdue,
 				durationDays: Math.max(1, differenceInCalendarDays(endDate, actualStartDate) + 1),
-				originalTask: task,
-			});
+			};
+			scheduledTasks.push(scheduledTask);
+			timelineRows.push(scheduledTask);
 			continue;
 		}
 
 		if (actualStartDate && !actualEndDate) {
-			missingEndDateTasks.push({
-				id,
-				title: name,
-				name,
-				status,
-				type,
+			const missingEndDateTask: TimelineMissingEndDateTask = {
+				...baseTask,
+				rowType: "missing_end_date",
 				startDate: actualStartDate,
-				createdAt,
-				updatedAt,
-				notes,
-				owner: ownerLabel,
-				ownerLabel,
-				originalTask: task,
-			});
+			};
+			missingEndDateTasks.push(missingEndDateTask);
+			timelineRows.push(missingEndDateTask);
+			continue;
 		}
+
+		const unscheduledTask: TimelineUnscheduledTask = {
+			...baseTask,
+			rowType: "unscheduled",
+		};
+		unscheduledTasks.push(unscheduledTask);
+		timelineRows.push(unscheduledTask);
 	}
 
 	return {
@@ -230,10 +242,15 @@ export function createTimelineTasks(
 		missingEndDateTasks: missingEndDateTasks.sort(
 			(left, right) => left.startDate.getTime() - right.startDate.getTime()
 		),
+		unscheduledTasks,
+		timelineRows,
 	};
 }
 
-export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date()): TimelineRange {
+export function getTimelineRange(
+	tasks: Array<TimelineTask | TimelineMissingEndDateTask>,
+	referenceDate = new Date()
+): TimelineRange {
 	const safeReferenceDate = startOfDay(referenceDate);
 
 	if (tasks.length === 0) {
@@ -247,11 +264,12 @@ export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date
 	}
 
 	let start = tasks[0].startDate;
-	let end = tasks[0].endDate;
+	let end = "endDate" in tasks[0] ? tasks[0].endDate : tasks[0].startDate;
 
 	for (const task of tasks) {
 		if (task.startDate.getTime() < start.getTime()) start = task.startDate;
-		if (task.endDate.getTime() > end.getTime()) end = task.endDate;
+		const taskEnd = "endDate" in task ? task.endDate : task.startDate;
+		if (taskEnd.getTime() > end.getTime()) end = taskEnd;
 	}
 
 	start = addDays(start, -2);

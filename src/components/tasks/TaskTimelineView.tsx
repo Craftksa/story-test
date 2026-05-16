@@ -15,6 +15,7 @@ import {
 	createTimelineTasks,
 	getThisWeekTasks,
 	getTimelineRange,
+	type TimelineRowTask,
 	type TimelineSourceTask,
 	type TimelineTask,
 	type TimelineTeamMember,
@@ -86,24 +87,41 @@ function getDurationLabel(task: TimelineTask, locale: typeof enUS) {
 }
 
 function getTaskLayouts(
-	tasks: TimelineTask[],
+	tasks: TimelineRowTask[],
 	timelineStart: Date,
 	layout: TimelineLayoutMetrics
 ) {
 	const entries = tasks.map((task, index) => {
+		const rowCenter = index * layout.rowHeight + layout.rowHeight / 2;
+
+		if (task.rowType === "unscheduled") {
+			return [
+				task.id,
+				{
+					rowCenter,
+					barLeft: null,
+					barWidth: 0,
+					barRight: null,
+					durationDays: 0,
+				},
+			] as const;
+		}
+
 		const startOffset = differenceInCalendarDays(task.startDate, timelineStart);
-		const endOffset = differenceInCalendarDays(task.endDate, timelineStart);
 		const barLeft = startOffset * layout.dayColumnWidth + 8;
-		const durationDays = Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1);
-		const barWidth = Math.max(
-			layout.dayColumnWidth - 12,
-			durationDays * layout.dayColumnWidth - 12
-		);
+		const durationDays =
+			task.rowType === "scheduled"
+				? Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1)
+				: 1;
+		const barWidth =
+			task.rowType === "scheduled"
+				? Math.max(layout.dayColumnWidth - 12, durationDays * layout.dayColumnWidth - 12)
+				: Math.max(18, layout.dayColumnWidth - 36);
 
 		return [
 			task.id,
 			{
-				rowCenter: index * layout.rowHeight + layout.rowHeight / 2,
+				rowCenter,
 				barLeft,
 				barWidth,
 				barRight: barLeft + barWidth,
@@ -116,9 +134,9 @@ function getTaskLayouts(
 		string,
 		{
 			rowCenter: number;
-			barLeft: number;
+			barLeft: number | null;
 			barWidth: number;
-			barRight: number;
+			barRight: number | null;
 			durationDays: number;
 		}
 	>;
@@ -163,10 +181,12 @@ export default function TaskTimelineView({
 	const {
 		scheduledTasks: timelineTasks,
 		missingEndDateTasks,
+		timelineRows,
 	} = createTimelineTasks(tasks, projectTeam, {
 		referenceDate: today,
 	});
-	const timelineRange = getTimelineRange(timelineTasks, today);
+	const datedTimelineTasks = [...timelineTasks, ...missingEndDateTasks];
+	const timelineRange = getTimelineRange(datedTimelineTasks, today);
 	const thisWeekTasks = getThisWeekTasks(timelineTasks, today);
 	const timelineDays = Array.from({ length: timelineRange.totalDays }, (_, index) => {
 		const day = new Date(timelineRange.start);
@@ -175,27 +195,22 @@ export default function TaskTimelineView({
 	});
 	const timelineWidth = timelineRange.totalDays * layout.dayColumnWidth;
 	const bodyHeight = Math.max(
-		layout.rowHeight * Math.max(timelineTasks.length, 1),
+		layout.rowHeight * Math.max(timelineRows.length, 1),
 		layout.rowHeight
 	);
 	const ganttWidth = layout.leftColumnWidth + timelineWidth;
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
-	const taskLayouts = getTaskLayouts(timelineTasks, timelineRange.start, layout);
-	const missingEndDateTitle =
-		lang === "ar" ? "مهام تحتاج تاريخ انتهاء" : "Tasks Missing End Date";
+	const taskLayouts = getTaskLayouts(timelineRows, timelineRange.start, layout);
+	const missingEndDateBadge =
+		lang === "ar" ? "تحتاج تاريخ انتهاء" : "Needs End Date";
+	const unscheduledBadge = lang === "ar" ? "غير مجدولة" : "Unscheduled";
 	const missingEndDateHint =
 		lang === "ar"
-			? "أضف تاريخ انتهاء لإظهارها بشكل صحيح في المخطط الزمني"
-			: "Add an end date to render correctly in the timeline";
+			? "قيد التنفيذ بدون تاريخ انتهاء محدد"
+			: "Ongoing without a defined end date";
 	const noScheduledTasksLabel =
-		lang === "ar"
-			? "لا توجد مهام مجدولة بالكامل في هذه المرحلة"
-			: "There are no fully scheduled tasks at this stage";
-	const noMissingEndDateTasksLabel =
-		lang === "ar"
-			? "كل المهام المجدولة الحالية تحتوي على تاريخ انتهاء."
-			: "All current scheduled tasks already include an end date.";
+		lang === "ar" ? "لا توجد مهام في هذه المرحلة" : "There are no tasks at this stage";
 
 	useEffect(() => {
 		if (process.env.NODE_ENV !== "development") return;
@@ -268,7 +283,7 @@ export default function TaskTimelineView({
 						</div>
 					</div>
 
-					{timelineTasks.length === 0 ? (
+					{timelineRows.length === 0 ? (
 						<div className="px-6 py-14 text-center text-sm text-white/60">
 							{noScheduledTasksLabel}
 						</div>
@@ -343,7 +358,7 @@ export default function TaskTimelineView({
 									className="sticky left-0 z-20 bg-[#111923]"
 									style={{ height: bodyHeight }}
 								>
-									{timelineTasks.map((task, index) => (
+									{timelineRows.map((task, index) => (
 										<div
 											key={task.id}
 											className="absolute inset-x-0 border-b border-white/6 px-4 py-3"
@@ -364,13 +379,29 @@ export default function TaskTimelineView({
 													</p>
 													<div
 														className={cn(
-															"mt-1 flex items-center gap-2 text-[11px] text-white/45",
+															"mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/45",
 															isRTL && "justify-end"
 														)}
 													>
 														<span>{t(formatStatus(task.type))}</span>
 														<span className="text-white/20">|</span>
 														<span>{task.ownerLabel || t("Not set")}</span>
+														{task.rowType === "missing_end_date" ? (
+															<>
+																<span className="text-white/20">|</span>
+																<span className="rounded-full border border-[#dac58f]/25 bg-[#dac58f]/12 px-2 py-0.5 text-[10px] font-semibold text-[#e8dfc8]">
+																	{missingEndDateBadge}
+																</span>
+															</>
+														) : null}
+														{task.rowType === "unscheduled" ? (
+															<>
+																<span className="text-white/20">|</span>
+																<span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-semibold text-white/70">
+																	{unscheduledBadge}
+																</span>
+															</>
+														) : null}
 													</div>
 												</div>
 											</div>
@@ -397,12 +428,54 @@ export default function TaskTimelineView({
 										</div>
 									)}
 
-									{timelineTasks.map((task, index) => {
+									{timelineRows.map((task, index) => {
 										const taskLayout = taskLayouts[task.id];
+										const taskHref = resolveTaskHref(task.id);
+
+										if (task.rowType === "unscheduled") {
+											return (
+												<div
+													key={task.id}
+													className="absolute inset-x-0 border-b border-white/6"
+													style={{
+														top: index * layout.rowHeight,
+														height: layout.rowHeight,
+													}}
+												/>
+											);
+										}
+
+										if (task.rowType === "missing_end_date") {
+											return (
+												<div
+													key={task.id}
+													className="absolute inset-x-0 border-b border-white/6"
+													style={{
+														top: index * layout.rowHeight,
+														height: layout.rowHeight,
+													}}
+												>
+													<button
+														type="button"
+														onClick={() => openTask(task.id)}
+														disabled={!taskHref}
+														title={missingEndDateHint}
+														aria-label={task.name}
+														className="absolute rounded-full border border-[#dac58f]/35 bg-[#dac58f]/22 shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default"
+														style={{
+															left: taskLayout.barLeft ?? 8,
+															top: (layout.rowHeight - 16) / 2,
+															width: 16,
+															height: 16,
+														}}
+													/>
+												</div>
+											);
+										}
+
 										const barClasses = getTaskBarClasses(task);
 										const minimumVisibleBarWidth = layout.dayColumnWidth - 12;
 										const showInlineContent = taskLayout.barWidth >= 88;
-										const taskHref = resolveTaskHref(task.id);
 
 										return (
 											<div
@@ -424,7 +497,7 @@ export default function TaskTimelineView({
 														barClasses
 													)}
 													style={{
-														left: taskLayout.barLeft,
+														left: taskLayout.barLeft ?? 8,
 														top: (layout.rowHeight - 24) / 2,
 														width: Math.max(taskLayout.barWidth, minimumVisibleBarWidth),
 													}}
@@ -452,49 +525,6 @@ export default function TaskTimelineView({
 									</div>
 								</div>
 							</div>
-						</div>
-					)}
-				</div>
-
-				<div className="rounded-[24px] border border-white/8 bg-[#10161d] p-4 text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-					<div className="mb-4 flex items-center justify-between gap-3">
-						<div>
-							<h3 className="text-sm font-semibold tracking-[0.12em] text-white/92">
-								{missingEndDateTitle}
-							</h3>
-						</div>
-					</div>
-
-					{missingEndDateTasks.length === 0 ? (
-						<p className="text-sm text-white/55">{noMissingEndDateTasksLabel}</p>
-					) : (
-						<div className="space-y-3">
-							{missingEndDateTasks.map((task) => (
-								<div
-									key={task.id}
-									className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
-								>
-									<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-										<div className="min-w-0 space-y-1">
-											<p className="truncate text-sm font-semibold text-white/92">
-												{task.name}
-											</p>
-											<div className="flex flex-wrap items-center gap-2 text-xs text-white/55">
-												<span>{t(formatStatus(task.status))}</span>
-												<span className="text-white/20">|</span>
-												<span>
-													{format(task.startDate, "d MMM yyyy", { locale })}
-												</span>
-												<span className="text-white/20">|</span>
-												<span>{task.ownerLabel || t("Not set")}</span>
-											</div>
-										</div>
-										<p className="max-w-xl text-sm text-[#dac58f]">
-											{missingEndDateHint}
-										</p>
-									</div>
-								</div>
-							))}
 						</div>
 					)}
 				</div>
