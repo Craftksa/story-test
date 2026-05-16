@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { differenceInCalendarDays, format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -44,78 +43,28 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 	maxBodyHeight: "min(58vh, 34rem)",
 };
 
-function getTaskVisualState(status: string) {
-	const normalizedStatus = status.trim().toLowerCase();
-
-	if (
-		[
-			"completed",
-			"done",
-			"مكتمل",
-			"منجز",
-			"تم",
-		].includes(normalizedStatus)
-	) {
-		return "completed";
-	}
-
-	if (
-		[
-			"paused",
-			"stopped",
-			"blocked",
-			"on_hold",
-			"متوقف",
-			"متوقف مؤقتاً",
-			"متوقف مؤقتا",
-			"محظور",
-			"متعطل",
-		].includes(normalizedStatus)
-	) {
-		return "blocked";
-	}
-
-	if (
-		[
-			"not_started",
-			"pending",
-			"لم يبدأ",
-			"غير مبدوء",
-			"قيد الانتظار",
-		].includes(normalizedStatus)
-	) {
-		return "not_started";
-	}
-
-	if (
-		[
-			"in_progress",
-			"working",
-			"active",
-			"needs_review",
-			"قيد التنفيذ",
-			"نشط",
-			"يعمل",
-		].includes(normalizedStatus)
-	) {
-		return "in_progress";
-	}
-
-	return "in_progress";
-}
-
 function getTaskBarClasses(task: TimelineTask) {
-	switch (getTaskVisualState(task.status)) {
+	if (task.isOverdue || task.status === "on_hold") {
+		return "border-rose-400/30 bg-rose-500/22 text-rose-50";
+	}
+
+	switch (task.status) {
 		case "completed":
-			return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white";
-		case "blocked":
-			return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
-		case "not_started":
-			return "border-[rgba(112,118,128,0.42)] bg-[rgba(112,118,128,0.28)] text-white";
+			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 		case "in_progress":
+		case "needs_review":
+			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
+		case "not_started":
 		default:
 			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 	}
+}
+
+function getTaskIndicatorClasses(task: TimelineTask) {
+	if (task.isOverdue || task.status === "on_hold") return "bg-rose-400";
+	if (task.status === "completed") return "bg-emerald-400";
+	if (task.status === "in_progress" || task.status === "needs_review") return "bg-[#d8c7a3]";
+	return "bg-slate-400";
 }
 
 function getPriorityClasses(priority: TimelineTask["priority"]) {
@@ -143,29 +92,6 @@ function getDurationLabel(task: TimelineTask, locale: typeof enUS) {
 	})}`;
 }
 
-function getTranslatedTaskStatusLabel(task: TimelineTask, t: ReturnType<typeof useTranslations>) {
-	switch (task.status) {
-		case "completed":
-		case "in_progress":
-		case "not_started":
-		case "on_hold":
-		case "needs_review":
-			return t(task.status);
-		default:
-			return formatStatus(task.status);
-	}
-}
-
-function getTranslatedTaskTypeLabel(task: TimelineTask, t: ReturnType<typeof useTranslations>) {
-	switch (task.type) {
-		case "foundations":
-		case "finishes":
-			return t(task.type);
-		default:
-			return formatStatus(task.type);
-	}
-}
-
 function getTaskLayouts(
 	tasks: TimelineTask[],
 	timelineStart: Date,
@@ -173,12 +99,12 @@ function getTaskLayouts(
 ) {
 	const entries = tasks.map((task, index) => {
 		const startOffset = differenceInCalendarDays(task.startDate, timelineStart);
+		const endOffset = differenceInCalendarDays(task.endDate, timelineStart);
 		const barLeft = startOffset * layout.dayColumnWidth + 8;
-		const durationDays = Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1);
-		const barWidth = Math.max(
-			layout.dayColumnWidth - 12,
-			durationDays * layout.dayColumnWidth - 12
-		);
+		const barWidth =
+			Math.max(1, endOffset - startOffset + 1) * layout.dayColumnWidth - 12;
+		const milestoneLeft =
+			endOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2 - 9;
 
 		return [
 			task.id,
@@ -187,7 +113,7 @@ function getTaskLayouts(
 				barLeft,
 				barWidth,
 				barRight: barLeft + barWidth,
-				durationDays,
+				milestoneLeft,
 			},
 		] as const;
 	});
@@ -199,7 +125,7 @@ function getTaskLayouts(
 			barLeft: number;
 			barWidth: number;
 			barRight: number;
-			durationDays: number;
+			milestoneLeft: number;
 		}
 	>;
 }
@@ -259,25 +185,6 @@ export default function TaskTimelineView({
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
 	const taskLayouts = getTaskLayouts(timelineTasks, timelineRange.start, layout);
-	const noScheduledTasksLabel =
-		lang === "ar" ? "لا توجد مهام في هذه المرحلة" : "There are no tasks at this stage";
-
-	useEffect(() => {
-		if (process.env.NODE_ENV !== "development") return;
-
-		timelineTasks.forEach((task) => {
-			const taskLayout = taskLayouts[task.id];
-			if (!taskLayout) return;
-
-			console.debug("[timeline-task]", {
-				title: task.title,
-				mappedStartDate: task.startDate.toISOString(),
-				mappedEndDate: task.endDate.toISOString(),
-				durationDays: task.durationDays,
-				width: taskLayout.barWidth,
-			});
-		});
-	}, [taskLayouts, timelineTasks]);
 
 	return (
 		<Card className="w-full min-w-0 max-w-full overflow-hidden border-border/60 shadow-sm">
@@ -287,10 +194,13 @@ export default function TaskTimelineView({
 						<CardTitle className="text-xl tracking-[0.08em]">
 							{timelineTitle}
 						</CardTitle>
+						<p className="mt-2 text-sm text-muted-foreground">
+							{t("A premium gantt view of the active task plan and weekly priorities")}
+						</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
 						<span className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-							{t("Project Timeline View")}
+							{t("Gantt")}
 						</span>
 						{showWeeklyTable && (
 							<span className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -309,7 +219,7 @@ export default function TaskTimelineView({
 							</p>
 							{!compact && (
 								<p className="text-xs text-white/55">
-									{t("Task bars reflect task start dates and due dates")}
+									{t("Task bars reflect task start dates, due dates, milestones, and sequenced dependencies")}
 								</p>
 							)}
 						</div>
@@ -335,7 +245,7 @@ export default function TaskTimelineView({
 
 					{timelineTasks.length === 0 ? (
 						<div className="px-6 py-14 text-center text-sm text-white/60">
-							{noScheduledTasksLabel}
+							{t("There are no tasks at this stage")}
 						</div>
 					) : (
 						<div className="min-w-0 max-w-full overflow-hidden">
@@ -429,15 +339,13 @@ export default function TaskTimelineView({
 													</p>
 													<div
 														className={cn(
-															"mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/45",
+															"mt-1 flex items-center gap-2 text-[11px] text-white/45",
 															isRTL && "justify-end"
 														)}
 													>
-														<span>{getTranslatedTaskStatusLabel(task, t)}</span>
+														<span>{t(formatStatus(task.type))}</span>
 														<span className="text-white/20">|</span>
 														<span>{task.ownerLabel || t("Not set")}</span>
-														<span className="text-white/20">|</span>
-														<span>{getTranslatedTaskTypeLabel(task, t)}</span>
 													</div>
 												</div>
 											</div>
@@ -464,12 +372,49 @@ export default function TaskTimelineView({
 										</div>
 									)}
 
+									<svg
+										className="pointer-events-none absolute inset-0 z-[9]"
+										width={timelineWidth}
+										height={bodyHeight}
+										viewBox={`0 0 ${timelineWidth} ${bodyHeight}`}
+										fill="none"
+									>
+										{timelineTasks.flatMap((task) =>
+											task.visualDependencies.map((dependencyId) => {
+												const from = taskLayouts[dependencyId];
+												const to = taskLayouts[task.id];
+												if (!from || !to) return null;
+
+												const startX = from.barRight;
+												const endX = to.barLeft;
+												const elbowX = Math.max(startX + 16, endX - 16);
+
+												return (
+													<g key={`${dependencyId}-${task.id}`}>
+														<path
+															d={`M ${startX} ${from.rowCenter} H ${elbowX} V ${to.rowCenter} H ${endX}`}
+															stroke="rgba(255,255,255,0.72)"
+															strokeWidth="1.5"
+															strokeLinecap="round"
+															strokeLinejoin="round"
+														/>
+														<circle
+															cx={endX}
+															cy={to.rowCenter}
+															r="2.5"
+															fill="rgba(255,255,255,0.92)"
+														/>
+													</g>
+												);
+											})
+										)}
+									</svg>
+
 									{timelineTasks.map((task, index) => {
 										const taskLayout = taskLayouts[task.id];
-										const taskHref = resolveTaskHref(task.id);
 										const barClasses = getTaskBarClasses(task);
-										const minimumVisibleBarWidth = layout.dayColumnWidth - 12;
-										const showInlineContent = taskLayout.barWidth >= 88;
+										const showInlineLabel = taskLayout.barWidth >= 130;
+										const taskHref = resolveTaskHref(task.id);
 
 										return (
 											<div
@@ -484,34 +429,35 @@ export default function TaskTimelineView({
 													type="button"
 													onClick={() => openTask(task.id)}
 													disabled={!taskHref}
-													title={task.name}
-													aria-label={task.name}
 													className={cn(
-														"absolute flex h-6 items-center overflow-hidden rounded-md border px-2 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default",
+														"absolute top-1/2 flex h-7 -translate-y-1/2 items-center rounded-full border px-3 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:-translate-y-[54%] disabled:cursor-default disabled:hover:-translate-y-1/2",
 														barClasses
 													)}
 													style={{
 														left: taskLayout.barLeft,
-														top: (layout.rowHeight - 24) / 2,
-														width: Math.max(taskLayout.barWidth, minimumVisibleBarWidth),
+														width: taskLayout.barWidth,
 													}}
 												>
-													<div
-														className={cn(
-															"flex min-w-0 flex-1 items-center overflow-hidden",
-															isRTL ? "justify-end text-right" : "justify-start text-left"
-														)}
-													>
-														{showInlineContent ? (
-															<span
-																className="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.04em] text-white"
-																title={task.name}
-															>
+													<div className="flex min-w-0 items-center gap-2">
+														<span className={cn("size-2 rounded-full", getTaskIndicatorClasses(task))} />
+														{showInlineLabel && (
+															<span className="truncate text-xs font-semibold tracking-[0.04em]">
 																{task.name}
 															</span>
-														) : null}
+														)}
 													</div>
 												</button>
+
+												{task.isMilestone && task.milestoneDate && (
+													<button
+														type="button"
+														onClick={() => openTask(task.id)}
+														disabled={!taskHref}
+														className="absolute top-1/2 z-20 size-[18px] -translate-y-1/2 rotate-45 rounded-[2px] border border-white/60 bg-white/85 shadow-sm transition-transform duration-200 hover:scale-105"
+														style={{ left: taskLayout.milestoneLeft }}
+														aria-label={task.name}
+													/>
+												)}
 											</div>
 										);
 									})}
@@ -622,7 +568,7 @@ export default function TaskTimelineView({
 													</div>
 												</td>
 												<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
-													{format(task.endDate, "d MMM yyyy", { locale })}
+													{format(task.dueDate, "d MMM yyyy", { locale })}
 												</td>
 												<td className="px-4 py-4">
 													<span
@@ -637,7 +583,7 @@ export default function TaskTimelineView({
 																		: "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-500/30 dark:bg-slate-500/10 dark:text-slate-200"
 														)}
 													>
-														{getTranslatedTaskStatusLabel(task, t)}
+														{t(formatStatus(task.status))}
 													</span>
 												</td>
 											</tr>
