@@ -45,26 +45,18 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 
 function getTaskBarClasses(task: TimelineTask) {
 	if (task.isOverdue || task.status === "on_hold") {
-		return "border-rose-400/30 bg-rose-500/22 text-rose-50";
+		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
 	}
 
 	switch (task.status) {
 		case "completed":
-			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
+			return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white";
 		case "in_progress":
 		case "needs_review":
-			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 		case "not_started":
 		default:
 			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 	}
-}
-
-function getTaskIndicatorClasses(task: TimelineTask) {
-	if (task.isOverdue || task.status === "on_hold") return "bg-rose-400";
-	if (task.status === "completed") return "bg-emerald-400";
-	if (task.status === "in_progress" || task.status === "needs_review") return "bg-[#d8c7a3]";
-	return "bg-slate-400";
 }
 
 function getPriorityClasses(priority: TimelineTask["priority"]) {
@@ -391,7 +383,7 @@ export default function TaskTimelineView({
 													title={task.name}
 													aria-label={task.name}
 													className={cn(
-														"absolute top-1/2 flex h-7 -translate-y-1/2 items-center overflow-hidden rounded-full border px-2.5 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:-translate-y-[54%] disabled:cursor-default disabled:hover:-translate-y-1/2",
+														"absolute top-1/2 flex h-7 -translate-y-1/2 items-center overflow-hidden rounded-md border px-2.5 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:-translate-y-[54%] disabled:cursor-default disabled:hover:-translate-y-1/2",
 														barClasses
 													)}
 													style={{
@@ -401,11 +393,10 @@ export default function TaskTimelineView({
 												>
 													<div
 														className={cn(
-															"flex min-w-0 flex-1 items-center gap-2 overflow-hidden",
+															"flex min-w-0 flex-1 items-center overflow-hidden",
 															isRTL ? "flex-row-reverse text-right" : "text-left"
 														)}
 													>
-														<span className={cn("size-2 rounded-full", getTaskIndicatorClasses(task))} />
 														{showInlineLabel && (
 															<span
 																className="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.04em] text-white"
