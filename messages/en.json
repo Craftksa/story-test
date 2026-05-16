@@ -81,6 +81,8 @@
   "completed": "Completed",
   "on_hold": "On Hold",
   "needs_review": "Needs Review",
+  "pending": "Pending",
+  "general": "General",
   "Not Started": "Not Started",
   "In Progress": "In Progress",
   "Completed": "Completed",

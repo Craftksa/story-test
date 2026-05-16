@@ -81,6 +81,8 @@
   "completed": "مكتمل",
   "on_hold": "متوقف مؤقتاً",
   "needs_review": "يحتاج إلى مراجعة",
+  "pending": "قيد الانتظار",
+  "general": "عام",
   "Not Started": "لم يبدأ",
   "In Progress": "قيد التنفيذ",
   "Completed": "مكتمل",
