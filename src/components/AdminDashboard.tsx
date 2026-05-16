@@ -1580,22 +1580,20 @@ export default function AdminDashboard() {
 				: null,
 		])
 	);
-	const taskModalOverlayClassName = "bg-black/75 backdrop-blur-md";
+	const taskModalOverlayClassName =
+		"fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 py-6";
 	const taskModalContentClassName =
-		"fixed top-1/2 left-1/2 z-[60] max-h-[calc(100vh-2rem)] w-[min(92vw,48rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[28px] border border-white/[0.14] p-0 text-white shadow-[0_35px_100px_rgba(0,0,0,0.82),inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(255,255,255,0.04)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[28px] before:bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.12),transparent_28%),radial-gradient(circle_at_80%_88%,rgba(216,199,163,0.09),transparent_34%)] before:opacity-80 before:content-[''] after:pointer-events-none after:absolute after:inset-[1px] after:rounded-[27px] after:border after:border-white/[0.06] after:content-['']";
-	const taskModalSurfaceStyle = {
-		background:
-			"linear-gradient(145deg, rgba(20,24,30,0.96) 0%, rgba(14,18,24,0.94) 58%, rgba(10,14,18,0.98) 100%)",
-		backdropFilter: "blur(24px) saturate(125%)",
-		WebkitBackdropFilter: "blur(24px) saturate(125%)",
-	} as const;
+		"relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-2xl border border-[#dac58f]/20 bg-[#111315] p-0 text-white shadow-2xl shadow-black/50";
 	const taskModalFieldClassName =
-		"border border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.04)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] placeholder:text-white/35 focus-visible:border-[rgba(216,199,163,0.34)] focus-visible:ring-[rgba(216,199,163,0.16)]";
-	const taskModalLabelClassName = "text-sm font-medium text-white/92";
+		"w-full rounded-xl border border-[#dac58f]/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#8f8a7d] focus:border-[#dac58f]/45 focus:bg-white/[0.07] focus:ring-2 focus:ring-[#dac58f]/10";
+	const taskModalLabelClassName = "mb-2 block text-sm font-medium text-[#e8dfc8]";
 	const taskModalPrimaryButtonClassName =
-		"border border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.16)] text-[#e6d9bc] shadow-[0_0_24px_rgba(216,199,163,0.14),inset_0_1px_0_rgba(255,255,255,0.05)] hover:bg-[rgba(218,197,143,0.24)] hover:text-[#f2ead9]";
+		"rounded-xl bg-[#dac58f] px-5 py-2.5 text-sm font-semibold text-[#111315] transition hover:bg-[#e7d3a3] disabled:cursor-not-allowed disabled:opacity-50";
 	const taskModalSecondaryButtonClassName =
-		"border-white/[0.10] bg-[rgba(255,255,255,0.04)] text-white/88 shadow-none hover:bg-[rgba(255,255,255,0.08)] hover:text-white";
+		"rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-5 py-2.5 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15 disabled:cursor-not-allowed disabled:opacity-50";
+	const taskModalCancelButtonClassName =
+		"rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-medium text-[#b8b2a3] transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white";
+	const taskModalNoteClassName = "text-xs text-[#8f8a7d]";
 	const weeklyLocationSummaries = buildWeeklyLocationSummaries(analysisProjectDetails);
 	const weeklyReportSummary = getWeeklyReportSummary(weeklyLocationSummaries);
 	const weeklyHighlights = buildWeeklyHighlights(weeklyLocationSummaries);
@@ -2473,23 +2471,23 @@ export default function AdminDashboard() {
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
 					className={taskModalContentClassName}
-					style={taskModalSurfaceStyle}
 				>
-					<div dir={dir} className="relative z-[1] max-h-[calc(100vh-2rem)] overflow-y-auto px-8 py-8">
-						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
+					<div dir={dir} className={dir === "rtl" ? "text-right" : "text-left"}>
+						<DialogHeader className="sticky top-0 z-10 gap-0 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
 							<DialogTitle className="text-white">{t("Add Task")}</DialogTitle>
-							<DialogDescription className="text-white/60">
+							<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
 								{t("This form is ready for database connection in the next phase")}
 							</DialogDescription>
 						</DialogHeader>
-						<div className="mt-6 grid gap-4 md:grid-cols-2">
+						<div className="space-y-5 px-6 py-6">
+							<div className="grid gap-4 md:grid-cols-2">
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Task Name")}</label>
 								<Input className={taskModalFieldClassName} placeholder={t("Enter task name")} />
 							</div>
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Task Description")}</label>
-								<Textarea className={taskModalFieldClassName} placeholder={t("Write a concise task description")} rows={3} />
+								<Textarea className={`${taskModalFieldClassName} min-h-[110px] resize-y`} placeholder={t("Write a concise task description")} rows={3} />
 							</div>
 							<div className="space-y-2">
 								<label className={taskModalLabelClassName}>{t("Internal Owner")}</label>
@@ -2533,20 +2531,21 @@ export default function AdminDashboard() {
 							</div>
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Notes")}</label>
-								<Textarea className={taskModalFieldClassName} placeholder={t("Task notes (optional)")} rows={4} />
+								<Textarea className={`${taskModalFieldClassName} min-h-[110px] resize-y`} placeholder={t("Task notes (optional)")} rows={4} />
 							</div>
 						</div>
-						<DialogFooter className={`mt-6 border-t border-white/[0.08] pt-5 ${dir === "rtl" ? "sm:justify-start" : ""}`}>
-							<p className="text-xs text-white/45">
+							<div className={`sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur ${dir === "rtl" ? "justify-start sm:flex-row-reverse" : "justify-end"}`}>
+							<p className={taskModalNoteClassName}>
 								{t("Saving will be connected to the database in the next phase")}
 							</p>
-							<Button type="button" variant="outline" onClick={() => setIsAddTaskModalOpen(false)} className={taskModalSecondaryButtonClassName}>
+							<Button type="button" variant="outline" onClick={() => setIsAddTaskModalOpen(false)} className={taskModalCancelButtonClassName}>
 								{t("Cancel")}
 							</Button>
 							<Button type="button" disabled className={taskModalPrimaryButtonClassName}>
 								{t("Save Task")}
 							</Button>
-						</DialogFooter>
+							</div>
+						</div>
 					</div>
 				</DialogContent>
 			</Dialog>
@@ -2555,16 +2554,16 @@ export default function AdminDashboard() {
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
 					className={taskModalContentClassName}
-					style={taskModalSurfaceStyle}
 				>
-					<div dir={dir} className="relative z-[1] max-h-[calc(100vh-2rem)] overflow-y-auto px-8 py-8">
-						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
+					<div dir={dir} className={dir === "rtl" ? "text-right" : "text-left"}>
+						<DialogHeader className="sticky top-0 z-10 gap-0 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
 							<DialogTitle className="text-white">{t("Request Client Approval")}</DialogTitle>
-							<DialogDescription className="text-white/60">
+							<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
 								{t("Approval sending will be activated in a later phase")}
 							</DialogDescription>
 						</DialogHeader>
-						<div className="mt-6 grid gap-4 md:grid-cols-2">
+						<div className="space-y-5 px-6 py-6">
+							<div className="grid gap-4 md:grid-cols-2">
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Related Task")}</label>
 								<Select>
@@ -2588,7 +2587,7 @@ export default function AdminDashboard() {
 							</div>
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Description")}</label>
-								<Textarea className={taskModalFieldClassName} placeholder={t("Describe the approval request")} rows={3} />
+								<Textarea className={`${taskModalFieldClassName} min-h-[110px] resize-y`} placeholder={t("Describe the approval request")} rows={3} />
 							</div>
 							<div className="space-y-2">
 								<label className={taskModalLabelClassName}>{t("Person Name")}</label>
@@ -2609,7 +2608,7 @@ export default function AdminDashboard() {
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Official Message")}</label>
 								<Textarea
-									className={taskModalFieldClassName}
+									className={`${taskModalFieldClassName} min-h-[110px] resize-y`}
 									rows={4}
 									defaultValue={
 										lang === "ar"
@@ -2618,19 +2617,22 @@ export default function AdminDashboard() {
 									}
 								/>
 							</div>
-						</div>
-						<div className="mt-5 rounded-2xl border border-white/[0.08] bg-[rgba(255,255,255,0.04)] p-4">
-							<p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
+							</div>
+						<div className="rounded-2xl border border-[#dac58f]/15 bg-[#0b0d0f] p-4 text-sm leading-7 text-[#e8dfc8]">
+							<p className="mb-2 text-sm font-semibold text-[#dac58f]">
 								{t("Message Preview")}
 							</p>
-							<p className="mt-2 text-sm text-white/82">
+							<p>
 								{lang === "ar"
 									? `مرحباً، لديك طلب موافقة من Craft بخصوص مشروع ${selectedTimelineProjectName}.`
 									: `Hello, you have an approval request from Craft regarding project ${selectedTimelineProjectName}.`}
 							</p>
 						</div>
-						<DialogFooter className={`mt-6 border-t border-white/[0.08] pt-5 ${dir === "rtl" ? "sm:justify-start" : ""}`}>
-							<Button type="button" variant="outline" onClick={() => setIsApprovalModalOpen(false)} className={taskModalSecondaryButtonClassName}>
+							<div className={`sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur ${dir === "rtl" ? "justify-start sm:flex-row-reverse" : "justify-end"}`}>
+							<p className={taskModalNoteClassName}>
+								{t("Saving will be connected to the database in the next phase")}
+							</p>
+							<Button type="button" variant="outline" onClick={() => setIsApprovalModalOpen(false)} className={taskModalCancelButtonClassName}>
 								{t("Cancel")}
 							</Button>
 							<Button type="button" variant="outline" disabled className={taskModalSecondaryButtonClassName}>
@@ -2639,7 +2641,8 @@ export default function AdminDashboard() {
 							<Button type="button" disabled className={taskModalPrimaryButtonClassName}>
 								{t("Send Request")}
 							</Button>
-						</DialogFooter>
+							</div>
+						</div>
 					</div>
 				</DialogContent>
 			</Dialog>
@@ -2648,16 +2651,16 @@ export default function AdminDashboard() {
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
 					className={taskModalContentClassName}
-					style={taskModalSurfaceStyle}
 				>
-					<div dir={dir} className="relative z-[1] max-h-[calc(100vh-2rem)] overflow-y-auto px-8 py-8">
-						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
+					<div dir={dir} className={dir === "rtl" ? "text-right" : "text-left"}>
+						<DialogHeader className="sticky top-0 z-10 gap-0 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
 							<DialogTitle className="text-white">{t("Log Delay")}</DialogTitle>
-							<DialogDescription className="text-white/60">
+							<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
 								{t("Delay registration will be connected in a later phase")}
 							</DialogDescription>
 						</DialogHeader>
-						<div className="mt-6 grid gap-4 md:grid-cols-2">
+						<div className="space-y-5 px-6 py-6">
+							<div className="grid gap-4 md:grid-cols-2">
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Related Task")}</label>
 								<Select>
@@ -2677,7 +2680,7 @@ export default function AdminDashboard() {
 							</div>
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Delay Reason")}</label>
-								<Textarea className={taskModalFieldClassName} placeholder={t("Describe the delay reason")} rows={3} />
+								<Textarea className={`${taskModalFieldClassName} min-h-[110px] resize-y`} placeholder={t("Describe the delay reason")} rows={3} />
 							</div>
 							<div className="space-y-2">
 								<label className={taskModalLabelClassName}>{t("Responsible Party")}</label>
@@ -2700,21 +2703,25 @@ export default function AdminDashboard() {
 							</div>
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Required Action")}</label>
-								<Textarea className={taskModalFieldClassName} placeholder={t("Describe the required action")} rows={3} />
+								<Textarea className={`${taskModalFieldClassName} min-h-[110px] resize-y`} placeholder={t("Describe the required action")} rows={3} />
 							</div>
 							<div className="space-y-2 md:col-span-2">
 								<label className={taskModalLabelClassName}>{t("Notes")}</label>
-								<Textarea className={taskModalFieldClassName} placeholder={t("Task notes (optional)")} rows={3} />
+								<Textarea className={`${taskModalFieldClassName} min-h-[110px] resize-y`} placeholder={t("Task notes (optional)")} rows={3} />
 							</div>
-						</div>
-						<DialogFooter className={`mt-6 border-t border-white/[0.08] pt-5 ${dir === "rtl" ? "sm:justify-start" : ""}`}>
-							<Button type="button" variant="outline" onClick={() => setIsDelayModalOpen(false)} className={taskModalSecondaryButtonClassName}>
+							</div>
+							<div className={`sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur ${dir === "rtl" ? "justify-start sm:flex-row-reverse" : "justify-end"}`}>
+							<p className={taskModalNoteClassName}>
+								{t("Saving will be connected to the database in the next phase")}
+							</p>
+							<Button type="button" variant="outline" onClick={() => setIsDelayModalOpen(false)} className={taskModalCancelButtonClassName}>
 								{t("Cancel")}
 							</Button>
 							<Button type="button" disabled className={taskModalPrimaryButtonClassName}>
 								{t("Save Delay")}
 							</Button>
-						</DialogFooter>
+							</div>
+						</div>
 					</div>
 				</DialogContent>
 			</Dialog>

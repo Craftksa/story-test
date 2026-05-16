@@ -37,6 +37,14 @@ export type TaskFormData = z.infer<typeof createTaskSchema>;
 const statusOptions = ['not_started', 'in_progress', 'completed', 'on_hold', 'needs_review'] as const;
 const taskTypeOptions = ['foundations', 'finishes'] as const;
 
+function serializeTaskFormData(data: TaskFormData) {
+	return {
+		...data,
+		startDate: data.startDate?.toISOString(),
+		endDate: data.endDate?.toISOString(),
+	};
+}
+
 const TaskForm = ({
 	                  task,
 	                  projectId
@@ -78,16 +86,18 @@ const TaskForm = ({
 	});
 
 	const onSubmit = async (data: TaskFormData) => {
+		const payload = serializeTaskFormData(data);
+
 		try {
 			if (isUpdate) {
-				await updateTask(task!.id!, data);
+				await updateTask(task!.id!, payload);
 				if (!error) {
 					router.back();
 					// router.push(`/projects/${projectId}/tasks/${task?.id}`);
 					router.refresh();
 				}
 			} else {
-				const createdTask = await createTask(data);
+				const createdTask = await createTask(payload);
 				if (createdTask && createdTask.id) {
 					router.back();
 					// router.push(`/projects/${projectId}/tasks/${createdTask.id}`);

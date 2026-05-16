@@ -6,21 +6,39 @@ import { authenticate } from "@/lib/authenticate";
 import { hasRole, isValidId } from "@/lib/utils";
 import { eq, inArray } from "drizzle-orm";
 
-// ✅ Schema
-const createTaskSchema = z.object({
-	name: z.string(),
-	type: z.enum(["foundations", "finishes"]),
-	status: z.enum(["not_started", "in_progress", "completed", "on_hold", "needs_review"]),
-	startDate: z.string().optional(),
-	endDate: z.string().optional(),
-	notes: z.string().optional(),
-	images: z.array(
-		z.object({
-			url: z.string().url(),
-			description: z.string().optional(),
-		})
-	).optional(),
-});
+const taskDateString = z.string().datetime({ offset: true }).optional();
+
+const createTaskSchema = z
+	.object({
+		name: z.string(),
+		type: z.enum(["foundations", "finishes"]),
+		status: z.enum(["not_started", "in_progress", "completed", "on_hold", "needs_review"]),
+		startDate: taskDateString,
+		endDate: taskDateString,
+		notes: z.string().optional(),
+		images: z
+			.array(
+				z.object({
+					url: z.string().url(),
+					description: z.string().optional(),
+				})
+			)
+			.optional(),
+	})
+	.superRefine((values, ctx) => {
+		if (!values.startDate || !values.endDate) return;
+
+		const startDate = new Date(values.startDate);
+		const endDate = new Date(values.endDate);
+
+		if (endDate.getTime() < startDate.getTime()) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["endDate"],
+				message: "End date must be on or after start date",
+			});
+		}
+	});
 
 export async function POST(
 	req: NextRequest,
@@ -41,27 +59,31 @@ export async function POST(
 	const parsed = createTaskSchema.safeParse(body);
 
 	if (!parsed.success) {
-		return NextResponse.json({ error: "Invalid task data", issues: parsed.error.errors }, { status: 400 });
+		return NextResponse.json(
+			{ error: "Invalid task data", issues: parsed.error.errors },
+			{ status: 400 }
+		);
 	}
 
 	const { name, type, status, startDate, endDate, notes, images } = parsed.data;
 
-	// ✅ 1. Insert task
-	const task = await db.insert(tasks).values({
-		name,
-		type,
-		status,
-		startDate: startDate ? new Date(startDate) : null,
-		endDate: endDate ? new Date(endDate) : null,
-		notes,
-		projectId,
-		updatedAt: new Date(),
-		createdAt: new Date(),
-	}).returning();
+	const task = await db
+		.insert(tasks)
+		.values({
+			name,
+			type,
+			status,
+			startDate: startDate ? new Date(startDate) : null,
+			endDate: endDate ? new Date(endDate) : null,
+			notes,
+			projectId,
+			updatedAt: new Date(),
+			createdAt: new Date(),
+		})
+		.returning();
 
 	const taskId = task[0].id;
 
-	// ✅ 2. Insert images if any
 	if (images && images.length > 0) {
 		await db.insert(taskImages).values(
 			images.map((img) => ({
@@ -84,12 +106,8 @@ export async function GET(
 	await authenticate(req);
 	const projectId = params.id;
 
-	const taskList = await db
-		.select()
-		.from(tasks)
-		.where(eq(tasks.projectId, projectId));
-
-	const taskIds = taskList.map((t) => t.id);
+	const taskList = await db.select().from(tasks).where(eq(tasks.projectId, projectId));
+	const taskIds = taskList.map((task) => task.id);
 
 	let images: { taskId: string; url: string; description: string | null }[] = [];
 
@@ -103,6 +121,7 @@ export async function GET(
 			.from(taskImages)
 			.where(inArray(taskImages.taskId, taskIds));
 	}
+
 	const imageMap: Record<string, typeof images> = {};
 	for (const image of images) {
 		if (!imageMap[image.taskId]) imageMap[image.taskId] = [];

@@ -1,12 +1,51 @@
 import { db } from "@/drizzle/db";
 import { tasks, taskImages } from "@/drizzle/schema";
-import {eq, and, inArray} from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/authenticate";
 import { isValidId, hasRole } from "@/lib/utils";
-import {deleteFilesFromUploadThing, extractFileKey} from "@/app/api/uploadthing/delete-files";
+import {
+	deleteFilesFromUploadThing,
+	extractFileKey,
+} from "@/app/api/uploadthing/delete-files";
+import { z } from "zod";
 
-// GET: Fetch task details and images
+const taskDateString = z.string().datetime({ offset: true }).optional();
+
+const updateTaskSchema = z
+	.object({
+		name: z.string().optional(),
+		status: z
+			.enum(["not_started", "in_progress", "completed", "on_hold", "needs_review"])
+			.optional(),
+		type: z.enum(["foundations", "finishes"]).optional(),
+		startDate: taskDateString.nullable().optional(),
+		endDate: taskDateString.nullable().optional(),
+		notes: z.string().nullable().optional(),
+		images: z
+			.array(
+				z.object({
+					url: z.string().url(),
+					description: z.string().nullable().optional(),
+				})
+			)
+			.optional(),
+	})
+	.superRefine((values, ctx) => {
+		if (!values.startDate || !values.endDate) return;
+
+		const startDate = new Date(values.startDate);
+		const endDate = new Date(values.endDate);
+
+		if (endDate.getTime() < startDate.getTime()) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["endDate"],
+				message: "End date must be on or after start date",
+			});
+		}
+	});
+
 export async function GET(
 	req: NextRequest,
 	{ params }: { params: { id: string; taskId: string } }
@@ -49,13 +88,11 @@ export async function GET(
 			images,
 		});
 	} catch (error) {
-		console.error("GET /projects/[id]/tasks/[contractId] error:", error);
+		console.error("GET /projects/[id]/tasks/[taskId] error:", error);
 		return NextResponse.json({ error: "Failed to fetch task details" }, { status: 500 });
 	}
 }
 
-// PUT: Update task details
-// PUT: Update task and efficiently sync images
 export async function PUT(
 	req: NextRequest,
 	{ params }: { params: { id: string; taskId: string } }
@@ -73,31 +110,36 @@ export async function PUT(
 
 	try {
 		const body = await req.json();
+		const parsed = updateTaskSchema.safeParse(body);
 
-		const allowedFields = ["name", "status", "type", "startDate", "endDate", "notes"];
-		const updates: Record<string, any> = {};
-
-		for (const field of allowedFields) {
-			if (field in body) {
-				updates[field] =
-					field === "startDate" || field === "endDate"
-						? body[field] ? new Date(body[field]) : null
-						: body[field];
-			}
+		if (!parsed.success) {
+			return NextResponse.json(
+				{ error: "Invalid task data", issues: parsed.error.errors },
+				{ status: 400 }
+			);
 		}
 
-		// 1. Update task fields
+		const { images, ...payload } = parsed.data;
+		const updates: Record<string, unknown> = {};
+
+		for (const [field, value] of Object.entries(payload)) {
+			if (value === undefined) continue;
+			updates[field] =
+				field === "startDate" || field === "endDate"
+					? value ? new Date(value as string) : null
+					: value;
+		}
+
 		await db
 			.update(tasks)
 			.set({
 				...updates,
-				updatedAt: new Date(), // <-- add this line
+				updatedAt: new Date(),
 			})
 			.where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
 
-		// 2. Efficient image sync
-		if (Array.isArray(body.images)) {
-			const newImages: { url: string; description: string | null }[] = body.images.map((img: any) => ({
+		if (Array.isArray(images)) {
+			const newImages: { url: string; description: string | null }[] = images.map((img) => ({
 				url: img.url,
 				description: img.description || null,
 			}));
@@ -110,7 +152,6 @@ export async function PUT(
 			const existingUrls = new Set(existingImages.map((img) => img.url));
 			const newUrls = new Set(newImages.map((img) => img.url));
 
-			// 2a. Images to delete (in DB but not in new input)
 			const urlsToDelete = [...existingUrls].filter((url) => !newUrls.has(url));
 			if (urlsToDelete.length > 0) {
 				await db
@@ -118,7 +159,6 @@ export async function PUT(
 					.where(and(eq(taskImages.taskId, taskId), inArray(taskImages.url, urlsToDelete)));
 			}
 
-			// 2b. Images to insert (in new input but not in DB)
 			const imagesToInsert = newImages.filter((img) => !existingUrls.has(img.url));
 			if (imagesToInsert.length > 0) {
 				await db.insert(taskImages).values(
@@ -135,12 +175,11 @@ export async function PUT(
 
 		return NextResponse.json({ message: "Task updated with synced images" });
 	} catch (error) {
-		console.error("PUT /projects/[id]/tasks/[contractId] error:", error);
+		console.error("PUT /projects/[id]/tasks/[taskId] error:", error);
 		return NextResponse.json({ error: "Failed to update task" }, { status: 500 });
 	}
 }
 
-// DELETE: Remove task and cascade images
 export async function DELETE(
 	req: NextRequest,
 	{ params }: { params: { id: string; taskId: string } }
@@ -157,29 +196,24 @@ export async function DELETE(
 	}
 
 	try {
-		// 1. Fetch image URLs before deleting the task
 		const imageUrls = await db
 			.select({ url: taskImages.url })
 			.from(taskImages)
 			.where(eq(taskImages.taskId, taskId));
 
-		// 2. Extract file keys from URLs
 		const fileKeys = imageUrls
 			.map((img) => extractFileKey(img.url))
 			.filter((key): key is string => !!key);
 
-		// 3. Delete from UploadThing
 		await deleteFilesFromUploadThing(fileKeys);
 
-		// 4. Now delete the task (images will cascade in DB)
 		const deleted = await db
 			.delete(tasks)
 			.where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
 
-
 		return NextResponse.json({ message: "Task deleted", deleted });
 	} catch (error) {
-		console.error("DELETE /projects/[id]/tasks/[contractId] error:", error);
+		console.error("DELETE /projects/[id]/tasks/[taskId] error:", error);
 		return NextResponse.json({ error: "Failed to delete task" }, { status: 500 });
 	}
 }
