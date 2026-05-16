@@ -47,7 +47,7 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 	groupRowHeight: 40,
 	taskRowHeight: 54,
 	barHeight: 28,
-	maxBodyHeight: "min(60vh, 38rem)",
+	maxBodyHeight: "none",
 };
 
 type TimelineTaskLayout = {
@@ -291,6 +291,10 @@ export default function TaskTimelineView({
 			return map;
 		}, new Map<string, { key: string; label: string; tasks: TimelineTask[] }>())
 	).map(([, value]) => value);
+	const totalRenderedRows = groupedTimelineTasks.reduce(
+		(total, group) => total + group.tasks.length,
+		0
+	);
 
 	const timelineRange = getTimelineRange(timelineTasks, today);
 	const thisWeekTasks = getThisWeekTasks(timelineTasks, today);
@@ -313,6 +317,15 @@ export default function TaskTimelineView({
 	useEffect(() => {
 		if (process.env.NODE_ENV !== "development") return;
 
+		console.debug("[timeline-roadmap]", {
+			totalTasksReceived: tasks.length,
+			groupedTasksCount: groupedTimelineTasks.map((group) => ({
+				taskType: group.key,
+				count: group.tasks.length,
+			})),
+			totalRenderedRows,
+		});
+
 		timelineTasks.forEach((task) => {
 			const taskLayout = taskLayouts.get(task.id);
 			if (!taskLayout) return;
@@ -325,7 +338,7 @@ export default function TaskTimelineView({
 				width: taskLayout.barWidth,
 			});
 		});
-	}, [taskLayouts, timelineTasks]);
+	}, [groupedTimelineTasks, taskLayouts, tasks.length, timelineTasks, totalRenderedRows]);
 
 	return (
 		<Card className="w-full min-w-0 max-w-full overflow-hidden border-border/60 bg-card shadow-sm">
