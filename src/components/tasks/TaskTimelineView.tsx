@@ -46,19 +46,41 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 };
 
 function getTaskBarClasses(task: TimelineTask) {
-	if (task.isOverdue || task.status === "on_hold") {
+	if (
+		task.isOverdue ||
+		task.status === "on_hold" ||
+		task.status === "paused" ||
+		task.status === "stopped"
+	) {
 		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
 	}
 
 	switch (task.status) {
 		case "completed":
 			return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white";
+		case "not_started":
+			return "border-[rgba(112,118,128,0.42)] bg-[rgba(112,118,128,0.28)] text-white";
 		case "in_progress":
 		case "needs_review":
-		case "not_started":
 		default:
 			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 	}
+}
+
+function getInlineIndicatorClasses(status: string) {
+	if (status === "completed") {
+		return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white/92";
+	}
+
+	if (status === "on_hold" || status === "paused" || status === "stopped") {
+		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.22)] text-white/92";
+	}
+
+	if (status === "not_started") {
+		return "border-[rgba(112,118,128,0.42)] bg-[rgba(112,118,128,0.24)] text-white/82";
+	}
+
+	return "border-[rgba(218,197,143,0.40)] bg-[rgba(218,197,143,0.24)] text-white/92";
 }
 
 function getPriorityClasses(priority: TimelineTask["priority"]) {
@@ -202,13 +224,10 @@ export default function TaskTimelineView({
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
 	const taskLayouts = getTaskLayouts(timelineRows, timelineRange.start, layout);
-	const missingEndDateBadge =
-		lang === "ar" ? "تحتاج تاريخ انتهاء" : "Needs End Date";
+	const missingEndDateBadge = lang === "ar" ? "بدون انتهاء" : "No End Date";
 	const unscheduledBadge = lang === "ar" ? "غير مجدولة" : "Unscheduled";
 	const missingEndDateHint =
-		lang === "ar"
-			? "قيد التنفيذ بدون تاريخ انتهاء محدد"
-			: "Ongoing without a defined end date";
+		lang === "ar" ? "لا يوجد تاريخ انتهاء محدد" : "No end date is defined";
 	const noScheduledTasksLabel =
 		lang === "ar" ? "لا توجد مهام في هذه المرحلة" : "There are no tasks at this stage";
 
@@ -383,25 +402,11 @@ export default function TaskTimelineView({
 															isRTL && "justify-end"
 														)}
 													>
-														<span>{t(formatStatus(task.type))}</span>
+														<span>{t(formatStatus(task.status))}</span>
 														<span className="text-white/20">|</span>
 														<span>{task.ownerLabel || t("Not set")}</span>
-														{task.rowType === "missing_end_date" ? (
-															<>
-																<span className="text-white/20">|</span>
-																<span className="rounded-full border border-[#dac58f]/25 bg-[#dac58f]/12 px-2 py-0.5 text-[10px] font-semibold text-[#e8dfc8]">
-																	{missingEndDateBadge}
-																</span>
-															</>
-														) : null}
-														{task.rowType === "unscheduled" ? (
-															<>
-																<span className="text-white/20">|</span>
-																<span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-semibold text-white/70">
-																	{unscheduledBadge}
-																</span>
-															</>
-														) : null}
+														<span className="text-white/20">|</span>
+														<span>{t(formatStatus(task.type))}</span>
 													</div>
 												</div>
 											</div>
@@ -441,7 +446,19 @@ export default function TaskTimelineView({
 														top: index * layout.rowHeight,
 														height: layout.rowHeight,
 													}}
-												/>
+												>
+													<div
+														className="absolute"
+														style={{
+															left: 10,
+															top: (layout.rowHeight - 22) / 2,
+														}}
+													>
+														<span className="inline-flex h-[22px] items-center rounded-md border border-white/12 bg-white/[0.06] px-2.5 text-[10px] font-semibold text-white/72">
+															{unscheduledBadge}
+														</span>
+													</div>
+												</div>
 											);
 										}
 
@@ -461,14 +478,20 @@ export default function TaskTimelineView({
 														disabled={!taskHref}
 														title={missingEndDateHint}
 														aria-label={task.name}
-														className="absolute rounded-full border border-[#dac58f]/35 bg-[#dac58f]/22 shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default"
+														className={cn(
+															"absolute flex h-5 items-center overflow-hidden rounded-md border px-2 text-left text-[10px] font-semibold shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default",
+															getInlineIndicatorClasses(task.status)
+														)}
 														style={{
 															left: taskLayout.barLeft ?? 8,
-															top: (layout.rowHeight - 16) / 2,
-															width: 16,
-															height: 16,
+															top: (layout.rowHeight - 20) / 2,
+															width: Math.max(44, layout.dayColumnWidth - 16),
 														}}
-													/>
+													>
+														<span className="block min-w-0 truncate whitespace-nowrap">
+															{missingEndDateBadge}
+														</span>
+													</button>
 												</div>
 											);
 										}
