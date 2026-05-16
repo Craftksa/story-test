@@ -1580,6 +1580,22 @@ export default function AdminDashboard() {
 				: null,
 		])
 	);
+	const taskModalOverlayClassName = "bg-black/75 backdrop-blur-md";
+	const taskModalContentClassName =
+		"fixed top-1/2 left-1/2 z-[60] max-h-[calc(100vh-2rem)] w-[min(92vw,48rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[28px] border border-white/[0.14] p-0 text-white shadow-[0_35px_100px_rgba(0,0,0,0.82),inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(255,255,255,0.04)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[28px] before:bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.12),transparent_28%),radial-gradient(circle_at_80%_88%,rgba(216,199,163,0.09),transparent_34%)] before:opacity-80 before:content-[''] after:pointer-events-none after:absolute after:inset-[1px] after:rounded-[27px] after:border after:border-white/[0.06] after:content-['']";
+	const taskModalSurfaceStyle = {
+		background:
+			"linear-gradient(145deg, rgba(20,24,30,0.96) 0%, rgba(14,18,24,0.94) 58%, rgba(10,14,18,0.98) 100%)",
+		backdropFilter: "blur(24px) saturate(125%)",
+		WebkitBackdropFilter: "blur(24px) saturate(125%)",
+	} as const;
+	const taskModalFieldClassName =
+		"border border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.04)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] placeholder:text-white/35 focus-visible:border-[rgba(216,199,163,0.34)] focus-visible:ring-[rgba(216,199,163,0.16)]";
+	const taskModalLabelClassName = "text-sm font-medium text-white/92";
+	const taskModalPrimaryButtonClassName =
+		"border border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.16)] text-[#e6d9bc] shadow-[0_0_24px_rgba(216,199,163,0.14),inset_0_1px_0_rgba(255,255,255,0.05)] hover:bg-[rgba(218,197,143,0.24)] hover:text-[#f2ead9]";
+	const taskModalSecondaryButtonClassName =
+		"border-white/[0.10] bg-[rgba(255,255,255,0.04)] text-white/88 shadow-none hover:bg-[rgba(255,255,255,0.08)] hover:text-white";
 	const weeklyLocationSummaries = buildWeeklyLocationSummaries(analysisProjectDetails);
 	const weeklyReportSummary = getWeeklyReportSummary(weeklyLocationSummaries);
 	const weeklyHighlights = buildWeeklyHighlights(weeklyLocationSummaries);
@@ -2454,31 +2470,35 @@ export default function AdminDashboard() {
 			</Tabs>
 
 			<Dialog open={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen}>
-				<DialogContent className="sm:max-w-2xl">
-					<div dir={dir} className="space-y-6">
+				<DialogContent
+					overlayClassName={taskModalOverlayClassName}
+					className={taskModalContentClassName}
+					style={taskModalSurfaceStyle}
+				>
+					<div dir={dir} className="relative z-[1] max-h-[calc(100vh-2rem)] overflow-y-auto px-8 py-8">
 						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
-							<DialogTitle>{t("Add Task")}</DialogTitle>
-							<DialogDescription>
+							<DialogTitle className="text-white">{t("Add Task")}</DialogTitle>
+							<DialogDescription className="text-white/60">
 								{t("This form is ready for database connection in the next phase")}
 							</DialogDescription>
 						</DialogHeader>
-						<div className="grid gap-4 md:grid-cols-2">
+						<div className="mt-6 grid gap-4 md:grid-cols-2">
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Task Name")}</label>
-								<Input placeholder={t("Enter task name")} />
+								<label className={taskModalLabelClassName}>{t("Task Name")}</label>
+								<Input className={taskModalFieldClassName} placeholder={t("Enter task name")} />
 							</div>
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Task Description")}</label>
-								<Textarea placeholder={t("Write a concise task description")} rows={3} />
+								<label className={taskModalLabelClassName}>{t("Task Description")}</label>
+								<Textarea className={taskModalFieldClassName} placeholder={t("Write a concise task description")} rows={3} />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Internal Owner")}</label>
-								<Input placeholder={t("Enter internal owner")} />
+								<label className={taskModalLabelClassName}>{t("Internal Owner")}</label>
+								<Input className={taskModalFieldClassName} placeholder={t("Enter internal owner")} />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Status")}</label>
+								<label className={taskModalLabelClassName}>{t("Status")}</label>
 								<Select>
-									<SelectTrigger>
+									<SelectTrigger className={taskModalFieldClassName}>
 										<SelectValue placeholder={t("Select status")} />
 									</SelectTrigger>
 									<SelectContent>
@@ -2491,17 +2511,17 @@ export default function AdminDashboard() {
 								</Select>
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Start Date")}</label>
-								<Input type="date" />
+								<label className={taskModalLabelClassName}>{t("Start Date")}</label>
+								<Input className={taskModalFieldClassName} type="date" />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("End Date")}</label>
-								<Input type="date" />
+								<label className={taskModalLabelClassName}>{t("End Date")}</label>
+								<Input className={taskModalFieldClassName} type="date" />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Priority")}</label>
+								<label className={taskModalLabelClassName}>{t("Priority")}</label>
 								<Select>
-									<SelectTrigger>
+									<SelectTrigger className={taskModalFieldClassName}>
 										<SelectValue placeholder={t("Select priority")} />
 									</SelectTrigger>
 									<SelectContent>
@@ -2512,15 +2532,18 @@ export default function AdminDashboard() {
 								</Select>
 							</div>
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Notes")}</label>
-								<Textarea placeholder={t("Task notes (optional)")} rows={4} />
+								<label className={taskModalLabelClassName}>{t("Notes")}</label>
+								<Textarea className={taskModalFieldClassName} placeholder={t("Task notes (optional)")} rows={4} />
 							</div>
 						</div>
-						<DialogFooter className={dir === "rtl" ? "sm:justify-start" : ""}>
-							<p className="text-xs text-muted-foreground">
+						<DialogFooter className={`mt-6 border-t border-white/[0.08] pt-5 ${dir === "rtl" ? "sm:justify-start" : ""}`}>
+							<p className="text-xs text-white/45">
 								{t("Saving will be connected to the database in the next phase")}
 							</p>
-							<Button type="button" disabled>
+							<Button type="button" variant="outline" onClick={() => setIsAddTaskModalOpen(false)} className={taskModalSecondaryButtonClassName}>
+								{t("Cancel")}
+							</Button>
+							<Button type="button" disabled className={taskModalPrimaryButtonClassName}>
 								{t("Save Task")}
 							</Button>
 						</DialogFooter>
@@ -2529,19 +2552,23 @@ export default function AdminDashboard() {
 			</Dialog>
 
 			<Dialog open={isApprovalModalOpen} onOpenChange={setIsApprovalModalOpen}>
-				<DialogContent className="sm:max-w-2xl">
-					<div dir={dir} className="space-y-6">
+				<DialogContent
+					overlayClassName={taskModalOverlayClassName}
+					className={taskModalContentClassName}
+					style={taskModalSurfaceStyle}
+				>
+					<div dir={dir} className="relative z-[1] max-h-[calc(100vh-2rem)] overflow-y-auto px-8 py-8">
 						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
-							<DialogTitle>{t("Request Client Approval")}</DialogTitle>
-							<DialogDescription>
+							<DialogTitle className="text-white">{t("Request Client Approval")}</DialogTitle>
+							<DialogDescription className="text-white/60">
 								{t("Approval sending will be activated in a later phase")}
 							</DialogDescription>
 						</DialogHeader>
-						<div className="grid gap-4 md:grid-cols-2">
+						<div className="mt-6 grid gap-4 md:grid-cols-2">
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Related Task")}</label>
+								<label className={taskModalLabelClassName}>{t("Related Task")}</label>
 								<Select>
-									<SelectTrigger>
+									<SelectTrigger className={taskModalFieldClassName}>
 										<SelectValue placeholder={t("Select related task")} />
 									</SelectTrigger>
 									<SelectContent>
@@ -2556,32 +2583,33 @@ export default function AdminDashboard() {
 								</Select>
 							</div>
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Request Title")}</label>
-								<Input placeholder={t("Enter request title")} />
+								<label className={taskModalLabelClassName}>{t("Request Title")}</label>
+								<Input className={taskModalFieldClassName} placeholder={t("Enter request title")} />
 							</div>
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Description")}</label>
-								<Textarea placeholder={t("Describe the approval request")} rows={3} />
+								<label className={taskModalLabelClassName}>{t("Description")}</label>
+								<Textarea className={taskModalFieldClassName} placeholder={t("Describe the approval request")} rows={3} />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Person Name")}</label>
-								<Input placeholder={t("Enter person name")} />
+								<label className={taskModalLabelClassName}>{t("Person Name")}</label>
+								<Input className={taskModalFieldClassName} placeholder={t("Enter person name")} />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Email")}</label>
-								<Input placeholder={t("Enter your email address")} type="email" />
+								<label className={taskModalLabelClassName}>{t("Email")}</label>
+								<Input className={taskModalFieldClassName} placeholder={t("Enter your email address")} type="email" />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("WhatsApp Number")}</label>
-								<Input placeholder={t("Enter WhatsApp number")} />
+								<label className={taskModalLabelClassName}>{t("WhatsApp Number")}</label>
+								<Input className={taskModalFieldClassName} placeholder={t("Enter WhatsApp number")} />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Response Deadline")}</label>
-								<Input type="date" />
+								<label className={taskModalLabelClassName}>{t("Response Deadline")}</label>
+								<Input className={taskModalFieldClassName} type="date" />
 							</div>
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Official Message")}</label>
+								<label className={taskModalLabelClassName}>{t("Official Message")}</label>
 								<Textarea
+									className={taskModalFieldClassName}
 									rows={4}
 									defaultValue={
 										lang === "ar"
@@ -2591,21 +2619,24 @@ export default function AdminDashboard() {
 								/>
 							</div>
 						</div>
-						<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-							<p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+						<div className="mt-5 rounded-2xl border border-white/[0.08] bg-[rgba(255,255,255,0.04)] p-4">
+							<p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
 								{t("Message Preview")}
 							</p>
-							<p className="mt-2 text-sm text-foreground/80">
+							<p className="mt-2 text-sm text-white/82">
 								{lang === "ar"
 									? `مرحباً، لديك طلب موافقة من Craft بخصوص مشروع ${selectedTimelineProjectName}.`
 									: `Hello, you have an approval request from Craft regarding project ${selectedTimelineProjectName}.`}
 							</p>
 						</div>
-						<DialogFooter className={dir === "rtl" ? "sm:justify-start" : ""}>
-							<Button type="button" variant="outline" disabled>
+						<DialogFooter className={`mt-6 border-t border-white/[0.08] pt-5 ${dir === "rtl" ? "sm:justify-start" : ""}`}>
+							<Button type="button" variant="outline" onClick={() => setIsApprovalModalOpen(false)} className={taskModalSecondaryButtonClassName}>
+								{t("Cancel")}
+							</Button>
+							<Button type="button" variant="outline" disabled className={taskModalSecondaryButtonClassName}>
 								{t("Save as Draft")}
 							</Button>
-							<Button type="button" disabled>
+							<Button type="button" disabled className={taskModalPrimaryButtonClassName}>
 								{t("Send Request")}
 							</Button>
 						</DialogFooter>
@@ -2614,19 +2645,23 @@ export default function AdminDashboard() {
 			</Dialog>
 
 			<Dialog open={isDelayModalOpen} onOpenChange={setIsDelayModalOpen}>
-				<DialogContent className="sm:max-w-2xl">
-					<div dir={dir} className="space-y-6">
+				<DialogContent
+					overlayClassName={taskModalOverlayClassName}
+					className={taskModalContentClassName}
+					style={taskModalSurfaceStyle}
+				>
+					<div dir={dir} className="relative z-[1] max-h-[calc(100vh-2rem)] overflow-y-auto px-8 py-8">
 						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
-							<DialogTitle>{t("Log Delay")}</DialogTitle>
-							<DialogDescription>
+							<DialogTitle className="text-white">{t("Log Delay")}</DialogTitle>
+							<DialogDescription className="text-white/60">
 								{t("Delay registration will be connected in a later phase")}
 							</DialogDescription>
 						</DialogHeader>
-						<div className="grid gap-4 md:grid-cols-2">
+						<div className="mt-6 grid gap-4 md:grid-cols-2">
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Related Task")}</label>
+								<label className={taskModalLabelClassName}>{t("Related Task")}</label>
 								<Select>
-									<SelectTrigger>
+									<SelectTrigger className={taskModalFieldClassName}>
 										<SelectValue placeholder={t("Select related task")} />
 									</SelectTrigger>
 									<SelectContent>
@@ -2641,13 +2676,13 @@ export default function AdminDashboard() {
 								</Select>
 							</div>
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Delay Reason")}</label>
-								<Textarea placeholder={t("Describe the delay reason")} rows={3} />
+								<label className={taskModalLabelClassName}>{t("Delay Reason")}</label>
+								<Textarea className={taskModalFieldClassName} placeholder={t("Describe the delay reason")} rows={3} />
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Responsible Party")}</label>
+								<label className={taskModalLabelClassName}>{t("Responsible Party")}</label>
 								<Select>
-									<SelectTrigger>
+									<SelectTrigger className={taskModalFieldClassName}>
 										<SelectValue placeholder={t("Select responsible party")} />
 									</SelectTrigger>
 									<SelectContent>
@@ -2660,20 +2695,23 @@ export default function AdminDashboard() {
 								</Select>
 							</div>
 							<div className="space-y-2">
-								<label className="text-sm font-medium">{t("Expected Delay Days")}</label>
-								<Input type="number" min="0" placeholder="0" />
+								<label className={taskModalLabelClassName}>{t("Expected Delay Days")}</label>
+								<Input className={taskModalFieldClassName} type="number" min="0" placeholder="0" />
 							</div>
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Required Action")}</label>
-								<Textarea placeholder={t("Describe the required action")} rows={3} />
+								<label className={taskModalLabelClassName}>{t("Required Action")}</label>
+								<Textarea className={taskModalFieldClassName} placeholder={t("Describe the required action")} rows={3} />
 							</div>
 							<div className="space-y-2 md:col-span-2">
-								<label className="text-sm font-medium">{t("Notes")}</label>
-								<Textarea placeholder={t("Task notes (optional)")} rows={3} />
+								<label className={taskModalLabelClassName}>{t("Notes")}</label>
+								<Textarea className={taskModalFieldClassName} placeholder={t("Task notes (optional)")} rows={3} />
 							</div>
 						</div>
-						<DialogFooter className={dir === "rtl" ? "sm:justify-start" : ""}>
-							<Button type="button" disabled>
+						<DialogFooter className={`mt-6 border-t border-white/[0.08] pt-5 ${dir === "rtl" ? "sm:justify-start" : ""}`}>
+							<Button type="button" variant="outline" onClick={() => setIsDelayModalOpen(false)} className={taskModalSecondaryButtonClassName}>
+								{t("Cancel")}
+							</Button>
+							<Button type="button" disabled className={taskModalPrimaryButtonClassName}>
 								{t("Save Delay")}
 							</Button>
 						</DialogFooter>
