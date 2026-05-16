@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { differenceInCalendarDays, format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -45,26 +46,18 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 
 function getTaskBarClasses(task: TimelineTask) {
 	if (task.isOverdue || task.status === "on_hold") {
-		return "border-rose-400/30 bg-rose-500/22 text-rose-50";
+		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
 	}
 
 	switch (task.status) {
 		case "completed":
-			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
+			return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white";
 		case "in_progress":
 		case "needs_review":
-			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 		case "not_started":
 		default:
 			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 	}
-}
-
-function getTaskIndicatorClasses(task: TimelineTask) {
-	if (task.isOverdue || task.status === "on_hold") return "bg-rose-400";
-	if (task.status === "completed") return "bg-emerald-400";
-	if (task.status === "in_progress" || task.status === "needs_review") return "bg-[#d8c7a3]";
-	return "bg-slate-400";
 }
 
 function getPriorityClasses(priority: TimelineTask["priority"]) {
@@ -101,10 +94,11 @@ function getTaskLayouts(
 		const startOffset = differenceInCalendarDays(task.startDate, timelineStart);
 		const endOffset = differenceInCalendarDays(task.endDate, timelineStart);
 		const barLeft = startOffset * layout.dayColumnWidth + 8;
-		const barWidth =
-			Math.max(1, endOffset - startOffset + 1) * layout.dayColumnWidth - 12;
-		const milestoneLeft =
-			endOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2 - 9;
+		const durationDays = Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1);
+		const barWidth = Math.max(
+			layout.dayColumnWidth - 12,
+			durationDays * layout.dayColumnWidth - 12
+		);
 
 		return [
 			task.id,
@@ -113,7 +107,7 @@ function getTaskLayouts(
 				barLeft,
 				barWidth,
 				barRight: barLeft + barWidth,
-				milestoneLeft,
+				durationDays,
 			},
 		] as const;
 	});
@@ -125,7 +119,7 @@ function getTaskLayouts(
 			barLeft: number;
 			barWidth: number;
 			barRight: number;
-			milestoneLeft: number;
+			durationDays: number;
 		}
 	>;
 }
@@ -186,6 +180,23 @@ export default function TaskTimelineView({
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
 	const taskLayouts = getTaskLayouts(timelineTasks, timelineRange.start, layout);
 
+	useEffect(() => {
+		if (process.env.NODE_ENV !== "development") return;
+
+		timelineTasks.forEach((task) => {
+			const taskLayout = taskLayouts[task.id];
+			if (!taskLayout) return;
+
+			console.debug("[timeline-task]", {
+				title: task.title,
+				mappedStartDate: task.startDate.toISOString(),
+				mappedEndDate: task.endDate.toISOString(),
+				durationDays: task.durationDays,
+				width: taskLayout.barWidth,
+			});
+		});
+	}, [taskLayouts, timelineTasks]);
+
 	return (
 		<Card className="w-full min-w-0 max-w-full overflow-hidden border-border/60 shadow-sm">
 			<CardHeader className="space-y-4 pb-4">
@@ -194,13 +205,10 @@ export default function TaskTimelineView({
 						<CardTitle className="text-xl tracking-[0.08em]">
 							{timelineTitle}
 						</CardTitle>
-						<p className="mt-2 text-sm text-muted-foreground">
-							{t("A premium gantt view of the active task plan and weekly priorities")}
-						</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
 						<span className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-							{t("Gantt")}
+							{t("Project Timeline View")}
 						</span>
 						{showWeeklyTable && (
 							<span className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -219,7 +227,7 @@ export default function TaskTimelineView({
 							</p>
 							{!compact && (
 								<p className="text-xs text-white/55">
-									{t("Task bars reflect task start dates, due dates, milestones, and sequenced dependencies")}
+									{t("Task bars reflect task start dates and due dates")}
 								</p>
 							)}
 						</div>
@@ -372,48 +380,11 @@ export default function TaskTimelineView({
 										</div>
 									)}
 
-									<svg
-										className="pointer-events-none absolute inset-0 z-[9]"
-										width={timelineWidth}
-										height={bodyHeight}
-										viewBox={`0 0 ${timelineWidth} ${bodyHeight}`}
-										fill="none"
-									>
-										{timelineTasks.flatMap((task) =>
-											task.visualDependencies.map((dependencyId) => {
-												const from = taskLayouts[dependencyId];
-												const to = taskLayouts[task.id];
-												if (!from || !to) return null;
-
-												const startX = from.barRight;
-												const endX = to.barLeft;
-												const elbowX = Math.max(startX + 16, endX - 16);
-
-												return (
-													<g key={`${dependencyId}-${task.id}`}>
-														<path
-															d={`M ${startX} ${from.rowCenter} H ${elbowX} V ${to.rowCenter} H ${endX}`}
-															stroke="rgba(255,255,255,0.72)"
-															strokeWidth="1.5"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-														/>
-														<circle
-															cx={endX}
-															cy={to.rowCenter}
-															r="2.5"
-															fill="rgba(255,255,255,0.92)"
-														/>
-													</g>
-												);
-											})
-										)}
-									</svg>
-
 									{timelineTasks.map((task, index) => {
 										const taskLayout = taskLayouts[task.id];
 										const barClasses = getTaskBarClasses(task);
-										const showInlineLabel = taskLayout.barWidth >= 130;
+										const minimumVisibleBarWidth = layout.dayColumnWidth - 12;
+										const showInlineContent = taskLayout.barWidth >= 88;
 										const taskHref = resolveTaskHref(task.id);
 
 										return (
@@ -429,35 +400,34 @@ export default function TaskTimelineView({
 													type="button"
 													onClick={() => openTask(task.id)}
 													disabled={!taskHref}
+													title={task.name}
+													aria-label={task.name}
 													className={cn(
-														"absolute top-1/2 flex h-7 -translate-y-1/2 items-center rounded-full border px-3 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:-translate-y-[54%] disabled:cursor-default disabled:hover:-translate-y-1/2",
+														"absolute flex h-6 items-center overflow-hidden rounded-md border px-2 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default",
 														barClasses
 													)}
 													style={{
 														left: taskLayout.barLeft,
-														width: taskLayout.barWidth,
+														top: (layout.rowHeight - 24) / 2,
+														width: Math.max(taskLayout.barWidth, minimumVisibleBarWidth),
 													}}
 												>
-													<div className="flex min-w-0 items-center gap-2">
-														<span className={cn("size-2 rounded-full", getTaskIndicatorClasses(task))} />
-														{showInlineLabel && (
-															<span className="truncate text-xs font-semibold tracking-[0.04em]">
+													<div
+														className={cn(
+															"flex min-w-0 flex-1 items-center overflow-hidden",
+															isRTL ? "justify-end text-right" : "justify-start text-left"
+														)}
+													>
+														{showInlineContent ? (
+															<span
+																className="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.04em] text-white"
+																title={task.name}
+															>
 																{task.name}
 															</span>
-														)}
+														) : null}
 													</div>
 												</button>
-
-												{task.isMilestone && task.milestoneDate && (
-													<button
-														type="button"
-														onClick={() => openTask(task.id)}
-														disabled={!taskHref}
-														className="absolute top-1/2 z-20 size-[18px] -translate-y-1/2 rotate-45 rounded-[2px] border border-white/60 bg-white/85 shadow-sm transition-transform duration-200 hover:scale-105"
-														style={{ left: taskLayout.milestoneLeft }}
-														aria-label={task.name}
-													/>
-												)}
 											</div>
 										);
 									})}
