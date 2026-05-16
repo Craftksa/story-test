@@ -14,6 +14,7 @@ export type TimelineSourceTask = Record<string, unknown> & {
 	taskType?: string;
 	startDate?: string | Date | null;
 	endDate?: string | Date | null;
+	dueDate?: string | Date | null;
 	createdAt?: string | Date | null;
 	updatedAt?: string | Date | null;
 	notes?: string | null;
@@ -27,6 +28,7 @@ export type TimelineTeamMember = {
 
 export type TimelineTask = {
 	id: string;
+	title: string;
 	name: string;
 	status: string;
 	type: string;
@@ -36,11 +38,13 @@ export type TimelineTask = {
 	createdAt: Date | null;
 	updatedAt: Date | null;
 	notes: string | null;
+	owner: string | null;
 	ownerLabel: string | null;
 	progress: number;
 	priority: "high" | "medium" | "low";
 	isOverdue: boolean;
 	durationDays: number;
+	originalTask: TimelineSourceTask;
 };
 
 export type TimelineRange = {
@@ -145,7 +149,9 @@ export function createTimelineTasks(
 			const updatedAt = toDate(task.updatedAt);
 			const startDate = toDate(task.startDate) ?? createdAt ?? referenceDate;
 			const endDateCandidate =
-				toDate(task.endDate) ?? toDate(task.dueDate) ?? startDate ?? createdAt ?? referenceDate;
+				toDate(task.endDate) ??
+				toDate(task.dueDate) ??
+				addDays(startDate, 3);
 			const endDate =
 				endDateCandidate.getTime() < startDate.getTime() ? startDate : endDateCandidate;
 			const status =
@@ -158,6 +164,7 @@ export function createTimelineTasks(
 			return [
 				{
 					id,
+					title: name,
 					name,
 					status,
 					type:
@@ -168,11 +175,13 @@ export function createTimelineTasks(
 					createdAt,
 					updatedAt,
 					notes: typeof task.notes === "string" ? task.notes : null,
+					owner: getOwnerLabel(task, projectTeam),
 					ownerLabel: getOwnerLabel(task, projectTeam),
 					progress: getTaskProgress(status, startDate, endDate, referenceDate),
 					priority: getTaskPriority(status, isOverdue),
 					isOverdue,
 					durationDays: Math.max(1, differenceInCalendarDays(endDate, startDate) + 1),
+					originalTask: task,
 				},
 			];
 		})

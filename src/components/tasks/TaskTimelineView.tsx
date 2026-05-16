@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { differenceInCalendarDays, format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -93,10 +94,11 @@ function getTaskLayouts(
 		const startOffset = differenceInCalendarDays(task.startDate, timelineStart);
 		const endOffset = differenceInCalendarDays(task.endDate, timelineStart);
 		const barLeft = startOffset * layout.dayColumnWidth + 8;
-		const barWidth =
-			Math.max(1, endOffset - startOffset + 1) * layout.dayColumnWidth - 12;
-		const milestoneLeft =
-			endOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2 - 9;
+		const durationDays = Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1);
+		const barWidth = Math.max(
+			layout.dayColumnWidth - 12,
+			durationDays * layout.dayColumnWidth - 12
+		);
 
 		return [
 			task.id,
@@ -105,7 +107,7 @@ function getTaskLayouts(
 				barLeft,
 				barWidth,
 				barRight: barLeft + barWidth,
-				milestoneLeft,
+				durationDays,
 			},
 		] as const;
 	});
@@ -117,7 +119,7 @@ function getTaskLayouts(
 			barLeft: number;
 			barWidth: number;
 			barRight: number;
-			milestoneLeft: number;
+			durationDays: number;
 		}
 	>;
 }
@@ -177,6 +179,23 @@ export default function TaskTimelineView({
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
 	const taskLayouts = getTaskLayouts(timelineTasks, timelineRange.start, layout);
+
+	useEffect(() => {
+		if (process.env.NODE_ENV !== "development") return;
+
+		timelineTasks.forEach((task) => {
+			const taskLayout = taskLayouts[task.id];
+			if (!taskLayout) return;
+
+			console.debug("[timeline-task]", {
+				title: task.title,
+				mappedStartDate: task.startDate.toISOString(),
+				mappedEndDate: task.endDate.toISOString(),
+				durationDays: task.durationDays,
+				width: taskLayout.barWidth,
+			});
+		});
+	}, [taskLayouts, timelineTasks]);
 
 	return (
 		<Card className="w-full min-w-0 max-w-full overflow-hidden border-border/60 shadow-sm">
@@ -364,7 +383,7 @@ export default function TaskTimelineView({
 									{timelineTasks.map((task, index) => {
 										const taskLayout = taskLayouts[task.id];
 										const barClasses = getTaskBarClasses(task);
-										const minimumVisibleBarWidth = Math.max(40, layout.dayColumnWidth - 12);
+										const minimumVisibleBarWidth = layout.dayColumnWidth - 12;
 										const showInlineContent = taskLayout.barWidth >= 88;
 										const taskHref = resolveTaskHref(task.id);
 
