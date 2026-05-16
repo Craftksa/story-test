@@ -43,6 +43,7 @@ import {
 	filterProjectsByVisibility,
 	ProjectVisibilityScope,
 } from "@/lib/project-visibility";
+import { cn } from "@/lib/utils";
 
 type ProjectStatus = 'in_progress' | 'not_started' | 'completed' | 'on_hold';
 type RecentActivityStatus = ProjectStatus | 'needs_review';
