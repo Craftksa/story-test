@@ -147,8 +147,9 @@ export function createTimelineTasks(
 
 		const createdAt = toDate(task.createdAt);
 		const updatedAt = toDate(task.updatedAt);
+		const explicitEndDate = toDate(task.endDate) ?? toDate(task.dueDate);
 		const startDate = toDate(task.startDate) ?? createdAt ?? referenceDate;
-		const endDateCandidate = toDate(task.endDate) ?? toDate(task.dueDate) ?? addDays(startDate, 3);
+		const endDateCandidate = explicitEndDate ?? addDays(startDate, 3);
 		const endDate =
 			endDateCandidate.getTime() < startDate.getTime() ? startDate : endDateCandidate;
 		const status =
@@ -160,7 +161,10 @@ export function createTimelineTasks(
 		const ownerLabel = getOwnerLabel(task, projectTeam);
 		const notes = typeof task.notes === "string" ? task.notes : null;
 
-		const isOverdue = status !== "completed" && endDate.getTime() < referenceDate.getTime();
+		const isOverdue =
+			Boolean(explicitEndDate) &&
+			status !== "completed" &&
+			endDate.getTime() < referenceDate.getTime();
 
 		timelineTasks.push({
 			id,

@@ -44,17 +44,75 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 	maxBodyHeight: "min(58vh, 34rem)",
 };
 
-function getTaskBarClasses(task: TimelineTask) {
-	if (task.isOverdue || task.status === "on_hold") {
-		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
+function getTaskVisualState(status: string) {
+	const normalizedStatus = status.trim().toLowerCase();
+
+	if (
+		[
+			"completed",
+			"done",
+			"مكتمل",
+			"منجز",
+			"تم",
+		].includes(normalizedStatus)
+	) {
+		return "completed";
 	}
 
-	switch (task.status) {
+	if (
+		[
+			"paused",
+			"stopped",
+			"blocked",
+			"on_hold",
+			"متوقف",
+			"متوقف مؤقتاً",
+			"متوقف مؤقتا",
+			"محظور",
+			"متعطل",
+		].includes(normalizedStatus)
+	) {
+		return "blocked";
+	}
+
+	if (
+		[
+			"not_started",
+			"pending",
+			"لم يبدأ",
+			"غير مبدوء",
+			"قيد الانتظار",
+		].includes(normalizedStatus)
+	) {
+		return "not_started";
+	}
+
+	if (
+		[
+			"in_progress",
+			"working",
+			"active",
+			"needs_review",
+			"قيد التنفيذ",
+			"نشط",
+			"يعمل",
+		].includes(normalizedStatus)
+	) {
+		return "in_progress";
+	}
+
+	return "in_progress";
+}
+
+function getTaskBarClasses(task: TimelineTask) {
+	switch (getTaskVisualState(task.status)) {
 		case "completed":
 			return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white";
-		case "in_progress":
-		case "needs_review":
+		case "blocked":
+			return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
 		case "not_started":
+			return "border-[rgba(112,118,128,0.42)] bg-[rgba(112,118,128,0.28)] text-white";
+		case "in_progress":
 		default:
 			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 	}
