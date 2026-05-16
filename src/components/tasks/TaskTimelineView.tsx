@@ -364,7 +364,8 @@ export default function TaskTimelineView({
 									{timelineTasks.map((task, index) => {
 										const taskLayout = taskLayouts[task.id];
 										const barClasses = getTaskBarClasses(task);
-										const showInlineLabel = taskLayout.barWidth >= 120;
+										const minimumVisibleBarWidth = Math.max(40, layout.dayColumnWidth - 12);
+										const showInlineContent = taskLayout.barWidth >= 88;
 										const taskHref = resolveTaskHref(task.id);
 
 										return (
@@ -383,28 +384,29 @@ export default function TaskTimelineView({
 													title={task.name}
 													aria-label={task.name}
 													className={cn(
-														"absolute top-1/2 flex h-7 -translate-y-1/2 items-center overflow-hidden rounded-md border px-2.5 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:-translate-y-[54%] disabled:cursor-default disabled:hover:-translate-y-1/2",
+														"absolute flex h-6 items-center overflow-hidden rounded-md border px-2 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default",
 														barClasses
 													)}
 													style={{
 														left: taskLayout.barLeft,
-														width: taskLayout.barWidth,
+														top: (layout.rowHeight - 24) / 2,
+														width: Math.max(taskLayout.barWidth, minimumVisibleBarWidth),
 													}}
 												>
 													<div
 														className={cn(
 															"flex min-w-0 flex-1 items-center overflow-hidden",
-															isRTL ? "flex-row-reverse text-right" : "text-left"
+															isRTL ? "justify-end text-right" : "justify-start text-left"
 														)}
 													>
-														{showInlineLabel && (
+														{showInlineContent ? (
 															<span
 																className="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.04em] text-white"
 																title={task.name}
 															>
 																{task.name}
 															</span>
-														)}
+														) : null}
 													</div>
 												</button>
 											</div>
