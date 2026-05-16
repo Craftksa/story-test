@@ -85,6 +85,29 @@ function getDurationLabel(task: TimelineTask, locale: typeof enUS) {
 	})}`;
 }
 
+function getTranslatedTaskStatusLabel(task: TimelineTask, t: ReturnType<typeof useTranslations>) {
+	switch (task.status) {
+		case "completed":
+		case "in_progress":
+		case "not_started":
+		case "on_hold":
+		case "needs_review":
+			return t(task.status);
+		default:
+			return formatStatus(task.status);
+	}
+}
+
+function getTranslatedTaskTypeLabel(task: TimelineTask, t: ReturnType<typeof useTranslations>) {
+	switch (task.type) {
+		case "foundations":
+		case "finishes":
+			return t(task.type);
+		default:
+			return formatStatus(task.type);
+	}
+}
+
 function getTaskLayouts(
 	tasks: TimelineTask[],
 	timelineStart: Date,
@@ -352,11 +375,11 @@ export default function TaskTimelineView({
 															isRTL && "justify-end"
 														)}
 													>
-														<span>{t(formatStatus(task.status))}</span>
+														<span>{getTranslatedTaskStatusLabel(task, t)}</span>
 														<span className="text-white/20">|</span>
 														<span>{task.ownerLabel || t("Not set")}</span>
 														<span className="text-white/20">|</span>
-														<span>{t(formatStatus(task.type))}</span>
+														<span>{getTranslatedTaskTypeLabel(task, t)}</span>
 													</div>
 												</div>
 											</div>
@@ -556,7 +579,7 @@ export default function TaskTimelineView({
 																		: "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-500/30 dark:bg-slate-500/10 dark:text-slate-200"
 														)}
 													>
-														{t(formatStatus(task.status))}
+														{getTranslatedTaskStatusLabel(task, t)}
 													</span>
 												</td>
 											</tr>
