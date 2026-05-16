@@ -373,13 +373,6 @@ export default function TaskTimelineView({
 										const taskLayout = taskLayouts[task.id];
 										const barClasses = getTaskBarClasses(task);
 										const showInlineLabel = taskLayout.barWidth >= 120;
-										const canShowAdjacentLabel =
-											!showInlineLabel &&
-											taskLayout.barRight + 84 < timelineWidth;
-										const adjacentLabelWidth = Math.min(
-											160,
-											Math.max(96, timelineWidth - taskLayout.barRight - 12)
-										);
 										const taskHref = resolveTaskHref(task.id);
 
 										return (
@@ -398,7 +391,7 @@ export default function TaskTimelineView({
 													title={task.name}
 													aria-label={task.name}
 													className={cn(
-														"absolute top-1/2 flex h-7 -translate-y-1/2 items-center rounded-full border px-3 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:-translate-y-[54%] disabled:cursor-default disabled:hover:-translate-y-1/2",
+														"absolute top-1/2 flex h-7 -translate-y-1/2 items-center overflow-hidden rounded-full border px-2.5 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:-translate-y-[54%] disabled:cursor-default disabled:hover:-translate-y-1/2",
 														barClasses
 													)}
 													style={{
@@ -406,30 +399,23 @@ export default function TaskTimelineView({
 														width: taskLayout.barWidth,
 													}}
 												>
-													<div className="flex min-w-0 items-center gap-2">
+													<div
+														className={cn(
+															"flex min-w-0 flex-1 items-center gap-2 overflow-hidden",
+															isRTL ? "flex-row-reverse text-right" : "text-left"
+														)}
+													>
 														<span className={cn("size-2 rounded-full", getTaskIndicatorClasses(task))} />
 														{showInlineLabel && (
-															<span className="truncate text-xs font-semibold tracking-[0.04em] text-white" title={task.name}>
+															<span
+																className="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.04em] text-white"
+																title={task.name}
+															>
 																{task.name}
 															</span>
 														)}
 													</div>
 												</button>
-
-												{canShowAdjacentLabel && (
-													<span
-														className="pointer-events-none absolute top-1/2 z-[11] -translate-y-1/2 truncate text-[11px] font-medium tracking-[0.03em] text-white/88"
-														style={{
-															left: taskLayout.barRight + 8,
-															width: adjacentLabelWidth,
-															direction: isRTL ? "rtl" : "ltr",
-															textAlign: isRTL ? "right" : "left",
-														}}
-														title={task.name}
-													>
-														{task.name}
-													</span>
-												)}
 											</div>
 										);
 									})}
