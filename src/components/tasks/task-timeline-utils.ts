@@ -39,10 +39,6 @@ export type TimelineTask = {
 	ownerLabel: string | null;
 	progress: number;
 	priority: "high" | "medium" | "low";
-	dependencies: string[];
-	visualDependencies: string[];
-	isMilestone: boolean;
-	milestoneDate: Date | null;
 	isOverdue: boolean;
 	durationDays: number;
 };
@@ -52,16 +48,6 @@ export type TimelineRange = {
 	end: Date;
 	totalDays: number;
 };
-
-const MILESTONE_KEYWORDS = [
-	"approval",
-	"handover",
-	"review",
-	"inspection",
-	"sign off",
-	"sign-off",
-	"closeout",
-];
 
 function toDate(value: unknown): Date | null {
 	if (!value) return null;
@@ -100,32 +86,6 @@ function getTaskPriority(status: string, isOverdue: boolean): "high" | "medium" 
 	return "low";
 }
 
-function getExplicitDependencies(task: TimelineSourceTask) {
-	const dependencySources = [
-		task.dependencies,
-		task.dependencyIds,
-		task.dependsOn,
-		task.dependsOnTaskIds,
-		task.predecessors,
-	];
-
-	for (const source of dependencySources) {
-		if (!Array.isArray(source)) continue;
-		const ids = source
-			.map((item) => {
-				if (typeof item === "string") return item.trim();
-				if (!item || typeof item !== "object") return "";
-				if ("id" in item && typeof item.id === "string") return item.id.trim();
-				if ("taskId" in item && typeof item.taskId === "string") return item.taskId.trim();
-				return "";
-			})
-			.filter(Boolean);
-		if (ids.length > 0) return ids;
-	}
-
-	return [];
-}
-
 function getOwnerLabel(task: TimelineSourceTask, projectTeam: TimelineTeamMember[]) {
 	const ownerCandidates = [
 		typeof task.ownerName === "string" ? task.ownerName : null,
@@ -157,11 +117,6 @@ function getOwnerLabel(task: TimelineSourceTask, projectTeam: TimelineTeamMember
 		.filter(Boolean);
 
 	return teamMembers.length > 0 ? teamMembers.join(", ") : null;
-}
-
-function hasMilestoneSignal(task: TimelineTask) {
-	const normalizedName = task.name.toLowerCase();
-	return MILESTONE_KEYWORDS.some((keyword) => normalizedName.includes(keyword));
 }
 
 export function createTimelineTasks(
@@ -199,28 +154,6 @@ export function createTimelineTasks(
 					: "not_started";
 			const isOverdue =
 				status !== "completed" && endDate.getTime() < referenceDate.getTime();
-			const dependencies = getExplicitDependencies(task);
-			const isMilestone = hasMilestoneSignal({
-				id,
-				name,
-				status,
-				type: "",
-				startDate,
-				endDate,
-				dueDate: endDate,
-				createdAt,
-				updatedAt,
-				notes: typeof task.notes === "string" ? task.notes : null,
-				ownerLabel: null,
-				progress: 0,
-				priority: "low",
-				dependencies: [],
-				visualDependencies: [],
-				isMilestone: false,
-				milestoneDate: null,
-				isOverdue,
-				durationDays: 1,
-			});
 
 			return [
 				{
@@ -238,10 +171,6 @@ export function createTimelineTasks(
 					ownerLabel: getOwnerLabel(task, projectTeam),
 					progress: getTaskProgress(status, startDate, endDate, referenceDate),
 					priority: getTaskPriority(status, isOverdue),
-					dependencies,
-					visualDependencies: dependencies,
-					isMilestone,
-					milestoneDate: isMilestone ? endDate : null,
 					isOverdue,
 					durationDays: Math.max(1, differenceInCalendarDays(endDate, startDate) + 1),
 				},

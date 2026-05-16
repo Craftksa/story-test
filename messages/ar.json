@@ -470,6 +470,7 @@
   "Construction Roadmap": "خارطة تنفيذ المشروع",
   "A premium gantt view of the active task plan and weekly priorities": "عرض زمني أنيق للخطة التنفيذية وأولويات الأسبوع",
   "Task bars reflect task start dates, due dates, milestones, and sequenced dependencies": "تعرض أشرطة المهام تواريخ البدء والتسليم والمعالم والاعتمادات المتتابعة",
+  "Task bars reflect task start dates and due dates": "تعرض أشرطة المهام تواريخ البدء وتواريخ التسليم",
   "This Week": "هذا الأسبوع",
   "Owner": "المسؤول",
   "Priority": "الأولوية",

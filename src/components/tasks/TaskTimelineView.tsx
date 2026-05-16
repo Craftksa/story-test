@@ -216,7 +216,7 @@ export default function TaskTimelineView({
 							</p>
 							{!compact && (
 								<p className="text-xs text-white/55">
-									{t("Task bars reflect task start dates, due dates, milestones, and sequenced dependencies")}
+									{t("Task bars reflect task start dates and due dates")}
 								</p>
 							)}
 						</div>
@@ -369,44 +369,6 @@ export default function TaskTimelineView({
 										</div>
 									)}
 
-									<svg
-										className="pointer-events-none absolute inset-0 z-[9]"
-										width={timelineWidth}
-										height={bodyHeight}
-										viewBox={`0 0 ${timelineWidth} ${bodyHeight}`}
-										fill="none"
-									>
-										{timelineTasks.flatMap((task) =>
-											task.visualDependencies.map((dependencyId) => {
-												const from = taskLayouts[dependencyId];
-												const to = taskLayouts[task.id];
-												if (!from || !to) return null;
-
-												const startX = from.barRight;
-												const endX = to.barLeft;
-												const elbowX = Math.max(startX + 16, endX - 16);
-
-												return (
-													<g key={`${dependencyId}-${task.id}`}>
-														<path
-															d={`M ${startX} ${from.rowCenter} H ${elbowX} V ${to.rowCenter} H ${endX}`}
-															stroke="rgba(255,255,255,0.72)"
-															strokeWidth="1.5"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-														/>
-														<circle
-															cx={endX}
-															cy={to.rowCenter}
-															r="2.5"
-															fill="rgba(255,255,255,0.92)"
-														/>
-													</g>
-												);
-											})
-										)}
-									</svg>
-
 									{timelineTasks.map((task, index) => {
 										const taskLayout = taskLayouts[task.id];
 										const barClasses = getTaskBarClasses(task);
@@ -467,17 +429,6 @@ export default function TaskTimelineView({
 													>
 														{task.name}
 													</span>
-												)}
-
-												{task.isMilestone && task.milestoneDate && (
-													<button
-														type="button"
-														onClick={() => openTask(task.id)}
-														disabled={!taskHref}
-														className="absolute top-1/2 z-20 size-[18px] -translate-y-1/2 rotate-45 rounded-[2px] border border-white/60 bg-white/85 shadow-sm transition-transform duration-200 hover:scale-105"
-														style={{ left: taskLayout.milestoneLeft }}
-														aria-label={task.name}
-													/>
 												)}
 											</div>
 										);
