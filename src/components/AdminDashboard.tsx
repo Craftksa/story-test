@@ -44,7 +44,6 @@ import {
 	filterProjectsByVisibility,
 	ProjectVisibilityScope,
 } from "@/lib/project-visibility";
-import { differenceInCalendarDays } from "date-fns";
 
 type ProjectStatus = 'in_progress' | 'not_started' | 'completed' | 'on_hold';
 type RecentActivityStatus = ProjectStatus | 'needs_review';
@@ -1554,24 +1553,6 @@ export default function AdminDashboard() {
 	const dashboardTimelineTasks = selectedTimelineProjectDetails
 		? buildDashboardTimelineTasks([selectedTimelineProjectDetails])
 		: [];
-	const selectedProjectTasks = selectedTimelineProjectDetails?.tasks ?? [];
-	const overdueProjectTasks = selectedProjectTasks
-		.filter((task) => {
-			const endDate = getDateValue(task.endDate);
-			return Boolean(
-				endDate &&
-				endDate.getTime() < Date.now() &&
-				task.taskStatus !== 'completed'
-			);
-		})
-		.map((task) => {
-			const endDate = getDateValue(task.endDate)!;
-			return {
-				...task,
-				overdueDays: Math.max(1, differenceInCalendarDays(new Date(), endDate)),
-			};
-		})
-		.sort((left, right) => right.overdueDays - left.overdueDays);
 	const dashboardTaskHrefById = new Map(
 		dashboardTimelineTasks.map((task) => [
 			task.taskId,
@@ -1868,7 +1849,7 @@ export default function AdminDashboard() {
 
 					{!selectedTimelineProjectId ? (
 						<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
-							{t("Select a project to view the tasks operations center")}
+							{t("Select a project to view its timeline")}
 						</div>
 					) : isSelectedTimelineProjectLoading ? (
 						<div className="flex items-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
@@ -1880,45 +1861,7 @@ export default function AdminDashboard() {
 							{t("There are no tasks at this stage")}
 						</div>
 					) : (
-						<div className="min-w-0 max-w-full space-y-4 overflow-hidden">
-							<Card className="border-border/60 bg-card shadow-sm">
-								<CardContent className="flex flex-col gap-3 pt-6 lg:flex-row lg:items-center lg:justify-between">
-									<div className="space-y-1">
-										<p className="text-sm font-semibold tracking-[0.08em] text-foreground">
-											{t("Project Operations")}
-										</p>
-										<p className="text-sm text-muted-foreground">
-											{selectedTimelineProjectName}
-										</p>
-									</div>
-									<div className="flex flex-col gap-2 sm:flex-row">
-										<Button
-											type="button"
-											onClick={() => setIsAddTaskModalOpen(true)}
-											className="border border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.24)] text-foreground shadow-none hover:bg-[rgba(218,197,143,0.34)]"
-										>
-											{t("Add Task")}
-										</Button>
-										<Button
-											type="button"
-											variant="outline"
-											onClick={() => setIsApprovalModalOpen(true)}
-											className="border-[rgba(218,197,143,0.24)] bg-background/70 hover:bg-[rgba(218,197,143,0.08)]"
-										>
-											{t("Request Client Approval")}
-										</Button>
-										<Button
-											type="button"
-											variant="outline"
-											onClick={() => setIsDelayModalOpen(true)}
-											className="border-[rgba(218,197,143,0.24)] bg-background/70 hover:bg-[rgba(218,197,143,0.08)]"
-										>
-											{t("Log Delay")}
-										</Button>
-									</div>
-								</CardContent>
-							</Card>
-
+						<div className="min-w-0 max-w-full overflow-hidden">
 							<div className="min-w-0 max-w-full overflow-hidden">
 								<TaskTimelineView
 									projectId={selectedTimelineProjectId}
@@ -1934,83 +1877,6 @@ export default function AdminDashboard() {
 									compact
 								/>
 							</div>
-
-							<Card className="border-border/60 shadow-sm">
-								<CardHeader>
-									<CardTitle>{t("Client Approval Requests")}</CardTitle>
-									<CardDescription>
-										{t("Approval requests and response tracking will appear here after approvals are connected.")}
-									</CardDescription>
-								</CardHeader>
-								<CardContent>
-									<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
-										{t("There are no approval requests linked to this project yet")}
-									</div>
-								</CardContent>
-							</Card>
-
-							<Card className="border-border/60 shadow-sm">
-								<CardHeader>
-									<CardTitle>{t("Delays and Blockers")}</CardTitle>
-									<CardDescription>
-										{t("Real overdue tasks based on the selected project schedule")}
-									</CardDescription>
-								</CardHeader>
-								<CardContent>
-									{overdueProjectTasks.length === 0 ? (
-										<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
-											{t("There are no recorded delays for this project right now")}
-										</div>
-									) : (
-										<div className="space-y-3">
-											{overdueProjectTasks.map((task) => (
-												<div
-													key={task.taskId}
-													className="rounded-2xl border border-border/60 bg-background/70 p-4 shadow-sm"
-												>
-													<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-														<div className="space-y-2">
-															<h4 className="text-sm font-semibold text-foreground">
-																{task.taskName || t("Not set")}
-															</h4>
-															<div className="flex flex-wrap items-center gap-2">
-																<Badge
-																	variant="outline"
-																	className="border-rose-500/25 bg-rose-500/10 text-rose-300"
-																>
-																	{t(task.taskStatus || "not_started")}
-																</Badge>
-																<Badge
-																	variant="outline"
-																	className="border-[rgba(218,197,143,0.22)] bg-[rgba(218,197,143,0.10)] text-[#d8c7a3]"
-																>
-																	{t("Delayed for X days", {
-																		days: String(task.overdueDays),
-																	})}
-																</Badge>
-															</div>
-														</div>
-														<div className="grid gap-3 text-sm lg:max-w-xl lg:grid-cols-2">
-															<div className="rounded-xl border border-border/50 bg-background/60 px-3 py-3">
-																<p className="text-xs text-muted-foreground">{t("Reason")}</p>
-																<p className="mt-1 font-medium text-foreground">
-																	{task.notes?.trim() || t("No reason has been recorded yet")}
-																</p>
-															</div>
-															<div className="rounded-xl border border-border/50 bg-background/60 px-3 py-3">
-																<p className="text-xs text-muted-foreground">{t("Required Action")}</p>
-																<p className="mt-1 font-medium text-foreground">
-																	{t("Update the date or log the delay reason")}
-																</p>
-															</div>
-														</div>
-													</div>
-												</div>
-											))}
-										</div>
-									)}
-								</CardContent>
-							</Card>
 						</div>
 					)}
 				</TabsContent>

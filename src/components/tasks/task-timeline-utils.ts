@@ -35,6 +35,7 @@ export type TimelineTask = {
 	startDate: Date;
 	endDate: Date;
 	dueDate: Date;
+	hasExplicitEndDate: boolean;
 	createdAt: Date | null;
 	updatedAt: Date | null;
 	notes: string | null;
@@ -148,10 +149,8 @@ export function createTimelineTasks(
 			const createdAt = toDate(task.createdAt);
 			const updatedAt = toDate(task.updatedAt);
 			const startDate = toDate(task.startDate) ?? createdAt ?? referenceDate;
-			const endDateCandidate =
-				toDate(task.endDate) ??
-				toDate(task.dueDate) ??
-				addDays(startDate, 3);
+			const explicitEndDate = toDate(task.endDate) ?? toDate(task.dueDate);
+			const endDateCandidate = explicitEndDate ?? startDate;
 			const endDate =
 				endDateCandidate.getTime() < startDate.getTime() ? startDate : endDateCandidate;
 			const status =
@@ -159,7 +158,9 @@ export function createTimelineTasks(
 					? task.taskStatus
 					: "not_started";
 			const isOverdue =
-				status !== "completed" && endDate.getTime() < referenceDate.getTime();
+				Boolean(explicitEndDate) &&
+				status !== "completed" &&
+				endDate.getTime() < referenceDate.getTime();
 
 			return [
 				{
@@ -172,6 +173,7 @@ export function createTimelineTasks(
 					startDate,
 					endDate,
 					dueDate: endDate,
+					hasExplicitEndDate: Boolean(explicitEndDate),
 					createdAt,
 					updatedAt,
 					notes: typeof task.notes === "string" ? task.notes : null,

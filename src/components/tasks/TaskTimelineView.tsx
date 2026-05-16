@@ -44,17 +44,35 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 	maxBodyHeight: "min(58vh, 34rem)",
 };
 
-function getTaskBarClasses(task: TimelineTask) {
-	if (task.isOverdue || task.status === "on_hold") {
-		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
+function getTaskVisualState(status: string) {
+	const normalizedStatus = status.trim().toLowerCase();
+
+	if (["completed", "done", "complete"].includes(normalizedStatus)) {
+		return "completed";
 	}
 
-	switch (task.status) {
+	if (
+		["on_hold", "paused", "stopped", "blocked"].includes(normalizedStatus)
+	) {
+		return "blocked";
+	}
+
+	if (["not_started", "pending"].includes(normalizedStatus)) {
+		return "not_started";
+	}
+
+	return "in_progress";
+}
+
+function getTaskBarClasses(task: TimelineTask) {
+	switch (getTaskVisualState(task.status)) {
 		case "completed":
 			return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white";
-		case "in_progress":
-		case "needs_review":
+		case "blocked":
+			return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
 		case "not_started":
+			return "border-[rgba(112,118,128,0.42)] bg-[rgba(112,118,128,0.28)] text-white";
+		case "in_progress":
 		default:
 			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 	}
@@ -73,16 +91,48 @@ function getPriorityClasses(priority: TimelineTask["priority"]) {
 }
 
 function getProgressIndicatorClasses(task: TimelineTask) {
-	if (task.isOverdue || task.status === "on_hold") return "bg-rose-500";
-	if (task.status === "completed") return "bg-emerald-500";
-	if (task.status === "in_progress" || task.status === "needs_review") return "bg-amber-500";
-	return "bg-slate-400";
+	switch (getTaskVisualState(task.status)) {
+		case "completed":
+			return "bg-emerald-500";
+		case "blocked":
+			return "bg-rose-500";
+		case "not_started":
+			return "bg-slate-400";
+		case "in_progress":
+		default:
+			return "bg-amber-500";
+	}
 }
 
 function getDurationLabel(task: TimelineTask, locale: typeof enUS) {
 	return `${format(task.startDate, "d MMM", { locale })} - ${format(task.endDate, "d MMM", {
 		locale,
 	})}`;
+}
+
+function getTranslatedTaskStatusLabel(task: TimelineTask, t: ReturnType<typeof useTranslations>) {
+	switch (task.status) {
+		case "completed":
+		case "in_progress":
+		case "not_started":
+		case "on_hold":
+		case "needs_review":
+		case "pending":
+			return t(task.status);
+		default:
+			return formatStatus(task.status);
+	}
+}
+
+function getTranslatedTaskTypeLabel(task: TimelineTask, t: ReturnType<typeof useTranslations>) {
+	switch (task.type) {
+		case "foundations":
+		case "finishes":
+		case "general":
+			return t(task.type);
+		default:
+			return formatStatus(task.type);
+	}
 }
 
 function getTaskLayouts(
@@ -95,10 +145,9 @@ function getTaskLayouts(
 		const endOffset = differenceInCalendarDays(task.endDate, timelineStart);
 		const barLeft = startOffset * layout.dayColumnWidth + 8;
 		const durationDays = Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1);
-		const barWidth = Math.max(
-			layout.dayColumnWidth - 12,
-			durationDays * layout.dayColumnWidth - 12
-		);
+		const barWidth = task.hasExplicitEndDate
+			? Math.max(layout.dayColumnWidth - 12, durationDays * layout.dayColumnWidth - 12)
+			: Math.max(18, layout.dayColumnWidth - 20);
 
 		return [
 			task.id,
@@ -351,7 +400,7 @@ export default function TaskTimelineView({
 															isRTL && "justify-end"
 														)}
 													>
-														<span>{t(formatStatus(task.type))}</span>
+														<span>{getTranslatedTaskTypeLabel(task, t)}</span>
 														<span className="text-white/20">|</span>
 														<span>{task.ownerLabel || t("Not set")}</span>
 													</div>
@@ -409,7 +458,9 @@ export default function TaskTimelineView({
 													style={{
 														left: taskLayout.barLeft,
 														top: (layout.rowHeight - 24) / 2,
-														width: Math.max(taskLayout.barWidth, minimumVisibleBarWidth),
+														width: task.hasExplicitEndDate
+															? Math.max(taskLayout.barWidth, minimumVisibleBarWidth)
+															: taskLayout.barWidth,
 													}}
 												>
 													<div
@@ -553,7 +604,7 @@ export default function TaskTimelineView({
 																		: "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-500/30 dark:bg-slate-500/10 dark:text-slate-200"
 														)}
 													>
-														{t(formatStatus(task.status))}
+														{getTranslatedTaskStatusLabel(task, t)}
 													</span>
 												</td>
 											</tr>
@@ -569,3 +620,4 @@ export default function TaskTimelineView({
 		</Card>
 	);
 }
+
