@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -43,6 +44,7 @@ import {
 	filterProjectsByVisibility,
 	ProjectVisibilityScope,
 } from "@/lib/project-visibility";
+import { differenceInCalendarDays } from "date-fns";
 
 type ProjectStatus = 'in_progress' | 'not_started' | 'completed' | 'on_hold';
 type RecentActivityStatus = ProjectStatus | 'needs_review';
@@ -1094,6 +1096,9 @@ export default function AdminDashboard() {
 	const [selectedTimelineProjectDetails, setSelectedTimelineProjectDetails] = useState<DetailedProject | null>(null);
 	const [isSelectedTimelineProjectLoading, setIsSelectedTimelineProjectLoading] = useState(false);
 	const [selectedTimelineProjectLoadError, setSelectedTimelineProjectLoadError] = useState(false);
+	const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+	const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+	const [isDelayModalOpen, setIsDelayModalOpen] = useState(false);
 	const [analysisProjectDetails, setAnalysisProjectDetails] = useState<DetailedProject[]>([]);
 	const [isAnalysisDetailsLoading, setIsAnalysisDetailsLoading] = useState(false);
 	const [analysisDetailsLoadError, setAnalysisDetailsLoadError] = useState(false);
@@ -1549,6 +1554,24 @@ export default function AdminDashboard() {
 	const dashboardTimelineTasks = selectedTimelineProjectDetails
 		? buildDashboardTimelineTasks([selectedTimelineProjectDetails])
 		: [];
+	const selectedProjectTasks = selectedTimelineProjectDetails?.tasks ?? [];
+	const overdueProjectTasks = selectedProjectTasks
+		.filter((task) => {
+			const endDate = getDateValue(task.endDate);
+			return Boolean(
+				endDate &&
+				endDate.getTime() < Date.now() &&
+				task.taskStatus !== 'completed'
+			);
+		})
+		.map((task) => {
+			const endDate = getDateValue(task.endDate)!;
+			return {
+				...task,
+				overdueDays: Math.max(1, differenceInCalendarDays(new Date(), endDate)),
+			};
+		})
+		.sort((left, right) => right.overdueDays - left.overdueDays);
 	const dashboardTaskHrefById = new Map(
 		dashboardTimelineTasks.map((task) => [
 			task.taskId,
@@ -1831,7 +1854,7 @@ export default function AdminDashboard() {
 
 					{!selectedTimelineProjectId ? (
 						<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
-							{t("Select a project to view its timeline")}
+							{t("Select a project to view the tasks operations center")}
 						</div>
 					) : isSelectedTimelineProjectLoading ? (
 						<div className="flex items-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
@@ -1842,25 +1865,138 @@ export default function AdminDashboard() {
 						<div className="rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
 							{t("There are no tasks at this stage")}
 						</div>
-					) : dashboardTimelineTasks.length === 0 ? (
-						<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
-							{t("No scheduled tasks for this project")}
-						</div>
 					) : (
-						<div className="min-w-0 max-w-full overflow-hidden">
-							<TaskTimelineView
-								projectId={selectedTimelineProjectId}
-								title={
-									lang === "ar"
-										? `خارطة تنفيذ المشروع: ${selectedTimelineProjectName}`
-										: `Construction Roadmap: ${selectedTimelineProjectName}`
-								}
-								tasks={dashboardTimelineTasks}
-								projectTeam={selectedTimelineProjectDetails?.employees ?? []}
-								getTaskHref={(taskId) => dashboardTaskHrefById.get(taskId) ?? null}
-								showWeeklyTable={false}
-								compact
-							/>
+						<div className="min-w-0 max-w-full space-y-4 overflow-hidden">
+							<Card className="border-border/60 bg-card shadow-sm">
+								<CardContent className="flex flex-col gap-3 pt-6 lg:flex-row lg:items-center lg:justify-between">
+									<div className="space-y-1">
+										<p className="text-sm font-semibold tracking-[0.08em] text-foreground">
+											{t("Project Operations")}
+										</p>
+										<p className="text-sm text-muted-foreground">
+											{selectedTimelineProjectName}
+										</p>
+									</div>
+									<div className="flex flex-col gap-2 sm:flex-row">
+										<Button
+											type="button"
+											onClick={() => setIsAddTaskModalOpen(true)}
+											className="border border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.24)] text-foreground shadow-none hover:bg-[rgba(218,197,143,0.34)]"
+										>
+											{t("Add Task")}
+										</Button>
+										<Button
+											type="button"
+											variant="outline"
+											onClick={() => setIsApprovalModalOpen(true)}
+											className="border-[rgba(218,197,143,0.24)] bg-background/70 hover:bg-[rgba(218,197,143,0.08)]"
+										>
+											{t("Request Client Approval")}
+										</Button>
+										<Button
+											type="button"
+											variant="outline"
+											onClick={() => setIsDelayModalOpen(true)}
+											className="border-[rgba(218,197,143,0.24)] bg-background/70 hover:bg-[rgba(218,197,143,0.08)]"
+										>
+											{t("Log Delay")}
+										</Button>
+									</div>
+								</CardContent>
+							</Card>
+
+							<div className="min-w-0 max-w-full overflow-hidden">
+								<TaskTimelineView
+									projectId={selectedTimelineProjectId}
+									title={
+										lang === "ar"
+											? `خارطة تنفيذ المشروع: ${selectedTimelineProjectName}`
+											: `Construction Roadmap: ${selectedTimelineProjectName}`
+									}
+									tasks={dashboardTimelineTasks}
+									projectTeam={selectedTimelineProjectDetails?.employees ?? []}
+									getTaskHref={(taskId) => dashboardTaskHrefById.get(taskId) ?? null}
+									showWeeklyTable={false}
+									compact
+								/>
+							</div>
+
+							<Card className="border-border/60 shadow-sm">
+								<CardHeader>
+									<CardTitle>{t("Client Approval Requests")}</CardTitle>
+									<CardDescription>
+										{t("Approval requests and response tracking will appear here after approvals are connected.")}
+									</CardDescription>
+								</CardHeader>
+								<CardContent>
+									<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
+										{t("There are no approval requests linked to this project yet")}
+									</div>
+								</CardContent>
+							</Card>
+
+							<Card className="border-border/60 shadow-sm">
+								<CardHeader>
+									<CardTitle>{t("Delays and Blockers")}</CardTitle>
+									<CardDescription>
+										{t("Real overdue tasks based on the selected project schedule")}
+									</CardDescription>
+								</CardHeader>
+								<CardContent>
+									{overdueProjectTasks.length === 0 ? (
+										<div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
+											{t("There are no recorded delays for this project right now")}
+										</div>
+									) : (
+										<div className="space-y-3">
+											{overdueProjectTasks.map((task) => (
+												<div
+													key={task.taskId}
+													className="rounded-2xl border border-border/60 bg-background/70 p-4 shadow-sm"
+												>
+													<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+														<div className="space-y-2">
+															<h4 className="text-sm font-semibold text-foreground">
+																{task.taskName || t("Not set")}
+															</h4>
+															<div className="flex flex-wrap items-center gap-2">
+																<Badge
+																	variant="outline"
+																	className="border-rose-500/25 bg-rose-500/10 text-rose-300"
+																>
+																	{t(task.taskStatus || "not_started")}
+																</Badge>
+																<Badge
+																	variant="outline"
+																	className="border-[rgba(218,197,143,0.22)] bg-[rgba(218,197,143,0.10)] text-[#d8c7a3]"
+																>
+																	{t("Delayed for X days", {
+																		days: String(task.overdueDays),
+																	})}
+																</Badge>
+															</div>
+														</div>
+														<div className="grid gap-3 text-sm lg:max-w-xl lg:grid-cols-2">
+															<div className="rounded-xl border border-border/50 bg-background/60 px-3 py-3">
+																<p className="text-xs text-muted-foreground">{t("Reason")}</p>
+																<p className="mt-1 font-medium text-foreground">
+																	{task.notes?.trim() || t("No reason has been recorded yet")}
+																</p>
+															</div>
+															<div className="rounded-xl border border-border/50 bg-background/60 px-3 py-3">
+																<p className="text-xs text-muted-foreground">{t("Required Action")}</p>
+																<p className="mt-1 font-medium text-foreground">
+																	{t("Update the date or log the delay reason")}
+																</p>
+															</div>
+														</div>
+													</div>
+												</div>
+											))}
+										</div>
+									)}
+								</CardContent>
+							</Card>
 						</div>
 					)}
 				</TabsContent>
@@ -2316,6 +2452,234 @@ export default function AdminDashboard() {
 					</div>
 				</TabsContent>
 			</Tabs>
+
+			<Dialog open={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen}>
+				<DialogContent className="sm:max-w-2xl">
+					<div dir={dir} className="space-y-6">
+						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
+							<DialogTitle>{t("Add Task")}</DialogTitle>
+							<DialogDescription>
+								{t("This form is ready for database connection in the next phase")}
+							</DialogDescription>
+						</DialogHeader>
+						<div className="grid gap-4 md:grid-cols-2">
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Task Name")}</label>
+								<Input placeholder={t("Enter task name")} />
+							</div>
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Task Description")}</label>
+								<Textarea placeholder={t("Write a concise task description")} rows={3} />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Internal Owner")}</label>
+								<Input placeholder={t("Enter internal owner")} />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Status")}</label>
+								<Select>
+									<SelectTrigger>
+										<SelectValue placeholder={t("Select status")} />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="not_started">{t("not_started")}</SelectItem>
+										<SelectItem value="in_progress">{t("in_progress")}</SelectItem>
+										<SelectItem value="completed">{t("completed")}</SelectItem>
+										<SelectItem value="on_hold">{t("on_hold")}</SelectItem>
+										<SelectItem value="needs_review">{t("needs_review")}</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Start Date")}</label>
+								<Input type="date" />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("End Date")}</label>
+								<Input type="date" />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Priority")}</label>
+								<Select>
+									<SelectTrigger>
+										<SelectValue placeholder={t("Select priority")} />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="high">{t("High")}</SelectItem>
+										<SelectItem value="medium">{t("Medium")}</SelectItem>
+										<SelectItem value="low">{t("Low")}</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Notes")}</label>
+								<Textarea placeholder={t("Task notes (optional)")} rows={4} />
+							</div>
+						</div>
+						<DialogFooter className={dir === "rtl" ? "sm:justify-start" : ""}>
+							<p className="text-xs text-muted-foreground">
+								{t("Saving will be connected to the database in the next phase")}
+							</p>
+							<Button type="button" disabled>
+								{t("Save Task")}
+							</Button>
+						</DialogFooter>
+					</div>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={isApprovalModalOpen} onOpenChange={setIsApprovalModalOpen}>
+				<DialogContent className="sm:max-w-2xl">
+					<div dir={dir} className="space-y-6">
+						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
+							<DialogTitle>{t("Request Client Approval")}</DialogTitle>
+							<DialogDescription>
+								{t("Approval sending will be activated in a later phase")}
+							</DialogDescription>
+						</DialogHeader>
+						<div className="grid gap-4 md:grid-cols-2">
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Related Task")}</label>
+								<Select>
+									<SelectTrigger>
+										<SelectValue placeholder={t("Select related task")} />
+									</SelectTrigger>
+									<SelectContent>
+										{selectedProjectTasks
+											.filter((task) => task.taskId && task.taskName)
+											.map((task) => (
+												<SelectItem key={task.taskId} value={task.taskId as string}>
+													{task.taskName}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Request Title")}</label>
+								<Input placeholder={t("Enter request title")} />
+							</div>
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Description")}</label>
+								<Textarea placeholder={t("Describe the approval request")} rows={3} />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Person Name")}</label>
+								<Input placeholder={t("Enter person name")} />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Email")}</label>
+								<Input placeholder={t("Enter your email address")} type="email" />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("WhatsApp Number")}</label>
+								<Input placeholder={t("Enter WhatsApp number")} />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Response Deadline")}</label>
+								<Input type="date" />
+							</div>
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Official Message")}</label>
+								<Textarea
+									rows={4}
+									defaultValue={
+										lang === "ar"
+											? `مرحباً، لديك طلب موافقة من Craft بخصوص مشروع ${selectedTimelineProjectName}.`
+											: `Hello, you have an approval request from Craft regarding project ${selectedTimelineProjectName}.`
+									}
+								/>
+							</div>
+						</div>
+						<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+							<p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+								{t("Message Preview")}
+							</p>
+							<p className="mt-2 text-sm text-foreground/80">
+								{lang === "ar"
+									? `مرحباً، لديك طلب موافقة من Craft بخصوص مشروع ${selectedTimelineProjectName}.`
+									: `Hello, you have an approval request from Craft regarding project ${selectedTimelineProjectName}.`}
+							</p>
+						</div>
+						<DialogFooter className={dir === "rtl" ? "sm:justify-start" : ""}>
+							<Button type="button" variant="outline" disabled>
+								{t("Save as Draft")}
+							</Button>
+							<Button type="button" disabled>
+								{t("Send Request")}
+							</Button>
+						</DialogFooter>
+					</div>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={isDelayModalOpen} onOpenChange={setIsDelayModalOpen}>
+				<DialogContent className="sm:max-w-2xl">
+					<div dir={dir} className="space-y-6">
+						<DialogHeader className={dir === "rtl" ? "text-right" : "text-left"}>
+							<DialogTitle>{t("Log Delay")}</DialogTitle>
+							<DialogDescription>
+								{t("Delay registration will be connected in a later phase")}
+							</DialogDescription>
+						</DialogHeader>
+						<div className="grid gap-4 md:grid-cols-2">
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Related Task")}</label>
+								<Select>
+									<SelectTrigger>
+										<SelectValue placeholder={t("Select related task")} />
+									</SelectTrigger>
+									<SelectContent>
+										{selectedProjectTasks
+											.filter((task) => task.taskId && task.taskName)
+											.map((task) => (
+												<SelectItem key={task.taskId} value={task.taskId as string}>
+													{task.taskName}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Delay Reason")}</label>
+								<Textarea placeholder={t("Describe the delay reason")} rows={3} />
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Responsible Party")}</label>
+								<Select>
+									<SelectTrigger>
+										<SelectValue placeholder={t("Select responsible party")} />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="client">{t("Client")}</SelectItem>
+										<SelectItem value="contractor">{t("Contractor")}</SelectItem>
+										<SelectItem value="supplier">{t("Supplier")}</SelectItem>
+										<SelectItem value="craft">{t("craft")}</SelectItem>
+										<SelectItem value="other">{t("Other")}</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2">
+								<label className="text-sm font-medium">{t("Expected Delay Days")}</label>
+								<Input type="number" min="0" placeholder="0" />
+							</div>
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Required Action")}</label>
+								<Textarea placeholder={t("Describe the required action")} rows={3} />
+							</div>
+							<div className="space-y-2 md:col-span-2">
+								<label className="text-sm font-medium">{t("Notes")}</label>
+								<Textarea placeholder={t("Task notes (optional)")} rows={3} />
+							</div>
+						</div>
+						<DialogFooter className={dir === "rtl" ? "sm:justify-start" : ""}>
+							<Button type="button" disabled>
+								{t("Save Delay")}
+							</Button>
+						</DialogFooter>
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog
 				open={isAddNoteOpen}
