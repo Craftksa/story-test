@@ -470,6 +470,7 @@
   "Loading notes": "Loading notes...",
   "Table": "Table",
   "Construction Roadmap": "Construction Roadmap",
+  "Task timeline grouped by task type and status": "Timeline grouped by task type and status",
   "A premium gantt view of the active task plan and weekly priorities": "A premium gantt view of the active task plan and weekly priorities",
   "Task bars reflect task start dates, due dates, milestones, and sequenced dependencies": "Task bars reflect task start dates, due dates, milestones, and sequenced dependencies",
   "Task bars reflect task start dates and due dates": "Task bars reflect task start dates and due dates",
@@ -483,6 +484,8 @@
   "Gantt": "Gantt",
   "Project Timeline View": "Project Timeline",
   "Project Timeline": "Project Timeline",
+  "Unscheduled": "Unscheduled",
+  "No fixed end date": "No fixed end date",
   "Select a project": "Select a project",
   "Select a project to view its timeline": "Select a project to view its timeline",
   "View tasks and the project timeline for the selected project": "View tasks and the project timeline for the selected project",
@@ -527,5 +530,13 @@
   "Expected Delay Days": "Expected Delay Days",
   "Required Action": "Required Action",
   "Describe the required action": "Describe the required action",
-  "Save Delay": "Log Delay"
+  "Save Delay": "Log Delay",
+  "construction": "Construction",
+  "architectural": "Architectural",
+  "mechanical": "Mechanical",
+  "electrical": "Electrical",
+  "paused": "Paused",
+  "blocked": "Blocked",
+  "working": "Working",
+  "active": "Active"
 }

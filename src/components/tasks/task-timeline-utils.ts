@@ -12,6 +12,8 @@ export type TimelineSourceTask = Record<string, unknown> & {
 	taskName?: string;
 	taskStatus?: string;
 	taskType?: string;
+	title?: string;
+	name?: string;
 	startDate?: string | Date | null;
 	endDate?: string | Date | null;
 	dueDate?: string | Date | null;
@@ -32,9 +34,13 @@ export type TimelineTask = {
 	name: string;
 	status: string;
 	type: string;
-	startDate: Date;
-	endDate: Date;
-	dueDate: Date;
+	groupKey: string;
+	groupLabel: string;
+	startDate: Date | null;
+	endDate: Date | null;
+	dueDate: Date | null;
+	placementDate: Date;
+	hasStartDate: boolean;
 	hasExplicitEndDate: boolean;
 	createdAt: Date | null;
 	updatedAt: Date | null;
@@ -69,11 +75,54 @@ function clamp(value: number, minimum: number, maximum: number) {
 	return Math.min(maximum, Math.max(minimum, value));
 }
 
-function getTaskProgress(status: string, startDate: Date, endDate: Date, referenceDate: Date) {
+function normalizeTaskType(type: unknown) {
+	if (typeof type !== "string" || !type.trim()) {
+		return {
+			key: "general",
+			label: "general",
+		};
+	}
+
+	const value = type.trim();
+	const normalized = value.toLowerCase();
+
+	if (["foundations", "foundation", "structural", "construction", "civil"].includes(normalized)) {
+		return {
+			key: "foundations",
+			label: "foundations",
+		};
+	}
+
+	if (["finishes", "finish", "architectural", "architecture"].includes(normalized)) {
+		return {
+			key: "finishes",
+			label: "finishes",
+		};
+	}
+
+	return {
+		key: normalized.replace(/\s+/g, "_"),
+		label: value,
+	};
+}
+
+function normalizeTaskStatus(status: unknown) {
+	if (typeof status !== "string" || !status.trim()) {
+		return "not_started";
+	}
+
+	return status.trim().toLowerCase();
+}
+
+function getTaskProgress(status: string, hasStartDate: boolean, startDate: Date | null, endDate: Date | null, referenceDate: Date) {
 	if (status === "completed") return 100;
-	if (status === "not_started") return 0;
-	if (status === "on_hold") return 38;
+	if (status === "not_started" || status === "pending") return 0;
+	if (["on_hold", "paused", "stopped", "blocked"].includes(status)) return 38;
 	if (status === "needs_review") return 88;
+
+	if (!hasStartDate || !startDate || !endDate) {
+		return 22;
+	}
 
 	const totalDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
 	const elapsedDays = clamp(
@@ -86,8 +135,8 @@ function getTaskProgress(status: string, startDate: Date, endDate: Date, referen
 }
 
 function getTaskPriority(status: string, isOverdue: boolean): "high" | "medium" | "low" {
-	if (isOverdue || status === "on_hold") return "high";
-	if (status === "in_progress" || status === "needs_review") return "medium";
+	if (isOverdue || ["on_hold", "paused", "stopped", "blocked"].includes(status)) return "high";
+	if (["in_progress", "working", "active", "needs_review"].includes(status)) return "medium";
 	return "low";
 }
 
@@ -124,6 +173,28 @@ function getOwnerLabel(task: TimelineSourceTask, projectTeam: TimelineTeamMember
 	return teamMembers.length > 0 ? teamMembers.join(", ") : null;
 }
 
+function getTaskName(task: TimelineSourceTask, index: number) {
+	const candidates = [
+		typeof task.taskName === "string" ? task.taskName : null,
+		typeof task.title === "string" ? task.title : null,
+		typeof task.name === "string" ? task.name : null,
+	];
+
+	for (const candidate of candidates) {
+		if (candidate?.trim()) return candidate.trim();
+	}
+
+	return `Task ${index + 1}`;
+}
+
+function getTaskId(task: TimelineSourceTask, index: number) {
+	if (typeof task.taskId === "string" && task.taskId.trim()) {
+		return task.taskId.trim();
+	}
+
+	return `timeline-task-${index + 1}`;
+}
+
 export function createTimelineTasks(
 	tasks: TimelineSourceTask[],
 	projectTeam: TimelineTeamMember[] = [],
@@ -134,70 +205,71 @@ export function createTimelineTasks(
 	const referenceDate = startOfDay(options?.referenceDate ?? new Date());
 
 	return tasks
-		.flatMap<TimelineTask>((task) => {
-			const id =
-				typeof task.taskId === "string" && task.taskId.trim() ? task.taskId.trim() : null;
-			const name =
-				typeof task.taskName === "string" && task.taskName.trim()
-					? task.taskName.trim()
-					: null;
-
-			if (!id || !name) {
-				return [];
-			}
-
+		.map<TimelineTask>((task, index) => {
 			const createdAt = toDate(task.createdAt);
 			const updatedAt = toDate(task.updatedAt);
-			const startDate = toDate(task.startDate) ?? createdAt ?? referenceDate;
+			const startDate = toDate(task.startDate) ?? createdAt;
 			const explicitEndDate = toDate(task.endDate) ?? toDate(task.dueDate);
-			const endDateCandidate = explicitEndDate ?? startDate;
-			const endDate =
-				endDateCandidate.getTime() < startDate.getTime() ? startDate : endDateCandidate;
-			const status =
-				typeof task.taskStatus === "string" && task.taskStatus.trim()
-					? task.taskStatus
-					: "not_started";
+			const safeEndDate =
+				startDate && explicitEndDate && explicitEndDate.getTime() < startDate.getTime()
+					? startDate
+					: explicitEndDate;
+			const placementDate = startDate ?? safeEndDate ?? createdAt ?? referenceDate;
+			const status = normalizeTaskStatus(task.taskStatus);
+			const typeMeta = normalizeTaskType(task.taskType);
 			const isOverdue =
-				Boolean(explicitEndDate) &&
+				Boolean(safeEndDate) &&
 				status !== "completed" &&
-				endDate.getTime() < referenceDate.getTime();
+				safeEndDate.getTime() < referenceDate.getTime();
+			const durationDays =
+				startDate && safeEndDate
+					? Math.max(1, differenceInCalendarDays(safeEndDate, startDate) + 1)
+					: 1;
+			const ownerLabel = getOwnerLabel(task, projectTeam);
 
-			return [
-				{
-					id,
-					title: name,
-					name,
-					status,
-					type:
-						(typeof task.taskType === "string" && task.taskType.trim()) || "general",
-					startDate,
-					endDate,
-					dueDate: endDate,
-					hasExplicitEndDate: Boolean(explicitEndDate),
-					createdAt,
-					updatedAt,
-					notes: typeof task.notes === "string" ? task.notes : null,
-					owner: getOwnerLabel(task, projectTeam),
-					ownerLabel: getOwnerLabel(task, projectTeam),
-					progress: getTaskProgress(status, startDate, endDate, referenceDate),
-					priority: getTaskPriority(status, isOverdue),
-					isOverdue,
-					durationDays: Math.max(1, differenceInCalendarDays(endDate, startDate) + 1),
-					originalTask: task,
-				},
-			];
+			return {
+				id: getTaskId(task, index),
+				title: getTaskName(task, index),
+				name: getTaskName(task, index),
+				status,
+				type: typeMeta.label,
+				groupKey: typeMeta.key,
+				groupLabel: typeMeta.label,
+				startDate,
+				endDate: safeEndDate,
+				dueDate: safeEndDate ?? startDate ?? placementDate,
+				placementDate,
+				hasStartDate: Boolean(startDate),
+				hasExplicitEndDate: Boolean(safeEndDate),
+				createdAt,
+				updatedAt,
+				notes: typeof task.notes === "string" ? task.notes : null,
+				owner: ownerLabel,
+				ownerLabel,
+				progress: getTaskProgress(status, Boolean(startDate), startDate, safeEndDate, referenceDate),
+				priority: getTaskPriority(status, isOverdue),
+				isOverdue,
+				durationDays,
+				originalTask: task,
+			};
 		})
-		.sort(
-			(left, right) =>
-				left.startDate.getTime() - right.startDate.getTime() ||
-				left.endDate.getTime() - right.endDate.getTime()
-		);
+		.sort((left, right) => {
+			if (left.groupKey !== right.groupKey) {
+				return left.groupLabel.localeCompare(right.groupLabel);
+			}
+
+			return (
+				left.placementDate.getTime() - right.placementDate.getTime() ||
+				left.name.localeCompare(right.name)
+			);
+		});
 }
 
 export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date()): TimelineRange {
 	const safeReferenceDate = startOfDay(referenceDate);
+	const datedTasks = tasks.filter((task) => task.hasStartDate || task.hasExplicitEndDate);
 
-	if (tasks.length === 0) {
+	if (datedTasks.length === 0) {
 		const start = safeReferenceDate;
 		const end = addDays(start, 13);
 		return {
@@ -207,12 +279,14 @@ export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date
 		};
 	}
 
-	let start = tasks[0].startDate;
-	let end = tasks[0].endDate;
+	let start = datedTasks[0].placementDate;
+	let end = datedTasks[0].endDate ?? datedTasks[0].placementDate;
 
-	for (const task of tasks) {
-		if (task.startDate.getTime() < start.getTime()) start = task.startDate;
-		if (task.endDate.getTime() > end.getTime()) end = task.endDate;
+	for (const task of datedTasks) {
+		if (task.placementDate.getTime() < start.getTime()) start = task.placementDate;
+
+		const taskEnd = task.endDate ?? task.placementDate;
+		if (taskEnd.getTime() > end.getTime()) end = taskEnd;
 	}
 
 	start = addDays(start, -2);
@@ -244,21 +318,27 @@ export function getThisWeekTasks(tasks: TimelineTask[], referenceDate = new Date
 
 	return tasks
 		.filter((task) => {
+			if (!task.hasStartDate && !task.hasExplicitEndDate) {
+				return false;
+			}
+
+			const taskStart = task.startDate ?? task.placementDate;
+			const taskEnd = task.endDate ?? taskStart;
 			const startsThisWeek =
-				task.startDate.getTime() >= weekStart.getTime() &&
-				task.startDate.getTime() <= weekEnd.getTime();
+				taskStart.getTime() >= weekStart.getTime() &&
+				taskStart.getTime() <= weekEnd.getTime();
 			const endsThisWeek =
-				task.endDate.getTime() >= weekStart.getTime() &&
-				task.endDate.getTime() <= weekEnd.getTime();
+				taskEnd.getTime() >= weekStart.getTime() &&
+				taskEnd.getTime() <= weekEnd.getTime();
 			const spansThisWeek =
-				task.startDate.getTime() <= weekEnd.getTime() &&
-				task.endDate.getTime() >= weekStart.getTime();
+				taskStart.getTime() <= weekEnd.getTime() &&
+				taskEnd.getTime() >= weekStart.getTime();
 
 			return startsThisWeek || endsThisWeek || spansThisWeek;
 		})
 		.sort(
 			(left, right) =>
-				left.endDate.getTime() - right.endDate.getTime() ||
-				left.startDate.getTime() - right.startDate.getTime()
+				(left.dueDate ?? left.placementDate).getTime() - (right.dueDate ?? right.placementDate).getTime() ||
+				left.placementDate.getTime() - right.placementDate.getTime()
 		);
 }

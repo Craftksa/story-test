@@ -470,6 +470,7 @@
   "Loading notes": "جاري تحميل الملاحظات...",
   "Table": "جدول",
   "Construction Roadmap": "خارطة تنفيذ المشروع",
+  "Task timeline grouped by task type and status": "عرض زمني للمهام حسب نوعها وحالتها",
   "A premium gantt view of the active task plan and weekly priorities": "عرض زمني أنيق للخطة التنفيذية وأولويات الأسبوع",
   "Task bars reflect task start dates, due dates, milestones, and sequenced dependencies": "تعرض أشرطة المهام تواريخ البدء والتسليم والمعالم والاعتمادات المتتابعة",
   "Task bars reflect task start dates and due dates": "تعرض أشرطة المهام تواريخ البدء وتواريخ التسليم",
@@ -483,6 +484,8 @@
   "Gantt": "المخطط الزمني",
   "Project Timeline View": "عرض المشروع الزمني",
   "Project Timeline": "المخطط الزمني للمشروع",
+  "Unscheduled": "غير مجدولة",
+  "No fixed end date": "لا يوجد تاريخ انتهاء محدد",
   "Select a project": "اختر مشروعاً",
   "Select a project to view its timeline": "اختر مشروعاً لعرض المخطط الزمني الخاص به",
   "No scheduled tasks for this project": "لا توجد مهام مجدولة لهذا المشروع",
@@ -527,6 +530,14 @@
   "Expected Delay Days": "عدد أيام التأخير المتوقع",
   "Required Action": "الإجراء المطلوب",
   "Describe the required action": "اكتب الإجراء المطلوب",
-  "Save Delay": "تسجيل التأخير"
+  "Save Delay": "تسجيل التأخير",
+  "construction": "إنشائي",
+  "architectural": "معماري",
+  "mechanical": "ميكانيكي",
+  "electrical": "كهربائي",
+  "paused": "متوقف مؤقتاً",
+  "blocked": "متعطل",
+  "working": "قيد التنفيذ",
+  "active": "نشط"
 }
 
