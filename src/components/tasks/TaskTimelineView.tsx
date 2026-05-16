@@ -194,13 +194,10 @@ export default function TaskTimelineView({
 						<CardTitle className="text-xl tracking-[0.08em]">
 							{timelineTitle}
 						</CardTitle>
-						<p className="mt-2 text-sm text-muted-foreground">
-							{t("A premium gantt view of the active task plan and weekly priorities")}
-						</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
 						<span className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-							{t("Gantt")}
+							{t("Project Timeline View")}
 						</span>
 						{showWeeklyTable && (
 							<span className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -413,7 +410,14 @@ export default function TaskTimelineView({
 									{timelineTasks.map((task, index) => {
 										const taskLayout = taskLayouts[task.id];
 										const barClasses = getTaskBarClasses(task);
-										const showInlineLabel = taskLayout.barWidth >= 130;
+										const showInlineLabel = taskLayout.barWidth >= 120;
+										const canShowAdjacentLabel =
+											!showInlineLabel &&
+											taskLayout.barRight + 84 < timelineWidth;
+										const adjacentLabelWidth = Math.min(
+											160,
+											Math.max(96, timelineWidth - taskLayout.barRight - 12)
+										);
 										const taskHref = resolveTaskHref(task.id);
 
 										return (
@@ -429,6 +433,8 @@ export default function TaskTimelineView({
 													type="button"
 													onClick={() => openTask(task.id)}
 													disabled={!taskHref}
+													title={task.name}
+													aria-label={task.name}
 													className={cn(
 														"absolute top-1/2 flex h-7 -translate-y-1/2 items-center rounded-full border px-3 text-left shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition-transform duration-200 hover:-translate-y-[54%] disabled:cursor-default disabled:hover:-translate-y-1/2",
 														barClasses
@@ -441,12 +447,27 @@ export default function TaskTimelineView({
 													<div className="flex min-w-0 items-center gap-2">
 														<span className={cn("size-2 rounded-full", getTaskIndicatorClasses(task))} />
 														{showInlineLabel && (
-															<span className="truncate text-xs font-semibold tracking-[0.04em]">
+															<span className="truncate text-xs font-semibold tracking-[0.04em] text-white" title={task.name}>
 																{task.name}
 															</span>
 														)}
 													</div>
 												</button>
+
+												{canShowAdjacentLabel && (
+													<span
+														className="pointer-events-none absolute top-1/2 z-[11] -translate-y-1/2 truncate text-[11px] font-medium tracking-[0.03em] text-white/88"
+														style={{
+															left: taskLayout.barRight + 8,
+															width: adjacentLabelWidth,
+															direction: isRTL ? "rtl" : "ltr",
+															textAlign: isRTL ? "right" : "left",
+														}}
+														title={task.name}
+													>
+														{task.name}
+													</span>
+												)}
 
 												{task.isMilestone && task.milestoneDate && (
 													<button
