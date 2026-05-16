@@ -15,7 +15,6 @@ import {
 	createTimelineTasks,
 	getThisWeekTasks,
 	getTimelineRange,
-	type TimelineRowTask,
 	type TimelineSourceTask,
 	type TimelineTask,
 	type TimelineTeamMember,
@@ -46,41 +45,19 @@ const COMPACT_LAYOUT: TimelineLayoutMetrics = {
 };
 
 function getTaskBarClasses(task: TimelineTask) {
-	if (
-		task.isOverdue ||
-		task.status === "on_hold" ||
-		task.status === "paused" ||
-		task.status === "stopped"
-	) {
+	if (task.isOverdue || task.status === "on_hold") {
 		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.28)] text-white";
 	}
 
 	switch (task.status) {
 		case "completed":
 			return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white";
-		case "not_started":
-			return "border-[rgba(112,118,128,0.42)] bg-[rgba(112,118,128,0.28)] text-white";
 		case "in_progress":
 		case "needs_review":
+		case "not_started":
 		default:
 			return "border-[rgba(218,197,143,0.45)] bg-[rgba(218,197,143,0.35)] text-white";
 	}
-}
-
-function getInlineIndicatorClasses(status: string) {
-	if (status === "completed") {
-		return "border-[rgba(109,150,122,0.42)] bg-[rgba(109,150,122,0.30)] text-white/92";
-	}
-
-	if (status === "on_hold" || status === "paused" || status === "stopped") {
-		return "border-[rgba(176,96,96,0.42)] bg-[rgba(176,96,96,0.22)] text-white/92";
-	}
-
-	if (status === "not_started") {
-		return "border-[rgba(112,118,128,0.42)] bg-[rgba(112,118,128,0.24)] text-white/82";
-	}
-
-	return "border-[rgba(218,197,143,0.40)] bg-[rgba(218,197,143,0.24)] text-white/92";
 }
 
 function getPriorityClasses(priority: TimelineTask["priority"]) {
@@ -109,41 +86,23 @@ function getDurationLabel(task: TimelineTask, locale: typeof enUS) {
 }
 
 function getTaskLayouts(
-	tasks: TimelineRowTask[],
+	tasks: TimelineTask[],
 	timelineStart: Date,
 	layout: TimelineLayoutMetrics
 ) {
 	const entries = tasks.map((task, index) => {
-		const rowCenter = index * layout.rowHeight + layout.rowHeight / 2;
-
-		if (task.rowType === "unscheduled") {
-			return [
-				task.id,
-				{
-					rowCenter,
-					barLeft: null,
-					barWidth: 0,
-					barRight: null,
-					durationDays: 0,
-				},
-			] as const;
-		}
-
 		const startOffset = differenceInCalendarDays(task.startDate, timelineStart);
 		const barLeft = startOffset * layout.dayColumnWidth + 8;
-		const durationDays =
-			task.rowType === "scheduled"
-				? Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1)
-				: 1;
-		const barWidth =
-			task.rowType === "scheduled"
-				? Math.max(layout.dayColumnWidth - 12, durationDays * layout.dayColumnWidth - 12)
-				: Math.max(18, layout.dayColumnWidth - 36);
+		const durationDays = Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1);
+		const barWidth = Math.max(
+			layout.dayColumnWidth - 12,
+			durationDays * layout.dayColumnWidth - 12
+		);
 
 		return [
 			task.id,
 			{
-				rowCenter,
+				rowCenter: index * layout.rowHeight + layout.rowHeight / 2,
 				barLeft,
 				barWidth,
 				barRight: barLeft + barWidth,
@@ -156,9 +115,9 @@ function getTaskLayouts(
 		string,
 		{
 			rowCenter: number;
-			barLeft: number | null;
+			barLeft: number;
 			barWidth: number;
-			barRight: number | null;
+			barRight: number;
 			durationDays: number;
 		}
 	>;
@@ -200,15 +159,10 @@ export default function TaskTimelineView({
 		router.push(href);
 	};
 
-	const {
-		scheduledTasks: timelineTasks,
-		missingEndDateTasks,
-		timelineRows,
-	} = createTimelineTasks(tasks, projectTeam, {
+	const timelineTasks = createTimelineTasks(tasks, projectTeam, {
 		referenceDate: today,
 	});
-	const datedTimelineTasks = [...timelineTasks, ...missingEndDateTasks];
-	const timelineRange = getTimelineRange(datedTimelineTasks, today);
+	const timelineRange = getTimelineRange(timelineTasks, today);
 	const thisWeekTasks = getThisWeekTasks(timelineTasks, today);
 	const timelineDays = Array.from({ length: timelineRange.totalDays }, (_, index) => {
 		const day = new Date(timelineRange.start);
@@ -217,17 +171,13 @@ export default function TaskTimelineView({
 	});
 	const timelineWidth = timelineRange.totalDays * layout.dayColumnWidth;
 	const bodyHeight = Math.max(
-		layout.rowHeight * Math.max(timelineRows.length, 1),
+		layout.rowHeight * Math.max(timelineTasks.length, 1),
 		layout.rowHeight
 	);
 	const ganttWidth = layout.leftColumnWidth + timelineWidth;
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
-	const taskLayouts = getTaskLayouts(timelineRows, timelineRange.start, layout);
-	const missingEndDateBadge = lang === "ar" ? "بدون انتهاء" : "No End Date";
-	const unscheduledBadge = lang === "ar" ? "غير مجدولة" : "Unscheduled";
-	const missingEndDateHint =
-		lang === "ar" ? "لا يوجد تاريخ انتهاء محدد" : "No end date is defined";
+	const taskLayouts = getTaskLayouts(timelineTasks, timelineRange.start, layout);
 	const noScheduledTasksLabel =
 		lang === "ar" ? "لا توجد مهام في هذه المرحلة" : "There are no tasks at this stage";
 
@@ -302,7 +252,7 @@ export default function TaskTimelineView({
 						</div>
 					</div>
 
-					{timelineRows.length === 0 ? (
+					{timelineTasks.length === 0 ? (
 						<div className="px-6 py-14 text-center text-sm text-white/60">
 							{noScheduledTasksLabel}
 						</div>
@@ -377,7 +327,7 @@ export default function TaskTimelineView({
 									className="sticky left-0 z-20 bg-[#111923]"
 									style={{ height: bodyHeight }}
 								>
-									{timelineRows.map((task, index) => (
+									{timelineTasks.map((task, index) => (
 										<div
 											key={task.id}
 											className="absolute inset-x-0 border-b border-white/6 px-4 py-3"
@@ -433,69 +383,9 @@ export default function TaskTimelineView({
 										</div>
 									)}
 
-									{timelineRows.map((task, index) => {
+									{timelineTasks.map((task, index) => {
 										const taskLayout = taskLayouts[task.id];
 										const taskHref = resolveTaskHref(task.id);
-
-										if (task.rowType === "unscheduled") {
-											return (
-												<div
-													key={task.id}
-													className="absolute inset-x-0 border-b border-white/6"
-													style={{
-														top: index * layout.rowHeight,
-														height: layout.rowHeight,
-													}}
-												>
-													<div
-														className="absolute"
-														style={{
-															left: 10,
-															top: (layout.rowHeight - 22) / 2,
-														}}
-													>
-														<span className="inline-flex h-[22px] items-center rounded-md border border-white/12 bg-white/[0.06] px-2.5 text-[10px] font-semibold text-white/72">
-															{unscheduledBadge}
-														</span>
-													</div>
-												</div>
-											);
-										}
-
-										if (task.rowType === "missing_end_date") {
-											return (
-												<div
-													key={task.id}
-													className="absolute inset-x-0 border-b border-white/6"
-													style={{
-														top: index * layout.rowHeight,
-														height: layout.rowHeight,
-													}}
-												>
-													<button
-														type="button"
-														onClick={() => openTask(task.id)}
-														disabled={!taskHref}
-														title={missingEndDateHint}
-														aria-label={task.name}
-														className={cn(
-															"absolute flex h-5 items-center overflow-hidden rounded-md border px-2 text-left text-[10px] font-semibold shadow-[0_10px_22px_rgba(0,0,0,0.12)] disabled:cursor-default",
-															getInlineIndicatorClasses(task.status)
-														)}
-														style={{
-															left: taskLayout.barLeft ?? 8,
-															top: (layout.rowHeight - 20) / 2,
-															width: Math.max(44, layout.dayColumnWidth - 16),
-														}}
-													>
-														<span className="block min-w-0 truncate whitespace-nowrap">
-															{missingEndDateBadge}
-														</span>
-													</button>
-												</div>
-											);
-										}
-
 										const barClasses = getTaskBarClasses(task);
 										const minimumVisibleBarWidth = layout.dayColumnWidth - 12;
 										const showInlineContent = taskLayout.barWidth >= 88;
@@ -520,7 +410,7 @@ export default function TaskTimelineView({
 														barClasses
 													)}
 													style={{
-														left: taskLayout.barLeft ?? 8,
+														left: taskLayout.barLeft,
 														top: (layout.rowHeight - 24) / 2,
 														width: Math.max(taskLayout.barWidth, minimumVisibleBarWidth),
 													}}
