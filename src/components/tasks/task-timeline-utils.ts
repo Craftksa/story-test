@@ -60,6 +60,16 @@ export type TimelineRange = {
 	totalDays: number;
 };
 
+const GROUP_ORDER: Record<string, number> = {
+	construction: 0,
+	foundations: 0,
+	architectural: 1,
+	finishes: 1,
+	mechanical: 2,
+	electrical: 3,
+	general: 4,
+};
+
 function toDate(value: unknown): Date | null {
 	if (!value) return null;
 
@@ -86,17 +96,49 @@ function normalizeTaskType(type: unknown) {
 	const value = type.trim();
 	const normalized = value.toLowerCase();
 
-	if (["foundations", "foundation", "structural", "construction", "civil"].includes(normalized)) {
+	if (
+		[
+			"foundations",
+			"foundation",
+			"structural",
+			"construction",
+			"civil",
+			"إنشائي",
+			"انشائي",
+		].includes(normalized)
+	) {
 		return {
-			key: "foundations",
-			label: "foundations",
+			key: "construction",
+			label: "construction",
 		};
 	}
 
-	if (["finishes", "finish", "architectural", "architecture"].includes(normalized)) {
+	if (
+		[
+			"finishes",
+			"finish",
+			"architectural",
+			"architecture",
+			"معماري",
+		].includes(normalized)
+	) {
 		return {
-			key: "finishes",
-			label: "finishes",
+			key: "architectural",
+			label: "architectural",
+		};
+	}
+
+	if (["mechanical", "ميكانيكي"].includes(normalized)) {
+		return {
+			key: "mechanical",
+			label: "mechanical",
+		};
+	}
+
+	if (["electrical", "كهربائي"].includes(normalized)) {
+		return {
+			key: "electrical",
+			label: "electrical",
 		};
 	}
 
@@ -259,6 +301,7 @@ export function createTimelineTasks(
 			}
 
 			return (
+				(GROUP_ORDER[left.groupKey] ?? 99) - (GROUP_ORDER[right.groupKey] ?? 99) ||
 				left.placementDate.getTime() - right.placementDate.getTime() ||
 				left.name.localeCompare(right.name)
 			);

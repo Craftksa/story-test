@@ -31,20 +31,20 @@ type TimelineLayoutMetrics = {
 };
 
 const DEFAULT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 280,
+	leftColumnWidth: 304,
 	dayColumnWidth: 70,
 	headerHeight: 68,
-	groupRowHeight: 40,
-	taskRowHeight: 58,
+	groupRowHeight: 42,
+	taskRowHeight: 56,
 	barHeight: 28,
 	maxBodyHeight: "none",
 };
 
 const COMPACT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 244,
+	leftColumnWidth: 268,
 	dayColumnWidth: 58,
 	headerHeight: 60,
-	groupRowHeight: 36,
+	groupRowHeight: 40,
 	taskRowHeight: 54,
 	barHeight: 28,
 	maxBodyHeight: "min(60vh, 38rem)",
@@ -404,9 +404,7 @@ export default function TaskTimelineView({
 												<p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
 													{t("Tasks")}
 												</p>
-												<p className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-													{t("Project Timeline View")}
-												</p>
+												<div className="h-px flex-1 bg-white/8" />
 											</div>
 										</div>
 
@@ -459,7 +457,7 @@ export default function TaskTimelineView({
 												return (
 													<div key={group.key}>
 														<div
-															className="absolute inset-x-0 border-b border-white/6 bg-white/[0.02] px-5"
+															className="absolute inset-x-0 border-b border-white/6 bg-white/[0.03] px-5"
 															style={{
 																top: groupLayout.top,
 																height: groupLayout.height,
@@ -472,11 +470,14 @@ export default function TaskTimelineView({
 																		getGroupAccentClasses(group.key)
 																	)}
 																/>
-																<div className="min-w-0">
-																	<p className="truncate text-sm font-semibold text-white/88">
+																<div className="min-w-0 flex-1">
+																	<p className="truncate text-sm font-semibold tracking-[0.04em] text-white/88">
 																		{group.label}
 																	</p>
 																</div>
+																<span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/42">
+																	{group.tasks.length}
+																</span>
 															</div>
 														</div>
 
@@ -494,6 +495,9 @@ export default function TaskTimelineView({
 																	}}
 																>
 																	<div className="flex h-full min-w-0 items-center">
+																		<div className="flex h-full items-stretch pr-3">
+																			<div className="w-px bg-white/8" />
+																		</div>
 																		<div className="min-w-0 flex-1">
 																			<p
 																				className={cn(
@@ -505,13 +509,13 @@ export default function TaskTimelineView({
 																			</p>
 																			<div
 																				className={cn(
-																					"mt-1 flex items-center gap-2 text-[11px] text-white/42",
-																					isRTL && "justify-end"
-																				)}
-																			>
-																				<span>{task.ownerLabel || t("Not set")}</span>
-																				<span className="text-white/20">|</span>
+																				"mt-1 flex items-center gap-2 text-[11px] text-white/42",
+																				isRTL && "justify-end"
+																			)}
+																		>
 																				<span>{getTranslatedTaskStatusLabel(task, t)}</span>
+																				<span className="text-white/20">|</span>
+																				<span>{task.ownerLabel || t("Not set")}</span>
 																			</div>
 																		</div>
 																	</div>
@@ -549,14 +553,24 @@ export default function TaskTimelineView({
 												return (
 													<div key={group.key}>
 														<div
-															className="absolute inset-x-0 border-b border-white/6 bg-white/[0.02]"
+															className="absolute inset-x-0 border-b border-white/6 bg-white/[0.03]"
 															style={{
 																top: groupLayout.top,
 																height: groupLayout.height,
 															}}
 														>
 															<div className="flex h-full items-center px-4">
-																<div className="h-px w-full bg-white/6" />
+																<div className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-3 py-1">
+																	<span
+																		className={cn(
+																			"h-2.5 w-2.5 rounded-full",
+																			getGroupAccentClasses(group.key)
+																		)}
+																	/>
+																	<span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/52">
+																		{group.label}
+																	</span>
+																</div>
 															</div>
 														</div>
 
@@ -589,7 +603,7 @@ export default function TaskTimelineView({
 																		title={barTitle}
 																		aria-label={barTitle}
 																		className={cn(
-																			"absolute flex items-center overflow-hidden rounded-md border px-[10px] text-left shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-transform hover:-translate-y-px disabled:cursor-default disabled:hover:translate-y-0",
+																			"absolute flex items-center overflow-hidden rounded-md border px-[10px] text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-transform hover:-translate-y-px disabled:cursor-default disabled:hover:translate-y-0",
 																			barClasses
 																		)}
 																		style={{
@@ -613,18 +627,6 @@ export default function TaskTimelineView({
 																			</span>
 																		) : null}
 																	</button>
-
-																	{!task.hasStartDate && (
-																		<div
-																			className="absolute z-[1] rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/65"
-																			style={{
-																				left: taskLayout.barRight + 8,
-																				top: (taskLayout.rowHeight - 24) / 2,
-																			}}
-																		>
-																			{t("Unscheduled")}
-																		</div>
-																	)}
 																</div>
 															);
 														})}
