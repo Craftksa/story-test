@@ -1587,6 +1587,8 @@ export default function AdminDashboard() {
 		"fixed left-1/2 top-1/2 z-[9999] w-full max-w-4xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[#dac58f]/20 bg-[#111315] p-0 text-white shadow-2xl shadow-black/60";
 	const taskModalFieldClassName =
 		"w-full rounded-xl border border-[#dac58f]/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#8f8a7d] focus:border-[#dac58f]/45 focus:bg-white/[0.07] focus:ring-2 focus:ring-[#dac58f]/10";
+	const taskModalSelectContentClassName =
+		"z-[10001] border border-[#dac58f]/20 bg-[#111315] text-white shadow-2xl shadow-black/60";
 	const taskModalLabelClassName = "mb-2 block text-sm font-medium text-[#e8dfc8]";
 	const taskModalPrimaryButtonClassName =
 		"rounded-xl bg-[#dac58f] px-5 py-2.5 text-sm font-semibold text-[#111315] transition hover:bg-[#e7d3a3] disabled:cursor-not-allowed disabled:opacity-50";
@@ -2449,7 +2451,7 @@ export default function AdminDashboard() {
 										<SelectTrigger className={taskModalFieldClassName}>
 											<SelectValue placeholder={t("Select task type")} />
 										</SelectTrigger>
-										<SelectContent>
+										<SelectContent className={taskModalSelectContentClassName}>
 											<SelectItem value="construction">{t("construction")}</SelectItem>
 											<SelectItem value="architectural">{t("architectural")}</SelectItem>
 											<SelectItem value="electrical">{t("electrical")}</SelectItem>
@@ -2468,7 +2470,7 @@ export default function AdminDashboard() {
 										<SelectTrigger className={taskModalFieldClassName}>
 											<SelectValue placeholder={t("Select status")} />
 										</SelectTrigger>
-										<SelectContent>
+										<SelectContent className={taskModalSelectContentClassName}>
 											<SelectItem value="not_started">{t("not_started")}</SelectItem>
 											<SelectItem value="in_progress">{t("in_progress")}</SelectItem>
 											<SelectItem value="completed">{t("completed")}</SelectItem>
@@ -2490,7 +2492,7 @@ export default function AdminDashboard() {
 										<SelectTrigger className={taskModalFieldClassName}>
 											<SelectValue placeholder={t("Select priority")} />
 										</SelectTrigger>
-										<SelectContent>
+										<SelectContent className={taskModalSelectContentClassName}>
 											<SelectItem value="high">{t("High")}</SelectItem>
 											<SelectItem value="medium">{t("Medium")}</SelectItem>
 											<SelectItem value="low">{t("Low")}</SelectItem>
@@ -2556,7 +2558,7 @@ export default function AdminDashboard() {
 										<SelectTrigger className={taskModalFieldClassName}>
 											<SelectValue placeholder={t("Select related task")} />
 										</SelectTrigger>
-										<SelectContent>
+										<SelectContent className={taskModalSelectContentClassName}>
 											{availableProjectTasks.map((task) => (
 													<SelectItem key={task.taskId} value={task.taskId as string}>
 														{task.taskName}
@@ -2701,7 +2703,7 @@ export default function AdminDashboard() {
 										<SelectTrigger className={taskModalFieldClassName}>
 											<SelectValue placeholder={t("Select related task")} />
 										</SelectTrigger>
-										<SelectContent>
+										<SelectContent className={taskModalSelectContentClassName}>
 											{availableProjectTasks.map((task) => (
 													<SelectItem key={task.taskId} value={task.taskId as string}>
 														{task.taskName}
@@ -2716,7 +2718,7 @@ export default function AdminDashboard() {
 										<SelectTrigger className={taskModalFieldClassName}>
 											<SelectValue />
 										</SelectTrigger>
-										<SelectContent>
+										<SelectContent className={taskModalSelectContentClassName}>
 											<SelectItem value="yes">{t("Yes")}</SelectItem>
 											<SelectItem value="no">{t("No")}</SelectItem>
 										</SelectContent>
@@ -2729,7 +2731,7 @@ export default function AdminDashboard() {
 											<SelectTrigger className={taskModalFieldClassName}>
 												<SelectValue placeholder={t("Approval requests will appear here after integration")} />
 											</SelectTrigger>
-											<SelectContent>
+											<SelectContent className={taskModalSelectContentClassName}>
 												<SelectItem value="placeholder-approval" disabled>
 													{t("Approval requests will appear here after integration")}
 												</SelectItem>
@@ -2747,7 +2749,7 @@ export default function AdminDashboard() {
 										<SelectTrigger className={taskModalFieldClassName}>
 											<SelectValue placeholder={t("Select responsible party")} />
 										</SelectTrigger>
-										<SelectContent>
+										<SelectContent className={taskModalSelectContentClassName}>
 											<SelectItem value="client">{t("Client")}</SelectItem>
 											<SelectItem value="contractor">{t("Contractor")}</SelectItem>
 											<SelectItem value="supplier">{t("Supplier")}</SelectItem>
