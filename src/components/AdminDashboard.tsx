@@ -1599,6 +1599,18 @@ export default function AdminDashboard() {
 	const taskModalCloseButtonClassName =
 		"rounded-full border border-white/10 bg-white/5 p-2 text-[#b8b2a3] transition hover:border-[#dac58f]/30 hover:bg-[#dac58f]/10 hover:text-white";
 	const taskModalNoteClassName = "text-xs text-[#8f8a7d]";
+	const openAddTaskModal = () => {
+		console.debug("open add task modal");
+		setActiveTaskModal("addTask");
+	};
+	const openApprovalModal = () => {
+		console.debug("open approval modal");
+		setActiveTaskModal("approval");
+	};
+	const openDelayModal = () => {
+		console.debug("open delay modal");
+		setActiveTaskModal("delay");
+	};
 	const weeklyLocationSummaries = buildWeeklyLocationSummaries(analysisProjectDetails);
 	const weeklyReportSummary = getWeeklyReportSummary(weeklyLocationSummaries);
 	const weeklyHighlights = buildWeeklyHighlights(weeklyLocationSummaries);
@@ -1844,7 +1856,7 @@ export default function AdminDashboard() {
 				</TabsContent>
 
 				<TabsContent value="tasks" className="min-w-0 max-w-full space-y-4 overflow-hidden">
-					<Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
+					<Card className="relative z-10 rounded-2xl border border-border/60 bg-card shadow-sm">
 						<CardHeader className="space-y-4">
 							<div
 								dir={dir}
@@ -1877,27 +1889,27 @@ export default function AdminDashboard() {
 							<div
 								dir={dir}
 								className={cn(
-									"flex flex-wrap gap-3",
+									"relative z-10 flex flex-wrap gap-3 pointer-events-auto",
 									dir === "rtl" ? "justify-end" : "justify-start"
 								)}
 							>
 								<Button
 									type="button"
-									onClick={() => setActiveTaskModal("addTask")}
+									onClick={openAddTaskModal}
 									className={taskModalPrimaryButtonClassName}
 								>
 									{t("Add Task")}
 								</Button>
 								<Button
 									type="button"
-									onClick={() => setActiveTaskModal("approval")}
+									onClick={openApprovalModal}
 									className={taskModalSecondaryButtonClassName}
 								>
 									{t("Request Client Approval")}
 								</Button>
 								<Button
 									type="button"
-									onClick={() => setActiveTaskModal("delay")}
+									onClick={openDelayModal}
 									className={taskModalWarningButtonClassName}
 								>
 									{t("Log Delay")}
@@ -2400,9 +2412,10 @@ export default function AdminDashboard() {
 				</TabsContent>
 			</Tabs>
 
+			{activeTaskModal === "addTask" ? (
 			<Dialog
-				open={activeTaskModal === "addTask"}
-				onOpenChange={(open) => setActiveTaskModal(open ? "addTask" : null)}
+				open
+				onOpenChange={(open) => !open && setActiveTaskModal(null)}
 			>
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
@@ -2512,10 +2525,12 @@ export default function AdminDashboard() {
 					</div>
 				</DialogContent>
 			</Dialog>
+			) : null}
 
+			{activeTaskModal === "approval" ? (
 			<Dialog
-				open={activeTaskModal === "approval"}
-				onOpenChange={(open) => setActiveTaskModal(open ? "approval" : null)}
+				open
+				onOpenChange={(open) => !open && setActiveTaskModal(null)}
 			>
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
@@ -2655,10 +2670,12 @@ export default function AdminDashboard() {
 					</div>
 				</DialogContent>
 			</Dialog>
+			) : null}
 
+			{activeTaskModal === "delay" ? (
 			<Dialog
-				open={activeTaskModal === "delay"}
-				onOpenChange={(open) => setActiveTaskModal(open ? "delay" : null)}
+				open
+				onOpenChange={(open) => !open && setActiveTaskModal(null)}
 			>
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
@@ -2775,6 +2792,7 @@ export default function AdminDashboard() {
 					</div>
 				</DialogContent>
 			</Dialog>
+			) : null}
 
 			<Dialog
 				open={isAddNoteOpen}
