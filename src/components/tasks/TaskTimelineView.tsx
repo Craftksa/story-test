@@ -430,266 +430,260 @@ export default function TaskTimelineView({
 								className="max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain"
 							>
 								<div
-									className="min-w-[980px]"
-									style={{ width: `${ganttWidth}px` }}
+									className="grid min-w-[980px]"
+									style={{
+										width: `${ganttWidth}px`,
+										gridTemplateColumns: `${layout.leftColumnWidth}px ${timelineWidth}px`,
+									}}
 								>
 									<div
-										className="grid"
+										className="sticky left-0 z-30 border-b border-white/8 bg-[#131a22] px-5 py-4"
+										style={{ height: layout.headerHeight }}
+									>
+										<div className="flex h-full items-center justify-between gap-3">
+											<p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
+												{t("Tasks")}
+											</p>
+											<div className="h-px flex-1 bg-white/8" />
+										</div>
+									</div>
+
+									<div
+										className="relative border-b border-white/8 bg-[#121921]"
 										style={{
+											height: layout.headerHeight,
+											backgroundImage:
+												"linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px)",
+											backgroundSize: `${layout.dayColumnWidth}px 100%`,
+										}}
+									>
+										<div className="flex h-full">
+											{timelineDays.map((day) => (
+												<div
+													key={day.toISOString()}
+													className="flex shrink-0 flex-col justify-center border-r border-white/5 px-2 text-center"
+													style={{ width: layout.dayColumnWidth }}
+												>
+													<span className="text-[10px] uppercase tracking-[0.18em] text-white/36">
+														{format(day, "EEE", { locale })}
+													</span>
+													<span className="mt-1 text-sm font-medium text-white/82">
+														{format(day, "d MMM", { locale })}
+													</span>
+												</div>
+											))}
+										</div>
+										{todayOffset >= 0 && todayOffset < timelineRange.totalDays && (
+											<div
+												className="absolute inset-y-0 z-20"
+												style={{ left: todayLeft }}
+											>
+												<div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full bg-[#dac58f] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#111315] shadow-sm">
+													{t("Today")}
+												</div>
+												<div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#dac58f]/80" />
+											</div>
+										)}
+									</div>
+								</div>
+
+								<div
+									className="roadmap-rows-scroll relative h-[408px] overflow-y-scroll overflow-x-visible overscroll-y-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/28 hover:[&::-webkit-scrollbar-thumb]:bg-white/38"
+								>
+									<div
+										className="grid min-w-[980px] border-t border-white/8"
+										style={{
+											width: `${ganttWidth}px`,
 											gridTemplateColumns: `${layout.leftColumnWidth}px ${timelineWidth}px`,
 										}}
 									>
 										<div
-											className="sticky left-0 z-30 border-b border-white/8 bg-[#131a22] px-5 py-4"
-											style={{ height: layout.headerHeight }}
+											className="sticky left-0 z-20 bg-[#10161d]"
+											style={{ height: bodyHeight }}
 										>
-											<div className="flex h-full items-center justify-between gap-3">
-												<p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
-													{t("Tasks")}
-												</p>
-												<div className="h-px flex-1 bg-white/8" />
-											</div>
+											{groupedTimelineTasks.map((group) => {
+												const groupLayout = groupLayouts.get(group.key);
+												if (!groupLayout) return null;
+
+												return (
+													<div key={group.key}>
+														<div
+															className="absolute inset-x-0 border-b border-white/6 bg-white/[0.03] px-5"
+															style={{
+																top: groupLayout.top,
+																height: groupLayout.height,
+															}}
+														>
+															<div className="flex h-full items-center gap-3">
+																<span
+																	className={cn(
+																		"h-3 w-3 rounded-full shadow-sm",
+																		getGroupAccentClasses(group.key)
+																	)}
+																/>
+																<div className="min-w-0 flex-1">
+																	<p className="truncate text-sm font-semibold tracking-[0.04em] text-white/88">
+																		{group.label}
+																	</p>
+																</div>
+																<span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/42">
+																	{group.tasks.length}
+																</span>
+															</div>
+														</div>
+
+														{group.tasks.map((task) => {
+															const taskLayout = taskLayouts.get(task.id);
+															if (!taskLayout) return null;
+
+															return (
+																<div
+																	key={task.id}
+																	className="absolute inset-x-0 border-b border-white/6 px-5 py-3"
+																	style={{
+																		top: taskLayout.rowTop,
+																		height: taskLayout.rowHeight,
+																	}}
+																>
+																	<div className="flex h-full min-w-0 items-center">
+																		<div className="flex h-full items-stretch pr-3">
+																			<div className="w-px bg-white/8" />
+																		</div>
+																		<div className="min-w-0 flex-1">
+																			<p
+																				className={cn(
+																					"truncate text-sm font-medium text-white/92",
+																					isRTL && "text-right"
+																				)}
+																			>
+																				{task.name}
+																			</p>
+																			<div
+																				className={cn(
+																					"mt-1 flex items-center gap-2 text-[11px] text-white/42",
+																					isRTL && "justify-end"
+																				)}
+																			>
+																				<span>{getTranslatedTaskStatusLabel(task, t)}</span>
+																				<span className="text-white/20">|</span>
+																				<span>{task.ownerLabel || t("Not set")}</span>
+																			</div>
+																		</div>
+																	</div>
+																</div>
+															);
+														})}
+													</div>
+												);
+											})}
 										</div>
 
 										<div
-											className="relative border-b border-white/8 bg-[#121921]"
+											className="relative bg-[#0f151c]"
 											style={{
-												height: layout.headerHeight,
+												height: bodyHeight,
+												width: timelineWidth,
 												backgroundImage:
 													"linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px)",
 												backgroundSize: `${layout.dayColumnWidth}px 100%`,
 											}}
 										>
-											<div className="flex h-full">
-												{timelineDays.map((day) => (
-													<div
-														key={day.toISOString()}
-														className="flex shrink-0 flex-col justify-center border-r border-white/5 px-2 text-center"
-														style={{ width: layout.dayColumnWidth }}
-													>
-														<span className="text-[10px] uppercase tracking-[0.18em] text-white/36">
-															{format(day, "EEE", { locale })}
-														</span>
-														<span className="mt-1 text-sm font-medium text-white/82">
-															{format(day, "d MMM", { locale })}
-														</span>
-													</div>
-												))}
-											</div>
 											{todayOffset >= 0 && todayOffset < timelineRange.totalDays && (
 												<div
-													className="absolute inset-y-0 z-20"
+													className="pointer-events-none absolute inset-y-0 z-10"
 													style={{ left: todayLeft }}
 												>
-													<div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full bg-[#dac58f] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#111315] shadow-sm">
-														{t("Today")}
-													</div>
 													<div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#dac58f]/80" />
 												</div>
 											)}
-										</div>
 
-										<div className="col-span-2 overflow-visible border-t border-white/8">
-											<div
-												className="timeline-body-scroll relative overflow-x-hidden overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/28 hover:[&::-webkit-scrollbar-thumb]:bg-white/38"
-												style={{ height: `${roadmapViewportHeight}px`, maxHeight: `${roadmapViewportHeight}px` }}
-											>
-												<div
-													className="grid"
-													style={{
-														gridTemplateColumns: `${layout.leftColumnWidth}px ${timelineWidth}px`,
-													}}
-												>
-													<div
-														className="sticky left-0 z-20 bg-[#10161d]"
-														style={{ height: bodyHeight }}
-													>
-														{groupedTimelineTasks.map((group) => {
-															const groupLayout = groupLayouts.get(group.key);
-															if (!groupLayout) return null;
+											{groupedTimelineTasks.map((group) => {
+												const groupLayout = groupLayouts.get(group.key);
+												if (!groupLayout) return null;
+
+												return (
+													<div key={group.key}>
+														<div
+															className="absolute inset-x-0 border-b border-white/6 bg-white/[0.03]"
+															style={{
+																top: groupLayout.top,
+																height: groupLayout.height,
+															}}
+														>
+															<div className="flex h-full items-center px-4">
+																<div className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-3 py-1">
+																	<span
+																		className={cn(
+																			"h-2.5 w-2.5 rounded-full",
+																			getGroupAccentClasses(group.key)
+																		)}
+																	/>
+																	<span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/52">
+																		{group.label}
+																	</span>
+																</div>
+															</div>
+														</div>
+
+														{group.tasks.map((task) => {
+															const taskLayout = taskLayouts.get(task.id);
+															if (!taskLayout) return null;
+
+															const barClasses = getTaskBarClasses(task);
+															const showInlineContent = taskLayout.barWidth >= 112;
+															const taskHref = resolveTaskHref(task.id);
+															const barTitle = task.hasStartDate && !task.hasExplicitEndDate
+																? `${task.name} - ${t("No fixed end date")}`
+																: task.hasStartDate
+																	? task.name
+																	: `${task.name} - ${t("Unscheduled")}`;
 
 															return (
-																<div key={group.key}>
-																	<div
-																		className="absolute inset-x-0 border-b border-white/6 bg-white/[0.03] px-5"
+																<div
+																	key={task.id}
+																	className="absolute inset-x-0 border-b border-white/6"
+																	style={{
+																		top: taskLayout.rowTop,
+																		height: taskLayout.rowHeight,
+																	}}
+																>
+																	<button
+																		type="button"
+																		onClick={() => openTask(task.id)}
+																		disabled={!taskHref}
+																		title={barTitle}
+																		aria-label={barTitle}
+																		className={cn(
+																			"absolute flex items-center overflow-hidden rounded-md border px-[10px] text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-transform hover:-translate-y-px disabled:cursor-default disabled:hover:translate-y-0",
+																			barClasses
+																		)}
 																		style={{
-																			top: groupLayout.top,
-																			height: groupLayout.height,
+																			left: taskLayout.barLeft,
+																			top: (taskLayout.rowHeight - layout.barHeight) / 2,
+																			width: taskLayout.barWidth,
+																			height: layout.barHeight,
 																		}}
 																	>
-																		<div className="flex h-full items-center gap-3">
+																		{showInlineContent ? (
 																			<span
 																				className={cn(
-																					"h-3 w-3 rounded-full shadow-sm",
-																					getGroupAccentClasses(group.key)
+																					"block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.02em]",
+																					getTaskVisualState(task.status) === "in_progress"
+																						? "text-[#111315]"
+																						: "text-white",
+																					isRTL ? "text-right" : "text-left"
 																				)}
-																			/>
-																			<div className="min-w-0 flex-1">
-																				<p className="truncate text-sm font-semibold tracking-[0.04em] text-white/88">
-																					{group.label}
-																				</p>
-																			</div>
-																			<span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/42">
-																				{group.tasks.length}
+																			>
+																				{task.name}
 																			</span>
-																		</div>
-																	</div>
-
-																	{group.tasks.map((task) => {
-																		const taskLayout = taskLayouts.get(task.id);
-																		if (!taskLayout) return null;
-
-																		return (
-																			<div
-																				key={task.id}
-																				className="absolute inset-x-0 border-b border-white/6 px-5 py-3"
-																				style={{
-																					top: taskLayout.rowTop,
-																					height: taskLayout.rowHeight,
-																				}}
-																			>
-																				<div className="flex h-full min-w-0 items-center">
-																					<div className="flex h-full items-stretch pr-3">
-																						<div className="w-px bg-white/8" />
-																					</div>
-																					<div className="min-w-0 flex-1">
-																						<p
-																							className={cn(
-																								"truncate text-sm font-medium text-white/92",
-																								isRTL && "text-right"
-																							)}
-																						>
-																							{task.name}
-																						</p>
-																						<div
-																							className={cn(
-																								"mt-1 flex items-center gap-2 text-[11px] text-white/42",
-																								isRTL && "justify-end"
-																							)}
-																						>
-																							<span>{getTranslatedTaskStatusLabel(task, t)}</span>
-																							<span className="text-white/20">|</span>
-																							<span>{task.ownerLabel || t("Not set")}</span>
-																						</div>
-																					</div>
-																				</div>
-																			</div>
-																		);
-																	})}
+																		) : null}
+																	</button>
 																</div>
 															);
 														})}
 													</div>
-
-													<div
-														className="relative bg-[#0f151c]"
-														style={{
-															height: bodyHeight,
-															width: timelineWidth,
-															backgroundImage:
-																"linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px)",
-															backgroundSize: `${layout.dayColumnWidth}px 100%`,
-														}}
-													>
-														{todayOffset >= 0 && todayOffset < timelineRange.totalDays && (
-															<div
-																className="pointer-events-none absolute inset-y-0 z-10"
-																style={{ left: todayLeft }}
-															>
-																<div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#dac58f]/80" />
-															</div>
-														)}
-
-														{groupedTimelineTasks.map((group) => {
-															const groupLayout = groupLayouts.get(group.key);
-															if (!groupLayout) return null;
-
-															return (
-																<div key={group.key}>
-																	<div
-																		className="absolute inset-x-0 border-b border-white/6 bg-white/[0.03]"
-																		style={{
-																			top: groupLayout.top,
-																			height: groupLayout.height,
-																		}}
-																	>
-																		<div className="flex h-full items-center px-4">
-																			<div className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-3 py-1">
-																				<span
-																					className={cn(
-																						"h-2.5 w-2.5 rounded-full",
-																						getGroupAccentClasses(group.key)
-																					)}
-																				/>
-																				<span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/52">
-																					{group.label}
-																				</span>
-																			</div>
-																		</div>
-																	</div>
-
-																	{group.tasks.map((task) => {
-																		const taskLayout = taskLayouts.get(task.id);
-																		if (!taskLayout) return null;
-
-																		const barClasses = getTaskBarClasses(task);
-																		const showInlineContent = taskLayout.barWidth >= 112;
-																		const taskHref = resolveTaskHref(task.id);
-																		const barTitle = task.hasStartDate && !task.hasExplicitEndDate
-																			? `${task.name} - ${t("No fixed end date")}`
-																			: task.hasStartDate
-																				? task.name
-																				: `${task.name} - ${t("Unscheduled")}`;
-
-																		return (
-																			<div
-																				key={task.id}
-																				className="absolute inset-x-0 border-b border-white/6"
-																				style={{
-																					top: taskLayout.rowTop,
-																					height: taskLayout.rowHeight,
-																				}}
-																			>
-																				<button
-																					type="button"
-																					onClick={() => openTask(task.id)}
-																					disabled={!taskHref}
-																					title={barTitle}
-																					aria-label={barTitle}
-																					className={cn(
-																						"absolute flex items-center overflow-hidden rounded-md border px-[10px] text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-transform hover:-translate-y-px disabled:cursor-default disabled:hover:translate-y-0",
-																						barClasses
-																					)}
-																					style={{
-																						left: taskLayout.barLeft,
-																						top: (taskLayout.rowHeight - layout.barHeight) / 2,
-																						width: taskLayout.barWidth,
-																						height: layout.barHeight,
-																					}}
-																				>
-																					{showInlineContent ? (
-																						<span
-																							className={cn(
-																								"block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.02em]",
-																								getTaskVisualState(task.status) === "in_progress"
-																									? "text-[#111315]"
-																									: "text-white",
-																								isRTL ? "text-right" : "text-left"
-																							)}
-																						>
-																							{task.name}
-																						</span>
-																					) : null}
-																				</button>
-																			</div>
-																		);
-																	})}
-																</div>
-															);
-														})}
-													</div>
-												</div>
-											</div>
+												);
+											})}
 										</div>
 									</div>
 								</div>
