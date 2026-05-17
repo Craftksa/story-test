@@ -305,7 +305,7 @@ export default function TaskTimelineView({
 	});
 	const timelineWidth = timelineRange.totalDays * layout.dayColumnWidth;
 	const ganttWidth = layout.leftColumnWidth + timelineWidth;
-	const roadmapViewportHeight = layout.taskRowHeight * 6 + layout.groupRowHeight;
+	const roadmapViewportHeight = 520;
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
 	const { taskLayouts, groupLayouts, bodyHeight } = getTaskLayouts(
@@ -461,8 +461,8 @@ export default function TaskTimelineView({
 
 										<div className="col-span-2 border-t border-white/8">
 											<div
-												className="timeline-body-scroll overflow-x-hidden overflow-y-auto overscroll-contain"
-												style={{ maxHeight: `${roadmapViewportHeight}px` }}
+												className="timeline-body-scroll h-[520px] max-h-[520px] overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/18 hover:[&::-webkit-scrollbar-thumb]:bg-white/28"
+												style={{ height: `${roadmapViewportHeight}px`, maxHeight: `${roadmapViewportHeight}px` }}
 											>
 												<div
 													className="grid"
