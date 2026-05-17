@@ -372,7 +372,7 @@ export default function TaskTimelineView({
 	]);
 
 	return (
-		<Card className="w-full min-w-0 max-w-full overflow-hidden border-border/60 bg-card shadow-sm">
+		<Card className="w-full min-w-0 max-w-full overflow-visible border-border/60 bg-card shadow-sm">
 			<CardHeader className="space-y-4 pb-4">
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 					<div className={cn("space-y-1", isRTL ? "text-right" : "text-left")}>
@@ -403,8 +403,8 @@ export default function TaskTimelineView({
 					</div>
 				</div>
 			</CardHeader>
-			<CardContent className={cn("min-w-0 max-w-full overflow-hidden", showWeeklyTable ? "space-y-6" : "space-y-0")}>
-				<div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,#12181f_0%,#0f141a_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+			<CardContent className={cn("min-w-0 max-w-full overflow-visible", showWeeklyTable ? "space-y-6" : "space-y-0")}>
+				<div className="min-w-0 max-w-full overflow-visible rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,#12181f_0%,#0f141a_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
 					<div className="flex flex-col gap-3 border-b border-white/8 px-5 py-4 text-white/80 lg:flex-row lg:items-center lg:justify-between">
 						<div className={cn("space-y-1", isRTL ? "text-right" : "text-left")}>
 							<p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/88">
@@ -489,7 +489,7 @@ export default function TaskTimelineView({
 											)}
 										</div>
 
-										<div className="col-span-2 border-t border-white/8">
+										<div className="col-span-2 overflow-visible border-t border-white/8">
 											<div
 												className="timeline-body-scroll relative overflow-x-hidden overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/28 hover:[&::-webkit-scrollbar-thumb]:bg-white/38"
 												style={{ height: `${roadmapViewportHeight}px`, maxHeight: `${roadmapViewportHeight}px` }}
