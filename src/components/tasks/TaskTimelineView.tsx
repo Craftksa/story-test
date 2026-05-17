@@ -424,10 +424,10 @@ export default function TaskTimelineView({
 							{t("There are no tasks at this stage")}
 						</div>
 					) : (
-						<div className="min-w-0 max-w-full overflow-hidden">
+						<div className="min-w-0 max-w-full overflow-visible">
 							<div
 								dir="ltr"
-								className="max-w-full overflow-x-auto overflow-y-hidden overscroll-contain"
+								className="max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain"
 							>
 								<div
 									className="min-w-[980px]"
@@ -491,7 +491,7 @@ export default function TaskTimelineView({
 
 										<div className="col-span-2 border-t border-white/8">
 											<div
-												className="timeline-body-scroll overflow-x-hidden overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/28 hover:[&::-webkit-scrollbar-thumb]:bg-white/38"
+												className="timeline-body-scroll relative overflow-x-hidden overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/28 hover:[&::-webkit-scrollbar-thumb]:bg-white/38"
 												style={{ height: `${roadmapViewportHeight}px`, maxHeight: `${roadmapViewportHeight}px` }}
 											>
 												<div
