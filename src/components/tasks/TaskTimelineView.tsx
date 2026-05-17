@@ -395,7 +395,10 @@ export default function TaskTimelineView({
 						</div>
 					) : (
 						<div className="min-w-0 max-w-full overflow-hidden">
-							<div dir="ltr" className="max-w-full overflow-x-auto overscroll-contain">
+							<div
+								dir="ltr"
+								className="max-w-full overflow-x-auto overflow-y-hidden overscroll-contain"
+							>
 								<div
 									className="min-w-[980px]"
 									style={{ width: `${ganttWidth}px` }}
@@ -458,7 +461,7 @@ export default function TaskTimelineView({
 
 										<div className="col-span-2 border-t border-white/8">
 											<div
-												className="overflow-x-hidden overflow-y-auto overscroll-contain"
+												className="timeline-body-scroll overflow-x-hidden overflow-y-auto overscroll-contain"
 												style={{ maxHeight: `${roadmapViewportHeight}px` }}
 											>
 												<div
