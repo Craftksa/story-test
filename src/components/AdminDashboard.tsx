@@ -1582,9 +1582,9 @@ export default function AdminDashboard() {
 		])
 	);
 	const taskModalOverlayClassName =
-		"fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 py-6";
+		"fixed inset-0 z-[9998] bg-black/75 backdrop-blur-sm";
 	const taskModalContentClassName =
-		"relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-2xl border border-[#dac58f]/20 bg-[#111315] p-0 text-white shadow-2xl shadow-black/50";
+		"fixed left-1/2 top-1/2 z-[9999] w-full max-w-4xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[#dac58f]/20 bg-[#111315] p-0 text-white shadow-2xl shadow-black/60";
 	const taskModalFieldClassName =
 		"w-full rounded-xl border border-[#dac58f]/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#8f8a7d] focus:border-[#dac58f]/45 focus:bg-white/[0.07] focus:ring-2 focus:ring-[#dac58f]/10";
 	const taskModalLabelClassName = "mb-2 block text-sm font-medium text-[#e8dfc8]";
