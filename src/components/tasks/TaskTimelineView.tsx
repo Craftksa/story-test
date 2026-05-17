@@ -261,6 +261,7 @@ export default function TaskTimelineView({
 	const today = new Date();
 	const layout = compact ? COMPACT_LAYOUT : DEFAULT_LAYOUT;
 	const timelineTitle = title ?? t("Construction Roadmap");
+	const visibleTaskRows = 6;
 
 	const resolveTaskHref = (taskId: string) =>
 		getTaskHref?.(taskId) ?? (projectId ? `/projects/${projectId}/tasks/${taskId}` : null);
@@ -295,6 +296,22 @@ export default function TaskTimelineView({
 		(total, group) => total + group.tasks.length,
 		0
 	);
+	const groupedTaskCounts = groupedTimelineTasks.map((group) => ({
+		taskType: group.key,
+		count: group.tasks.length,
+	}));
+	const receivedTaskDiagnostics = tasks.map((task, index) => ({
+		index,
+		name:
+			(typeof task.taskName === "string" && task.taskName.trim()) ||
+			(typeof task.title === "string" && task.title.trim()) ||
+			(typeof task.name === "string" && task.name.trim()) ||
+			`Task ${index + 1}`,
+		taskType:
+			(typeof task.taskType === "string" && task.taskType.trim()) || "general",
+		taskStatus:
+			(typeof task.taskStatus === "string" && task.taskStatus.trim()) || "not_started",
+	}));
 
 	const timelineRange = getTimelineRange(timelineTasks, today);
 	const thisWeekTasks = getThisWeekTasks(timelineTasks, today);
@@ -305,7 +322,7 @@ export default function TaskTimelineView({
 	});
 	const timelineWidth = timelineRange.totalDays * layout.dayColumnWidth;
 	const ganttWidth = layout.leftColumnWidth + timelineWidth;
-	const roadmapViewportHeight = 360;
+	const roadmapViewportHeight = layout.taskRowHeight * visibleTaskRows + 24;
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
 	const { taskLayouts, groupLayouts, bodyHeight } = getTaskLayouts(
@@ -319,11 +336,12 @@ export default function TaskTimelineView({
 		if (process.env.NODE_ENV !== "development") return;
 
 		console.debug("[timeline-roadmap]", {
+			projectName: timelineTitle,
 			totalTasksReceived: tasks.length,
-			groupedTasksCount: groupedTimelineTasks.map((group) => ({
-				taskType: group.key,
-				count: group.tasks.length,
-			})),
+			taskNamesReceived: receivedTaskDiagnostics.map((task) => task.name),
+			receivedTasks: receivedTaskDiagnostics,
+			mappedTimelineItemsCount: timelineTasks.length,
+			groupedTasksCount: groupedTaskCounts,
 			totalRenderedRows,
 			bodyHeight,
 			roadmapViewportHeight,
@@ -343,10 +361,12 @@ export default function TaskTimelineView({
 		});
 	}, [
 		bodyHeight,
-		groupedTimelineTasks,
+		groupedTaskCounts,
+		receivedTaskDiagnostics,
 		roadmapViewportHeight,
 		taskLayouts,
 		tasks.length,
+		timelineTitle,
 		timelineTasks,
 		totalRenderedRows,
 	]);
