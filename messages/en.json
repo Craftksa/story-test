@@ -502,6 +502,8 @@
   "Write a concise task description": "Write a concise task description",
   "Internal Owner": "Internal Owner",
   "Enter internal owner": "Enter internal owner",
+  "Select internal owner": "Select internal owner",
+  "No internal users available": "No internal users available",
   "Select task type": "Select task type",
   "Select priority": "Select priority",
   "Saving will be connected to the database in the next phase": "Saving will be connected to the database in the next phase",

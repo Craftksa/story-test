@@ -502,6 +502,8 @@
   "Write a concise task description": "اكتب وصفاً مختصراً للمهمة",
   "Internal Owner": "المسؤول الداخلي",
   "Enter internal owner": "أدخل اسم المسؤول الداخلي",
+  "Select internal owner": "اختر المسؤول الداخلي",
+  "No internal users available": "لا يوجد مستخدمون داخليون متاحون",
   "Select task type": "اختر نوع المهمة",
   "Select priority": "اختر الأولوية",
   "Saving will be connected to the database in the next phase": "سيتم ربط الحفظ بقاعدة البيانات في المرحلة التالية",

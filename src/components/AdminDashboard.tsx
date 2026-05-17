@@ -36,6 +36,7 @@ import {useTranslations} from "use-intl";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useProjectStore } from "@/store/projectStore";
+import { useUserStore } from "@/store/userStore";
 import TaskTimelineView from "@/components/tasks/TaskTimelineView";
 import { type TimelineSourceTask } from "@/components/tasks/task-timeline-utils";
 import { ProjectVisibilityFilter } from "@/components/project-visibility-filter";
@@ -1099,6 +1100,7 @@ export default function AdminDashboard() {
 	const [activeTaskModal, setActiveTaskModal] = useState<null | "addTask" | "approval" | "delay">(null);
 	const [approvalTaskId, setApprovalTaskId] = useState("");
 	const [approvalDeadline, setApprovalDeadline] = useState("");
+	const [addTaskOwnerId, setAddTaskOwnerId] = useState("");
 	const [delayTaskId, setDelayTaskId] = useState("");
 	const [isDelayLinkedToApproval, setIsDelayLinkedToApproval] = useState("no");
 	const [linkedApprovalRequestId, setLinkedApprovalRequestId] = useState("");
@@ -1113,6 +1115,7 @@ export default function AdminDashboard() {
 	const user = session?.user;
 	const currentActivityNoteAuthor = getActivityNoteAuthorName(user as SessionUserLike | undefined);
 	const { projects, fetchProjects } = useProjectStore();
+	const { users, fetchUsers: fetchUsersList } = useUserStore();
 	const { dir, lang } = useCheckedLocale();
 	const userRole = typeof user?.role === 'string' ? user.role : null;
 	const isAdmin = userRole === 'admin';
@@ -1140,6 +1143,12 @@ export default function AdminDashboard() {
 
 		fetchProjects();
 	}, [fetchProjects, user]);
+
+	useEffect(() => {
+		if (!user || user.role === "client") return;
+
+		fetchUsersList();
+	}, [fetchUsersList, user]);
 
 	useEffect(() => {
 		const nextAllowedTabs = getAllowedDashboardTabs(userRole);
@@ -1569,6 +1578,30 @@ export default function AdminDashboard() {
 		selectedProjectTasks.find((task) => task.taskId === approvalTaskId) ?? null;
 	const selectedDelayTask =
 		selectedProjectTasks.find((task) => task.taskId === delayTaskId) ?? null;
+	const internalAssigneeOptions = (users ?? [])
+		.filter((dashboardUser) => {
+			const role = typeof dashboardUser?.role === "string" ? dashboardUser.role.toLowerCase() : "";
+			return ["employee", "engineer", "moderator", "admin"].includes(role);
+		})
+		.map((dashboardUser) => {
+			const idCandidate =
+				typeof dashboardUser?.id === "string" || typeof dashboardUser?.id === "number"
+					? String(dashboardUser.id)
+					: typeof dashboardUser?.userId === "string" || typeof dashboardUser?.userId === "number"
+						? String(dashboardUser.userId)
+						: "";
+			const labelCandidate = [
+				typeof dashboardUser?.name === "string" ? dashboardUser.name.trim() : "",
+				typeof dashboardUser?.username === "string" ? dashboardUser.username.trim() : "",
+				typeof dashboardUser?.email === "string" ? dashboardUser.email.trim() : "",
+			].find(Boolean);
+
+			return {
+				id: idCandidate,
+				label: labelCandidate || idCandidate,
+			};
+		})
+		.filter((dashboardUser) => dashboardUser.id && dashboardUser.label);
 	const approvalPreviewTaskName =
 		selectedApprovalTask?.taskName || t("Selected task");
 	const approvalPreviewDeadline =
@@ -2460,10 +2493,27 @@ export default function AdminDashboard() {
 										</SelectContent>
 									</Select>
 								</div>
-								<div className="space-y-2">
-									<label className={taskModalLabelClassName}>{t("Internal Owner")}</label>
-									<Input className={taskModalFieldClassName} placeholder={t("Enter internal owner")} />
-								</div>
+									<div className="space-y-2">
+										<label className={taskModalLabelClassName}>{t("Internal Owner")}</label>
+										<Select value={addTaskOwnerId} onValueChange={setAddTaskOwnerId}>
+											<SelectTrigger className={taskModalFieldClassName}>
+												<SelectValue placeholder={t("Select internal owner")} />
+											</SelectTrigger>
+											<SelectContent className={taskModalSelectContentClassName}>
+												{internalAssigneeOptions.length > 0 ? (
+													internalAssigneeOptions.map((internalUser) => (
+														<SelectItem key={internalUser.id} value={internalUser.id}>
+															{internalUser.label}
+														</SelectItem>
+													))
+												) : (
+													<SelectItem value="no-internal-users" disabled>
+														{t("No internal users available")}
+													</SelectItem>
+												)}
+											</SelectContent>
+										</Select>
+									</div>
 								<div className="space-y-2">
 									<label className={taskModalLabelClassName}>{t("Status")}</label>
 									<Select>
