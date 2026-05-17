@@ -461,7 +461,7 @@ export default function TaskTimelineView({
 
 										<div className="col-span-2 border-t border-white/8">
 											<div
-												className="timeline-body-scroll h-[520px] max-h-[520px] overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/18 hover:[&::-webkit-scrollbar-thumb]:bg-white/28"
+												className="timeline-body-scroll h-[520px] max-h-[520px] overflow-x-hidden overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/24 hover:[&::-webkit-scrollbar-thumb]:bg-white/34"
 												style={{ height: `${roadmapViewportHeight}px`, maxHeight: `${roadmapViewportHeight}px` }}
 											>
 												<div
