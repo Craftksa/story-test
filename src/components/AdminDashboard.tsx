@@ -1096,9 +1096,7 @@ export default function AdminDashboard() {
 	const [selectedTimelineProjectDetails, setSelectedTimelineProjectDetails] = useState<DetailedProject | null>(null);
 	const [isSelectedTimelineProjectLoading, setIsSelectedTimelineProjectLoading] = useState(false);
 	const [selectedTimelineProjectLoadError, setSelectedTimelineProjectLoadError] = useState(false);
-	const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-	const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
-	const [isDelayModalOpen, setIsDelayModalOpen] = useState(false);
+	const [activeTaskModal, setActiveTaskModal] = useState<null | "addTask" | "approval" | "delay">(null);
 	const [approvalTaskId, setApprovalTaskId] = useState("");
 	const [approvalDeadline, setApprovalDeadline] = useState("");
 	const [delayTaskId, setDelayTaskId] = useState("");
@@ -1885,21 +1883,21 @@ export default function AdminDashboard() {
 							>
 								<Button
 									type="button"
-									onClick={() => setIsAddTaskModalOpen(true)}
+									onClick={() => setActiveTaskModal("addTask")}
 									className={taskModalPrimaryButtonClassName}
 								>
 									{t("Add Task")}
 								</Button>
 								<Button
 									type="button"
-									onClick={() => setIsApprovalModalOpen(true)}
+									onClick={() => setActiveTaskModal("approval")}
 									className={taskModalSecondaryButtonClassName}
 								>
 									{t("Request Client Approval")}
 								</Button>
 								<Button
 									type="button"
-									onClick={() => setIsDelayModalOpen(true)}
+									onClick={() => setActiveTaskModal("delay")}
 									className={taskModalWarningButtonClassName}
 								>
 									{t("Log Delay")}
@@ -2402,7 +2400,10 @@ export default function AdminDashboard() {
 				</TabsContent>
 			</Tabs>
 
-			<Dialog open={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen}>
+			<Dialog
+				open={activeTaskModal === "addTask"}
+				onOpenChange={(open) => setActiveTaskModal(open ? "addTask" : null)}
+			>
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
 					className={taskModalContentClassName}
@@ -2415,7 +2416,7 @@ export default function AdminDashboard() {
 									{t("Add a new task linked to the selected project")}
 								</DialogDescription>
 							</div>
-							<Button type="button" variant="ghost" onClick={() => setIsAddTaskModalOpen(false)} className={taskModalCloseButtonClassName}>
+							<Button type="button" variant="ghost" onClick={() => setActiveTaskModal(null)} className={taskModalCloseButtonClassName}>
 								×
 							</Button>
 						</DialogHeader>
@@ -2503,7 +2504,7 @@ export default function AdminDashboard() {
 								<Button type="button" disabled className={taskModalPrimaryButtonClassName}>
 									{t("Save Task")}
 								</Button>
-								<Button type="button" variant="outline" onClick={() => setIsAddTaskModalOpen(false)} className={taskModalCancelButtonClassName}>
+								<Button type="button" variant="outline" onClick={() => setActiveTaskModal(null)} className={taskModalCancelButtonClassName}>
 									{t("Cancel")}
 								</Button>
 							</div>
@@ -2512,7 +2513,10 @@ export default function AdminDashboard() {
 				</DialogContent>
 			</Dialog>
 
-			<Dialog open={isApprovalModalOpen} onOpenChange={setIsApprovalModalOpen}>
+			<Dialog
+				open={activeTaskModal === "approval"}
+				onOpenChange={(open) => setActiveTaskModal(open ? "approval" : null)}
+			>
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
 					className={taskModalContentClassName}
@@ -2525,7 +2529,7 @@ export default function AdminDashboard() {
 									{t("Send a formal approval request linked to a project task")}
 								</DialogDescription>
 							</div>
-							<Button type="button" variant="ghost" onClick={() => setIsApprovalModalOpen(false)} className={taskModalCloseButtonClassName}>
+							<Button type="button" variant="ghost" onClick={() => setActiveTaskModal(null)} className={taskModalCloseButtonClassName}>
 								×
 							</Button>
 						</DialogHeader>
@@ -2643,7 +2647,7 @@ export default function AdminDashboard() {
 								<Button type="button" variant="outline" disabled className={taskModalSecondaryButtonClassName}>
 									{t("Save as Draft")}
 								</Button>
-								<Button type="button" variant="outline" onClick={() => setIsApprovalModalOpen(false)} className={taskModalCancelButtonClassName}>
+								<Button type="button" variant="outline" onClick={() => setActiveTaskModal(null)} className={taskModalCancelButtonClassName}>
 									{t("Cancel")}
 								</Button>
 							</div>
@@ -2652,7 +2656,10 @@ export default function AdminDashboard() {
 				</DialogContent>
 			</Dialog>
 
-			<Dialog open={isDelayModalOpen} onOpenChange={setIsDelayModalOpen}>
+			<Dialog
+				open={activeTaskModal === "delay"}
+				onOpenChange={(open) => setActiveTaskModal(open ? "delay" : null)}
+			>
 				<DialogContent
 					overlayClassName={taskModalOverlayClassName}
 					className={taskModalContentClassName}
@@ -2665,7 +2672,7 @@ export default function AdminDashboard() {
 									{t("Document the delay reason and link it to the task or client approval")}
 								</DialogDescription>
 							</div>
-							<Button type="button" variant="ghost" onClick={() => setIsDelayModalOpen(false)} className={taskModalCloseButtonClassName}>
+							<Button type="button" variant="ghost" onClick={() => setActiveTaskModal(null)} className={taskModalCloseButtonClassName}>
 								×
 							</Button>
 						</DialogHeader>
@@ -2760,7 +2767,7 @@ export default function AdminDashboard() {
 								<Button type="button" disabled className={taskModalWarningButtonClassName}>
 									{t("Save Delay")}
 								</Button>
-								<Button type="button" variant="outline" onClick={() => setIsDelayModalOpen(false)} className={taskModalCancelButtonClassName}>
+								<Button type="button" variant="outline" onClick={() => setActiveTaskModal(null)} className={taskModalCancelButtonClassName}>
 									{t("Cancel")}
 								</Button>
 							</div>
