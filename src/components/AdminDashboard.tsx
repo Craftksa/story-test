@@ -1886,7 +1886,6 @@ export default function AdminDashboard() {
 								<Button
 									type="button"
 									onClick={() => setIsAddTaskModalOpen(true)}
-									disabled={!selectedTimelineProjectId}
 									className={taskModalPrimaryButtonClassName}
 								>
 									{t("Add Task")}
@@ -1894,7 +1893,6 @@ export default function AdminDashboard() {
 								<Button
 									type="button"
 									onClick={() => setIsApprovalModalOpen(true)}
-									disabled={!selectedTimelineProjectId}
 									className={taskModalSecondaryButtonClassName}
 								>
 									{t("Request Client Approval")}
@@ -1902,7 +1900,6 @@ export default function AdminDashboard() {
 								<Button
 									type="button"
 									onClick={() => setIsDelayModalOpen(true)}
-									disabled={!selectedTimelineProjectId}
 									className={taskModalWarningButtonClassName}
 								>
 									{t("Log Delay")}
