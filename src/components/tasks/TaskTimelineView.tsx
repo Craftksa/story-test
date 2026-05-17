@@ -305,7 +305,7 @@ export default function TaskTimelineView({
 	});
 	const timelineWidth = timelineRange.totalDays * layout.dayColumnWidth;
 	const ganttWidth = layout.leftColumnWidth + timelineWidth;
-	const roadmapViewportHeight = 520;
+	const roadmapViewportHeight = 360;
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
 	const { taskLayouts, groupLayouts, bodyHeight } = getTaskLayouts(
@@ -325,6 +325,8 @@ export default function TaskTimelineView({
 				count: group.tasks.length,
 			})),
 			totalRenderedRows,
+			bodyHeight,
+			roadmapViewportHeight,
 		});
 
 		timelineTasks.forEach((task) => {
@@ -339,7 +341,15 @@ export default function TaskTimelineView({
 				width: taskLayout.barWidth,
 			});
 		});
-	}, [groupedTimelineTasks, taskLayouts, tasks.length, timelineTasks, totalRenderedRows]);
+	}, [
+		bodyHeight,
+		groupedTimelineTasks,
+		roadmapViewportHeight,
+		taskLayouts,
+		tasks.length,
+		timelineTasks,
+		totalRenderedRows,
+	]);
 
 	return (
 		<Card className="w-full min-w-0 max-w-full overflow-hidden border-border/60 bg-card shadow-sm">
@@ -461,7 +471,7 @@ export default function TaskTimelineView({
 
 										<div className="col-span-2 border-t border-white/8">
 											<div
-												className="timeline-body-scroll h-[520px] max-h-[520px] overflow-x-hidden overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/24 hover:[&::-webkit-scrollbar-thumb]:bg-white/34"
+												className="timeline-body-scroll overflow-x-hidden overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/28 hover:[&::-webkit-scrollbar-thumb]:bg-white/38"
 												style={{ height: `${roadmapViewportHeight}px`, maxHeight: `${roadmapViewportHeight}px` }}
 											>
 												<div
