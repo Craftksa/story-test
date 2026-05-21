@@ -5,8 +5,8 @@ import {
 	text,
 	primaryKey,
 	integer,
-    varchar,
-    decimal,
+	varchar,
+	decimal,
 } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
 import { nanoid } from "nanoid"
@@ -193,3 +193,76 @@ export const taskImages = pgTable("task_image", {
 	uploadedBy: text("uploaded_by").notNull(),
 	uploadedAt: timestamp("uploaded_at", { mode: "date" }).defaultNow(),
 });
+
+export const projectNotes = pgTable("project_note", {
+	id: text("id").primaryKey().$defaultFn(() => nanoid(14)),
+	projectId: text("project_id")
+		.references(() => projects.id, { onDelete: "cascade" })
+		.notNull(),
+	authorId: text("author_id")
+		.references(() => users.id, { onDelete: "set null" }),
+	content: text("content").notNull(),
+	createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
+});
+
+export const projectReports = pgTable("project_report", {
+	id: text("id").primaryKey().$defaultFn(() => nanoid(14)),
+	projectId: text("project_id")
+		.references(() => projects.id, { onDelete: "cascade" })
+		.notNull(),
+	reportType: text("report_type")
+		.$type<"client" | "internal" | "shared">()
+		.notNull(),
+	title: text("title").notNull(),
+	summary: text("summary"),
+	details: text("details").notNull(),
+	workDetails: text("work_details"),
+	attachments: text("attachments"),
+	recipients: text("recipients"),
+	status: text("status")
+		.$type<"draft" | "pending_admin_approval" | "approved" | "rejected" | "sent">()
+		.notNull()
+		.default("draft"),
+	authorId: text("author_id")
+		.references(() => users.id, { onDelete: "set null" }),
+	approvedBy: text("approved_by")
+		.references(() => users.id, { onDelete: "set null" }),
+	approvedAt: timestamp("approved_at", { mode: "date" }),
+	rejectionReason: text("rejection_reason"),
+	adminDecisionNote: text("admin_decision_note"),
+	pdfStatus: text("pdf_status")
+		.$type<"not_generated" | "generated" | "failed">()
+		.notNull()
+		.default("not_generated"),
+	emailStatus: text("email_status")
+		.$type<"not_applicable" | "pending" | "sent" | "failed" | "not_configured">()
+		.notNull()
+		.default("not_applicable"),
+	whatsappStatus: text("whatsapp_status")
+		.$type<"not_applicable" | "pending" | "sent" | "failed" | "not_configured">()
+		.notNull()
+		.default("not_applicable"),
+	lastDeliveryError: text("last_delivery_error"),
+	sentAt: timestamp("sent_at", { mode: "date" }),
+	createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
+});
+
+export const projectReportPermissions = pgTable("project_report_permission", {
+	reportId: text("report_id")
+		.references(() => projectReports.id, { onDelete: "cascade" })
+		.notNull(),
+	userId: text("user_id")
+		.references(() => users.id, { onDelete: "cascade" })
+		.notNull(),
+	accessLevel: text("access_level")
+		.$type<"view" | "edit">()
+		.notNull()
+		.default("view"),
+	assignedBy: text("assigned_by")
+		.references(() => users.id, { onDelete: "set null" }),
+	createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+}, (table) => ({
+	pk: primaryKey({ columns: [table.reportId, table.userId] }),
+}));

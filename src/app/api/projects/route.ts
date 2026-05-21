@@ -1,4 +1,4 @@
-import {projectAssignments, projects, taskAssignments, tasks, users} from "@/drizzle/schema";
+import {projectAssignments, projects, users} from "@/drizzle/schema";
 import {NextRequest, NextResponse} from "next/server";
 import {eq, desc, or, inArray, and} from "drizzle-orm";
 import { z } from "zod";

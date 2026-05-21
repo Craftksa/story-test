@@ -46,6 +46,7 @@ import {
 	ProjectVisibilityScope,
 } from "@/lib/project-visibility";
 import { cn } from "@/lib/utils";
+import { ActivityCenter } from "@/components/activity/ActivityCenter";
 
 type ProjectStatus = 'in_progress' | 'not_started' | 'completed' | 'on_hold';
 type RecentActivityStatus = ProjectStatus | 'needs_review';
@@ -971,6 +972,7 @@ const getActivityNoteKey = ({ projectId, taskId }: Pick<ActivityActionItem, 'pro
 	`${projectId}:${taskId}`;
 
 const ACTIVITY_NOTE_AUTHOR_PREFIX = '__activity_note_author__:';
+const USE_LEGACY_ACTIVITY_CENTER = false;
 const UNKNOWN_ACTIVITY_NOTE_AUTHOR = 'غير معروف';
 
 const getActivityNoteAuthorName = (user?: SessionUserLike | null) => {
@@ -1312,7 +1314,7 @@ export default function AdminDashboard() {
 	}, [selectedTimelineProjectId, timelineProjectOptions]);
 
 	useEffect(() => {
-		if (activeTab !== 'activity') return;
+		if (activeTab !== 'activity' || !USE_LEGACY_ACTIVITY_CENTER) return;
 
 		let isCancelled = false;
 		const uniqueItems = visibleActionItems.filter(
@@ -1400,7 +1402,7 @@ export default function AdminDashboard() {
 	}, [activeTab, activityNotesByTaskKey, activityNotesLoadErrors, visibleActionItems]);
 
 	useEffect(() => {
-		if (activeTab !== 'activity') return;
+		if (activeTab !== 'activity' || !USE_LEGACY_ACTIVITY_CENTER) return;
 
 		if (!taskTimelineProjectIdsKey) {
 			setTaskTimelineProjectDetails([]);
@@ -2320,6 +2322,9 @@ export default function AdminDashboard() {
 				)}
 
 				<TabsContent value="activity" className="space-y-4">
+					<ActivityCenter currentUser={user ?? {}} />
+					{false && (
+						<>
 					<Card>
 						<CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
 							<div className="space-y-1">
@@ -2444,6 +2449,8 @@ export default function AdminDashboard() {
 							);
 						})}
 					</div>
+						</>
+					)}
 				</TabsContent>
 			</Tabs>
 

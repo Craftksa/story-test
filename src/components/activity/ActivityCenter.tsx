@@ -1,0 +1,1385 @@
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import { toast } from "sonner";
+import {
+	AlertCircle,
+	CheckCircle2,
+	Clock3,
+	FilePlus2,
+	FileText,
+	Filter,
+	Loader2,
+	MessageSquarePlus,
+	RefreshCcw,
+	Send,
+	UploadCloud,
+} from "lucide-react";
+import { useCheckedLocale } from "@/lib/client-utils";
+import { uploadFiles } from "@/utils/uploadthing";
+import { cn, formatStatus } from "@/lib/utils";
+import StatusBadge from "@/components/StatusBadgeSystem";
+import Spinner from "@/components/Spinner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
+type ActivityFilter = "all" | "recent" | "waiting_client_action" | "overdue";
+
+type InternalUser = {
+	id: string;
+	name: string | null;
+	email: string | null;
+	role: string | null;
+};
+
+type ProjectNote = {
+	id: string;
+	projectId: string;
+	content: string;
+	authorId: string | null;
+	authorName: string;
+	createdAt: string | null;
+	updatedAt: string | null;
+};
+
+type ReportAttachment = {
+	url: string;
+	name?: string | null;
+	type?: string | null;
+};
+
+type ReportRecipient = {
+	name: string;
+	email?: string | null;
+	phone?: string | null;
+	channel?: "email" | "whatsapp" | "both";
+};
+
+type ReportPermission = {
+	userId: string;
+	userName: string;
+	userEmail: string | null;
+	accessLevel: "view" | "edit";
+};
+
+type ProjectReport = {
+	id: string;
+	projectId: string;
+	reportType: "client" | "internal" | "shared";
+	title: string;
+	summary: string | null;
+	details: string;
+	workDetails: string | null;
+	attachments: ReportAttachment[];
+	recipients: ReportRecipient[];
+	status: "draft" | "pending_admin_approval" | "approved" | "rejected" | "sent";
+	authorId: string | null;
+	authorName: string;
+	approvedBy: string | null;
+	approvedByName: string | null;
+	approvedAt: string | null;
+	rejectionReason: string | null;
+	adminDecisionNote: string | null;
+	pdfStatus: "not_generated" | "generated" | "failed";
+	emailStatus: "not_applicable" | "pending" | "sent" | "failed" | "not_configured";
+	whatsappStatus: "not_applicable" | "pending" | "sent" | "failed" | "not_configured";
+	lastDeliveryError: string | null;
+	sentAt: string | null;
+	createdAt: string | null;
+	updatedAt: string | null;
+	permissions: ReportPermission[];
+	canEdit: boolean;
+	canApprove: boolean;
+	canSendToClient: boolean;
+};
+
+type ProjectSummary = {
+	id: string;
+	name: string;
+	status: string;
+	city: string | null;
+	district: string | null;
+	clientName: string | null;
+	clientEmail: string | null;
+	lastActivityAt: string | null;
+	lastUpdatedAt: string | null;
+	noteCount: number;
+	lastNote: ProjectNote | null;
+	reportCount: number;
+	pendingApprovalCount: number;
+	overdueTaskCount: number;
+	clientActionTaskCount: number;
+	totalTaskCount: number;
+	teamCount: number;
+};
+
+type ProjectDetails = {
+	project: ProjectSummary & {
+		description: string | null;
+		clientId: string | null;
+		teamMembers: InternalUser[];
+	};
+	notes: ProjectNote[];
+	reports: ProjectReport[];
+	activities: Array<{
+		id: string;
+		type: "task" | "note" | "report";
+		title: string;
+		description: string;
+		occurredAt: string | null;
+		priority: "high" | "medium" | "low";
+	}>;
+};
+
+type ActivityProjectsResponse = {
+	projects: ProjectSummary[];
+	internalUsers: InternalUser[];
+};
+
+type ActivityMutationResponse = {
+	details: ProjectDetails | null;
+	message?: string | null;
+};
+
+type ReportFormState = {
+	reportId: string | null;
+	projectId: string;
+	reportType: "client" | "internal" | "shared";
+	title: string;
+	summary: string;
+	details: string;
+	workDetails: string;
+	attachments: ReportAttachment[];
+	recipients: ReportRecipient[];
+	permissions: Array<{ userId: string; accessLevel: "view" | "edit" }>;
+};
+
+type ApprovalDialogState = {
+	reportId: string;
+	projectId: string;
+	decision: "approve" | "reject";
+	reason: string;
+};
+
+type ActivityCenterProps = {
+	currentUser: {
+		id?: string | null;
+		role?: string | null;
+		name?: string | null;
+		email?: string | null;
+	};
+};
+
+const EMPTY_RECIPIENT: ReportRecipient = { name: "", email: "", phone: "", channel: "both" };
+
+const EMPTY_REPORT_FORM: ReportFormState = {
+	reportId: null,
+	projectId: "",
+	reportType: "client",
+	title: "",
+	summary: "",
+	details: "",
+	workDetails: "",
+	attachments: [],
+	recipients: [{ ...EMPTY_RECIPIENT }],
+	permissions: [],
+};
+
+const reportTypeLabel: Record<ProjectReport["reportType"], string> = {
+	client: "تقرير للعميل",
+	internal: "تقرير داخلي",
+	shared: "تقرير مشترك",
+};
+
+const reportStatusLabel: Record<ProjectReport["status"], string> = {
+	draft: "مسودة",
+	pending_admin_approval: "بانتظار موافقة الأدمن",
+	approved: "معتمد",
+	rejected: "مرفوض",
+	sent: "تم الإرسال",
+};
+
+const deliveryStatusLabel: Record<ProjectReport["emailStatus"], string> = {
+	not_applicable: "غير مطلوب",
+	pending: "قيد الانتظار",
+	sent: "تم",
+	failed: "فشل",
+	not_configured: "غير مهيأ",
+};
+
+const isRecentProject = (summary: ProjectSummary) => {
+	if (!summary.lastActivityAt) return false;
+	const diff = Date.now() - new Date(summary.lastActivityAt).getTime();
+	return diff <= 7 * 24 * 60 * 60 * 1000;
+};
+
+const truncate = (value?: string | null, max = 110) => {
+	if (!value) return "";
+	if (value.length <= max) return value;
+	return `${value.slice(0, max).trim()}...`;
+};
+
+const priorityClasses: Record<"high" | "medium" | "low", string> = {
+	high: "border-rose-500/20 bg-rose-500/10 text-rose-300",
+	medium: "border-amber-500/20 bg-amber-500/10 text-amber-200",
+	low: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+};
+
+const reportStatusClasses: Record<ProjectReport["status"], string> = {
+	draft: "border-border/60 bg-muted/40 text-muted-foreground",
+	pending_admin_approval: "border-amber-500/25 bg-amber-500/10 text-amber-200",
+	approved: "border-sky-500/25 bg-sky-500/10 text-sky-200",
+	rejected: "border-rose-500/25 bg-rose-500/10 text-rose-200",
+	sent: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+};
+
+export function ActivityCenter({ currentUser }: ActivityCenterProps) {
+	const { lang, dir } = useCheckedLocale();
+	const isAdmin = ["admin", "moderator"].includes(currentUser.role ?? "");
+	const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+	const [projects, setProjects] = useState<ProjectSummary[]>([]);
+	const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
+	const [loadingProjects, setLoadingProjects] = useState(true);
+	const [selectedProjectId, setSelectedProjectId] = useState("");
+	const [projectDetails, setProjectDetails] = useState<ProjectDetails | null>(null);
+	const [loadingDetails, setLoadingDetails] = useState(false);
+	const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+	const [reportDialogOpen, setReportDialogOpen] = useState(false);
+	const [approvalDialog, setApprovalDialog] = useState<ApprovalDialogState | null>(null);
+	const [noteProjectId, setNoteProjectId] = useState("");
+	const [noteText, setNoteText] = useState("");
+	const [reportForm, setReportForm] = useState<ReportFormState>(EMPTY_REPORT_FORM);
+	const [submittingNote, setSubmittingNote] = useState(false);
+	const [submittingReport, setSubmittingReport] = useState(false);
+	const [uploadingAttachments, setUploadingAttachments] = useState(false);
+	const [actioningReportId, setActioningReportId] = useState<string | null>(null);
+
+	const formatDate = (value?: string | null) => {
+		if (!value) return "غير متوفر";
+		return new Date(value).toLocaleString(lang === "ar" ? "ar-SA" : "en-US", {
+			dateStyle: "medium",
+			timeStyle: "short",
+		});
+	};
+
+	const loadProjects = async () => {
+		setLoadingProjects(true);
+		try {
+			const response = await axios.get<ActivityProjectsResponse>("/api/activity/projects");
+			setProjects(response.data.projects);
+			setInternalUsers(response.data.internalUsers);
+			setSelectedProjectId((current) => {
+				if (current && response.data.projects.some((project) => project.id === current)) {
+					return current;
+				}
+				return response.data.projects[0]?.id ?? "";
+			});
+		} catch (error) {
+			console.error("Failed to load activity projects", error);
+			toast.error("تعذر تحميل بيانات صفحة النشاط.");
+		} finally {
+			setLoadingProjects(false);
+		}
+	};
+
+	const loadProjectDetails = async (projectId: string) => {
+		if (!projectId) {
+			setProjectDetails(null);
+			return;
+		}
+
+		setLoadingDetails(true);
+		try {
+			const response = await axios.get<ProjectDetails>(`/api/activity/projects/${projectId}`);
+			setProjectDetails(response.data);
+		} catch (error) {
+			console.error("Failed to load project activity details", error);
+			toast.error("تعذر تحميل تفاصيل النشاط لهذا المشروع.");
+			setProjectDetails(null);
+		} finally {
+			setLoadingDetails(false);
+		}
+	};
+
+	useEffect(() => {
+		void loadProjects();
+	}, []);
+
+	useEffect(() => {
+		if (!selectedProjectId) return;
+		void loadProjectDetails(selectedProjectId);
+	}, [selectedProjectId]);
+
+	const filteredProjects = useMemo(() => {
+		return projects.filter((summary) => {
+			if (activityFilter === "recent") return isRecentProject(summary);
+			if (activityFilter === "waiting_client_action") return summary.clientActionTaskCount > 0;
+			if (activityFilter === "overdue") return summary.overdueTaskCount > 0;
+			return true;
+		});
+	}, [activityFilter, projects]);
+
+	useEffect(() => {
+		if (!filteredProjects.length) return;
+		if (filteredProjects.some((project) => project.id === selectedProjectId)) return;
+		setSelectedProjectId(filteredProjects[0].id);
+	}, [filteredProjects, selectedProjectId]);
+
+	const selectedSummary = projects.find((project) => project.id === selectedProjectId) ?? null;
+
+	const openAddNoteDialog = () => {
+		setNoteProjectId(selectedProjectId || filteredProjects[0]?.id || "");
+		setNoteText("");
+		setNoteDialogOpen(true);
+	};
+
+	const openCreateReportDialog = () => {
+		setReportForm({
+			...EMPTY_REPORT_FORM,
+			projectId: selectedProjectId || filteredProjects[0]?.id || "",
+		});
+		setReportDialogOpen(true);
+	};
+
+	const openEditReportDialog = (report: ProjectReport) => {
+		setReportForm({
+			reportId: report.id,
+			projectId: report.projectId,
+			reportType: report.reportType,
+			title: report.title,
+			summary: report.summary || "",
+			details: report.details,
+			workDetails: report.workDetails || "",
+			attachments: report.attachments,
+			recipients:
+				report.recipients.length > 0
+					? report.recipients.map((recipient) => ({
+							name: recipient.name,
+							email: recipient.email || "",
+							phone: recipient.phone || "",
+							channel: recipient.channel || "both",
+						}))
+					: [{ ...EMPTY_RECIPIENT }],
+			permissions: report.permissions.map((permission) => ({
+				userId: permission.userId,
+				accessLevel: permission.accessLevel,
+			})),
+		});
+		setReportDialogOpen(true);
+	};
+
+	const handleNoteSubmit = async () => {
+		if (!noteProjectId || !noteText.trim()) {
+			toast.error("اكتب الملاحظة وحدد المشروع أولًا.");
+			return;
+		}
+
+		setSubmittingNote(true);
+		try {
+			const response = await axios.post<ProjectDetails>("/api/activity/notes", {
+				projectId: noteProjectId,
+				content: noteText.trim(),
+			});
+
+			setProjectDetails(response.data);
+			setSelectedProjectId(response.data.project.id);
+			setNoteDialogOpen(false);
+			setNoteText("");
+			await loadProjects();
+			toast.success("تمت إضافة الملاحظة بنجاح.");
+		} catch (error) {
+			console.error("Failed to save note", error);
+			toast.error("تعذر إضافة الملاحظة.");
+		} finally {
+			setSubmittingNote(false);
+		}
+	};
+
+	const handleAttachmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const files = event.target.files ? Array.from(event.target.files) : [];
+		if (!files.length) return;
+
+		setUploadingAttachments(true);
+		try {
+			const uploaded = await uploadFiles("reportAttachmentUploader", { files });
+			const nextAttachments = uploaded.map((file) => ({
+				url: (file as { ufsUrl?: string; url?: string }).ufsUrl || (file as { url?: string }).url || "",
+				name: (file as { name?: string }).name || "",
+				type: (file as { type?: string }).type || "",
+			}));
+
+			setReportForm((current) => ({
+				...current,
+				attachments: [...current.attachments, ...nextAttachments.filter((item) => item.url)],
+			}));
+			toast.success("تم رفع المرفقات.");
+		} catch (error) {
+			console.error("Failed to upload report attachments", error);
+			toast.error("تعذر رفع المرفقات.");
+		} finally {
+			setUploadingAttachments(false);
+			event.target.value = "";
+		}
+	};
+
+	const upsertProjectDetails = async (
+		request: Promise<{ data: ProjectDetails | ActivityMutationResponse | null }>
+	) => {
+		const response = await request;
+		const payload =
+			response.data && typeof response.data === "object" && "details" in response.data
+				? (response.data as ActivityMutationResponse)
+				: {
+						details: response.data as ProjectDetails | null,
+						message: null,
+					};
+
+		if (payload.details) {
+			setProjectDetails(payload.details);
+			setSelectedProjectId(payload.details.project.id);
+		}
+		await loadProjects();
+		return payload.message || null;
+	};
+
+	const handleReportSubmit = async () => {
+		if (!reportForm.projectId || !reportForm.title.trim() || !reportForm.details.trim()) {
+			toast.error("أكمل بيانات التقرير الأساسية أولًا.");
+			return;
+		}
+
+		const cleanedRecipients = reportForm.recipients
+			.map((recipient) => ({
+				name: recipient.name.trim(),
+				email: recipient.email?.trim() || null,
+				phone: recipient.phone?.trim() || null,
+				channel: recipient.channel || "both",
+			}))
+			.filter((recipient) => recipient.name);
+
+		setSubmittingReport(true);
+		try {
+			const payload = {
+				projectId: reportForm.projectId,
+				reportType: reportForm.reportType,
+				title: reportForm.title.trim(),
+				summary: reportForm.summary.trim() || null,
+				details: reportForm.details.trim(),
+				workDetails: reportForm.workDetails.trim() || null,
+				attachments: reportForm.attachments,
+				recipients: cleanedRecipients,
+				permissions: reportForm.permissions,
+			};
+
+			if (reportForm.reportId) {
+				const message = await upsertProjectDetails(
+					axios.patch<ActivityMutationResponse>(`/api/activity/reports/${reportForm.reportId}`, payload)
+				);
+				toast.success(message || "تم تحديث التقرير.");
+			} else {
+				const message = await upsertProjectDetails(
+					axios.post<ActivityMutationResponse>("/api/activity/reports", payload)
+				);
+				toast.success(message || "تم إنشاء التقرير بنجاح.");
+			}
+
+			setReportDialogOpen(false);
+			setReportForm({
+				...EMPTY_REPORT_FORM,
+				projectId: selectedProjectId,
+			});
+		} catch (error) {
+			console.error("Failed to submit report", error);
+			toast.error("تعذر حفظ التقرير.");
+		} finally {
+			setSubmittingReport(false);
+		}
+	};
+
+	const handleApprovalAction = async () => {
+		if (!approvalDialog) return;
+		if (approvalDialog.decision === "reject" && !approvalDialog.reason.trim()) {
+			toast.error("سبب الرفض مطلوب.");
+			return;
+		}
+
+		setActioningReportId(approvalDialog.reportId);
+		try {
+			const message = await upsertProjectDetails(
+				axios.patch<ActivityMutationResponse>(`/api/activity/reports/${approvalDialog.reportId}/approval`, {
+					decision: approvalDialog.decision,
+					reason: approvalDialog.reason.trim() || null,
+				})
+			);
+			toast.success(
+				message ||
+					(approvalDialog.decision === "approve" ? "تم اعتماد التقرير." : "تم رفض التقرير.")
+			);
+			setApprovalDialog(null);
+		} catch (error) {
+			console.error("Failed to process report approval", error);
+			toast.error("تعذر تنفيذ إجراء الموافقة.");
+		} finally {
+			setActioningReportId(null);
+		}
+	};
+
+	const handleSendReport = async (report: ProjectReport) => {
+		setActioningReportId(report.id);
+		try {
+			const message = await upsertProjectDetails(
+				axios.post<ActivityMutationResponse>(`/api/activity/reports/${report.id}/send`, {})
+			);
+			toast.success(message || "تم إرسال التقرير للعميل.");
+		} catch (error) {
+			console.error("Failed to send report", error);
+			toast.error("تعذر إرسال التقرير.");
+		} finally {
+			setActioningReportId(null);
+		}
+	};
+
+	const addRecipient = () => {
+		setReportForm((current) => ({
+			...current,
+			recipients: [...current.recipients, { ...EMPTY_RECIPIENT }],
+		}));
+	};
+
+	const updateRecipient = (index: number, key: keyof ReportRecipient, value: string) => {
+		setReportForm((current) => ({
+			...current,
+			recipients: current.recipients.map((recipient, currentIndex) =>
+				currentIndex === index ? { ...recipient, [key]: value } : recipient
+			),
+		}));
+	};
+
+	const removeRecipient = (index: number) => {
+		setReportForm((current) => ({
+			...current,
+			recipients:
+				current.recipients.length === 1
+					? [{ ...EMPTY_RECIPIENT }]
+					: current.recipients.filter((_, currentIndex) => currentIndex !== index),
+		}));
+	};
+
+	const addPermission = () => {
+		setReportForm((current) => ({
+			...current,
+			permissions: [...current.permissions, { userId: "", accessLevel: "view" }],
+		}));
+	};
+
+	const updatePermission = (
+		index: number,
+		key: "userId" | "accessLevel",
+		value: string
+	) => {
+		setReportForm((current) => ({
+			...current,
+			permissions: current.permissions.map((permission, currentIndex) =>
+				currentIndex === index
+					? {
+							...permission,
+							[key]:
+								key === "accessLevel"
+									? (value as "view" | "edit")
+									: value,
+						}
+					: permission
+			),
+		}));
+	};
+
+	const removePermission = (index: number) => {
+		setReportForm((current) => ({
+			...current,
+			permissions: current.permissions.filter((_, currentIndex) => currentIndex !== index),
+		}));
+	};
+
+	const selectedProjectTeam = projectDetails?.project.teamMembers ?? [];
+	const visiblePermissionUsers = internalUsers.filter((user) => user.id !== currentUser.id);
+
+	return (
+		<div dir={dir} className="space-y-4">
+			<Card className="border-border/70 shadow-sm">
+				<CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
+					<div className="space-y-1">
+						<CardTitle>مركز النشاط</CardTitle>
+						<CardDescription>
+							عرض مختصر للمشاريع، ملاحظاتها، وتقاريرها مع ربط مباشر بقاعدة البيانات.
+						</CardDescription>
+					</div>
+					<div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+						<Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as ActivityFilter)}>
+							<SelectTrigger className="w-full min-w-44 bg-background sm:w-48">
+								<Filter className="me-2 h-4 w-4 text-muted-foreground" />
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">كل المشاريع</SelectItem>
+								<SelectItem value="recent">محدث مؤخرًا</SelectItem>
+								<SelectItem value="waiting_client_action">بانتظار إجراء العميل</SelectItem>
+								<SelectItem value="overdue">متأخر</SelectItem>
+							</SelectContent>
+						</Select>
+						<Button type="button" variant="outline" onClick={openAddNoteDialog}>
+							<MessageSquarePlus className="me-2 h-4 w-4" />
+							إضافة ملاحظة
+						</Button>
+						<Button type="button" onClick={openCreateReportDialog}>
+							<FilePlus2 className="me-2 h-4 w-4" />
+							إنشاء تقرير
+						</Button>
+					</div>
+				</CardHeader>
+			</Card>
+
+			<div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+				<Card className="overflow-hidden">
+					<CardHeader className="pb-3">
+						<CardTitle className="text-base">المشاريع</CardTitle>
+						<CardDescription>
+							بطاقات مختصرة للمشاريع بدل القائمة الطويلة، مع آخر تحديث وعدد الملاحظات والتقارير.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{loadingProjects ? (
+							<div className="flex min-h-52 items-center justify-center gap-2 text-sm text-muted-foreground">
+								<Spinner className="h-4 w-4 text-muted-foreground" />
+								جاري تحميل المشاريع...
+							</div>
+						) : filteredProjects.length === 0 ? (
+							<div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+								لا توجد مشاريع مطابقة لهذا الفلتر.
+							</div>
+						) : (
+							<ScrollArea className="max-h-[70vh] pe-2">
+								<div className="grid gap-3 md:grid-cols-2">
+									{filteredProjects.map((summary) => (
+										<button
+											type="button"
+											key={summary.id}
+											onClick={() => setSelectedProjectId(summary.id)}
+											className={cn(
+												"rounded-2xl border p-4 text-right transition hover:border-primary/40 hover:bg-muted/40",
+												selectedProjectId === summary.id
+													? "border-primary/50 bg-primary/5 shadow-sm"
+													: "border-border/60 bg-background"
+											)}
+										>
+											<div className="flex items-start justify-between gap-3">
+												<div className="space-y-1">
+													<h3 className="text-sm font-semibold text-foreground">{summary.name}</h3>
+													<p className="text-xs text-muted-foreground">
+														{summary.clientName || "بدون عميل محدد"}
+													</p>
+												</div>
+												<StatusBadge status={formatStatus(summary.status)} />
+											</div>
+											<div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+												<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+													<p>آخر تحديث</p>
+													<p className="mt-1 font-medium text-foreground">{formatDate(summary.lastActivityAt || summary.lastUpdatedAt)}</p>
+												</div>
+												<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+													<p>الملاحظات</p>
+													<p className="mt-1 font-medium text-foreground">{summary.noteCount}</p>
+												</div>
+												<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+													<p>التقارير</p>
+													<p className="mt-1 font-medium text-foreground">{summary.reportCount}</p>
+												</div>
+												<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+													<p>المهام الحرجة</p>
+													<p className="mt-1 font-medium text-foreground">
+														{summary.overdueTaskCount} متأخر | {summary.clientActionTaskCount} عميل
+													</p>
+												</div>
+											</div>
+											<div className="mt-3 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground">
+												{summary.lastNote ? truncate(summary.lastNote.content) : "لا توجد ملاحظات بعد"}
+											</div>
+											{summary.pendingApprovalCount > 0 && (
+												<div className="mt-3 inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-200">
+													{summary.pendingApprovalCount} تقرير بانتظار المراجعة
+												</div>
+											)}
+										</button>
+									))}
+								</div>
+							</ScrollArea>
+						)}
+					</CardContent>
+				</Card>
+
+				<Card className="overflow-hidden">
+					<CardHeader className="border-b border-border/60">
+						<CardTitle className="text-base">
+							{selectedSummary ? selectedSummary.name : "تفاصيل النشاط"}
+						</CardTitle>
+						<CardDescription>
+							عند اختيار المشروع تظهر هنا الأنشطة والملاحظات والتقارير المرتبطة به.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="p-0">
+						{loadingDetails ? (
+							<div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
+								<Loader2 className="h-4 w-4 animate-spin" />
+								جاري تحميل تفاصيل المشروع...
+							</div>
+						) : !projectDetails ? (
+							<div className="px-6 py-10 text-center text-sm text-muted-foreground">
+								اختر مشروعًا من القائمة لعرض التفاصيل.
+							</div>
+						) : (
+							<ScrollArea className="max-h-[76vh] px-6 py-6">
+								<div className="space-y-5">
+									<div className="grid gap-3 sm:grid-cols-2">
+										<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+											<p className="text-xs text-muted-foreground">العميل</p>
+											<p className="mt-1 font-medium">
+												{projectDetails.project.clientName || "غير محدد"}
+											</p>
+										</div>
+										<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+											<p className="text-xs text-muted-foreground">آخر نشاط</p>
+											<p className="mt-1 font-medium">
+												{formatDate(projectDetails.project.lastActivityAt || projectDetails.project.lastUpdatedAt)}
+											</p>
+										</div>
+										<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+											<p className="text-xs text-muted-foreground">الفريق</p>
+											<p className="mt-1 font-medium">
+												{projectDetails.project.teamMembers.map((member) => member.name || member.email).join("، ") || "غير محدد"}
+											</p>
+										</div>
+										<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+											<p className="text-xs text-muted-foreground">الوصف</p>
+											<p className="mt-1 font-medium text-sm text-muted-foreground">
+												{projectDetails.project.description || "لا يوجد وصف"}
+											</p>
+										</div>
+									</div>
+
+									<section className="space-y-3">
+										<div className="flex items-center justify-between">
+											<h3 className="text-sm font-semibold">النشاط المرتبط بالمشروع</h3>
+											<Badge variant="outline">{projectDetails.activities.length}</Badge>
+										</div>
+										<div className="space-y-3">
+											{projectDetails.activities.length === 0 ? (
+												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+													لا توجد عناصر نشاط بعد.
+												</div>
+											) : (
+												projectDetails.activities.map((activity) => (
+													<div key={activity.id} className="rounded-2xl border border-border/60 p-4">
+														<div className="flex items-start justify-between gap-3">
+															<div className="space-y-1">
+																<p className="text-sm font-semibold">{activity.title}</p>
+																<p className="text-sm text-muted-foreground">{truncate(activity.description, 160)}</p>
+															</div>
+															<span className={cn("rounded-full border px-2 py-1 text-[11px] font-medium", priorityClasses[activity.priority])}>
+																{activity.priority === "high" ? "عالي" : activity.priority === "medium" ? "متوسط" : "منخفض"}
+															</span>
+														</div>
+														<p className="mt-3 text-xs text-muted-foreground">{formatDate(activity.occurredAt)}</p>
+													</div>
+												))
+											)}
+										</div>
+									</section>
+
+									<section className="space-y-3">
+										<div className="flex items-center justify-between">
+											<h3 className="text-sm font-semibold">الملاحظات</h3>
+											<Button type="button" variant="outline" size="sm" onClick={openAddNoteDialog}>
+												<MessageSquarePlus className="me-2 h-4 w-4" />
+												إضافة ملاحظة
+											</Button>
+										</div>
+										<div className="space-y-3">
+											{projectDetails.notes.length === 0 ? (
+												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+													لا توجد ملاحظات بعد
+												</div>
+											) : (
+												projectDetails.notes.map((note) => (
+													<div key={note.id} className="rounded-2xl border border-border/60 p-4">
+														<p className="text-sm leading-7 text-foreground">{note.content}</p>
+														<div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+															<span>{note.authorName}</span>
+															<span>{formatDate(note.createdAt)}</span>
+														</div>
+													</div>
+												))
+											)}
+										</div>
+									</section>
+
+									<section className="space-y-3">
+										<div className="flex items-center justify-between">
+											<h3 className="text-sm font-semibold">التقارير</h3>
+											<Button type="button" size="sm" onClick={openCreateReportDialog}>
+												<FilePlus2 className="me-2 h-4 w-4" />
+												إنشاء تقرير
+											</Button>
+										</div>
+										<div className="space-y-3">
+											{projectDetails.reports.length === 0 ? (
+												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+													لا توجد تقارير مرتبطة بهذا المشروع بعد.
+												</div>
+											) : (
+												projectDetails.reports.map((report) => (
+													<div key={report.id} className="rounded-2xl border border-border/60 p-4">
+														<div className="flex flex-wrap items-start justify-between gap-3">
+															<div className="space-y-1">
+																<div className="flex flex-wrap items-center gap-2">
+																	<h4 className="text-sm font-semibold">{report.title}</h4>
+																	<Badge className={reportStatusClasses[report.status]}>
+																		{reportStatusLabel[report.status]}
+																	</Badge>
+																</div>
+																<p className="text-xs text-muted-foreground">
+																	{reportTypeLabel[report.reportType]} • {report.authorName} • {formatDate(report.createdAt)}
+																</p>
+															</div>
+															<div className="flex flex-wrap gap-2">
+																{report.canEdit && (
+																	<Button type="button" variant="outline" size="sm" onClick={() => openEditReportDialog(report)}>
+																		تعديل
+																	</Button>
+																)}
+																{report.canApprove && (
+																	<>
+																		<Button
+																			type="button"
+																			size="sm"
+																			onClick={() =>
+																				setApprovalDialog({
+																					reportId: report.id,
+																					projectId: report.projectId,
+																					decision: "approve",
+																					reason: "",
+																				})
+																			}
+																			disabled={actioningReportId === report.id}
+																		>
+																			{actioningReportId === report.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "اعتماد"}
+																		</Button>
+																		<Button
+																			type="button"
+																			variant="outline"
+																			size="sm"
+																			onClick={() =>
+																				setApprovalDialog({
+																					reportId: report.id,
+																					projectId: report.projectId,
+																					decision: "reject",
+																					reason: report.rejectionReason || "",
+																				})
+																			}
+																		>
+																			رفض
+																		</Button>
+																	</>
+																)}
+																{report.canSendToClient && (
+																	<Button
+																		type="button"
+																		variant="outline"
+																		size="sm"
+																		onClick={() => handleSendReport(report)}
+																		disabled={actioningReportId === report.id}
+																	>
+																		<Send className="me-2 h-4 w-4" />
+																		إرسال
+																	</Button>
+																)}
+																{(report.status === "approved" || report.status === "sent") && (
+																	<Button
+																		type="button"
+																		variant="ghost"
+																		size="sm"
+																		onClick={() => window.open(`/api/activity/reports/${report.id}/pdf`, "_blank")}
+																	>
+																		<FileText className="me-2 h-4 w-4" />
+																		PDF
+																	</Button>
+																)}
+															</div>
+														</div>
+														<div className="mt-4 grid gap-3 sm:grid-cols-2">
+															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+																<p className="text-xs text-muted-foreground">الملخص</p>
+																<p className="mt-1 text-sm text-foreground">
+																	{report.summary || "لا يوجد ملخص"}
+																</p>
+															</div>
+															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+																<p className="text-xs text-muted-foreground">المستلمون</p>
+																<p className="mt-1 text-sm text-foreground">
+																	{report.recipients.length > 0
+																		? report.recipients.map((recipient) => recipient.name).join("، ")
+																		: "غير محددين"}
+																</p>
+															</div>
+															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3 sm:col-span-2">
+																<p className="text-xs text-muted-foreground">تفاصيل الأعمال</p>
+																<p className="mt-1 whitespace-pre-line text-sm text-foreground">
+																	{truncate(report.details, 280)}
+																</p>
+															</div>
+															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+																<p className="text-xs text-muted-foreground">إرسال البريد</p>
+																<p className="mt-1 text-sm text-foreground">{deliveryStatusLabel[report.emailStatus]}</p>
+															</div>
+															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+																<p className="text-xs text-muted-foreground">إرسال الواتساب</p>
+																<p className="mt-1 text-sm text-foreground">{deliveryStatusLabel[report.whatsappStatus]}</p>
+															</div>
+														</div>
+
+														{report.permissions.length > 0 && (
+															<div className="mt-4 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground">
+																الصلاحيات:
+																<span className="ms-2 text-foreground">
+																	{report.permissions
+																		.map((permission) => `${permission.userName} (${permission.accessLevel === "edit" ? "تعديل" : "مشاهدة"})`)
+																		.join("، ")}
+																</span>
+															</div>
+														)}
+
+														{report.rejectionReason && (
+															<div className="mt-4 rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-3 text-sm text-rose-200">
+																سبب الرفض: {report.rejectionReason}
+															</div>
+														)}
+
+														{report.lastDeliveryError && (
+															<div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-3 text-sm text-amber-200">
+																{report.lastDeliveryError}
+															</div>
+														)}
+													</div>
+												))
+											)}
+										</div>
+									</section>
+								</div>
+							</ScrollArea>
+						)}
+					</CardContent>
+				</Card>
+			</div>
+
+			<Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+				<DialogContent className="sm:max-w-xl">
+					<DialogHeader>
+						<DialogTitle>إضافة ملاحظة</DialogTitle>
+						<DialogDescription>
+							الملاحظة ترتبط مباشرة بالمشروع المختار وتظهر داخل تفاصيله فقط.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4">
+						<div className="space-y-2">
+							<label className="text-sm font-medium">المشروع</label>
+							<Select value={noteProjectId} onValueChange={setNoteProjectId}>
+								<SelectTrigger>
+									<SelectValue placeholder="اختر المشروع" />
+								</SelectTrigger>
+								<SelectContent>
+									{projects.map((project) => (
+										<SelectItem key={project.id} value={project.id}>
+											{project.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-2">
+							<label className="text-sm font-medium">الملاحظة</label>
+							<Textarea
+								value={noteText}
+								onChange={(event) => setNoteText(event.target.value)}
+								placeholder="اكتب ملاحظة واضحة مرتبطة بالمشروع..."
+								rows={6}
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={() => setNoteDialogOpen(false)}>
+							إلغاء
+						</Button>
+						<Button type="button" onClick={handleNoteSubmit} disabled={submittingNote}>
+							{submittingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ الملاحظة"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+				<DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-4xl">
+					<DialogHeader>
+						<DialogTitle>{reportForm.reportId ? "تعديل تقرير" : "إنشاء تقرير"}</DialogTitle>
+						<DialogDescription>
+							نموذج رسمي للتقارير مع ربط بالمشروع والمستلمين والصلاحيات وحالة الاعتماد.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="grid gap-4 md:grid-cols-2">
+						<div className="space-y-2">
+							<label className="text-sm font-medium">اسم المشروع</label>
+							<Select
+								value={reportForm.projectId}
+								onValueChange={(value) => setReportForm((current) => ({ ...current, projectId: value }))}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder="اختر المشروع" />
+								</SelectTrigger>
+								<SelectContent>
+									{projects.map((project) => (
+										<SelectItem key={project.id} value={project.id}>
+											{project.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-2">
+							<label className="text-sm font-medium">نوع التقرير</label>
+							<Select
+								value={reportForm.reportType}
+								onValueChange={(value) =>
+									setReportForm((current) => ({
+										...current,
+										reportType: value as ReportFormState["reportType"],
+									}))
+								}
+							>
+								<SelectTrigger>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="client">تقرير للعميل</SelectItem>
+									<SelectItem value="internal">تقرير داخلي</SelectItem>
+									<SelectItem value="shared">تقرير مشترك بين الأدمن والمهندسين</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-2 md:col-span-2">
+							<label className="text-sm font-medium">عنوان التقرير</label>
+							<Input
+								value={reportForm.title}
+								onChange={(event) =>
+									setReportForm((current) => ({ ...current, title: event.target.value }))
+								}
+								placeholder="مثال: تقرير تقدم الأعمال للأسبوع الحالي"
+							/>
+						</div>
+						<div className="space-y-2 md:col-span-2">
+							<label className="text-sm font-medium">وصف / ملخص</label>
+							<Textarea
+								value={reportForm.summary}
+								onChange={(event) =>
+									setReportForm((current) => ({ ...current, summary: event.target.value }))
+								}
+								rows={3}
+								placeholder="ملخص تنفيذي موجز للتقرير"
+							/>
+						</div>
+						<div className="space-y-2 md:col-span-2">
+							<label className="text-sm font-medium">تفاصيل الأعمال أو الملاحظات</label>
+							<Textarea
+								value={reportForm.details}
+								onChange={(event) =>
+									setReportForm((current) => ({ ...current, details: event.target.value }))
+								}
+								rows={6}
+								placeholder="اكتب التفاصيل الرسمية للتقرير"
+							/>
+						</div>
+						<div className="space-y-2 md:col-span-2">
+							<label className="text-sm font-medium">تفاصيل إضافية</label>
+							<Textarea
+								value={reportForm.workDetails}
+								onChange={(event) =>
+									setReportForm((current) => ({ ...current, workDetails: event.target.value }))
+								}
+								rows={4}
+								placeholder="أي توضيحات أو أعمال منفذة أو ملاحظات داخلية"
+							/>
+						</div>
+
+						<div className="space-y-3 md:col-span-2">
+							<div className="flex flex-wrap items-center justify-between gap-3">
+								<div>
+									<p className="text-sm font-medium">الصور أو المرفقات</p>
+									<p className="text-xs text-muted-foreground">يمكن رفع ملفات مباشرة ثم ربطها بالتقرير.</p>
+								</div>
+								<label className="inline-flex cursor-pointer items-center rounded-lg border border-dashed border-border/70 px-4 py-2 text-sm transition hover:bg-muted/40">
+									<UploadCloud className="me-2 h-4 w-4" />
+									{uploadingAttachments ? "جاري الرفع..." : "رفع مرفقات"}
+									<input
+										type="file"
+										multiple
+										className="hidden"
+										onChange={handleAttachmentUpload}
+									/>
+								</label>
+							</div>
+							<div className="space-y-2">
+								{reportForm.attachments.length === 0 ? (
+									<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+										لا توجد مرفقات بعد.
+									</div>
+								) : (
+									reportForm.attachments.map((attachment, index) => (
+										<div key={`${attachment.url}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-3 text-sm">
+											<div className="min-w-0">
+												<p className="truncate font-medium">{attachment.name || attachment.url}</p>
+												<p className="truncate text-xs text-muted-foreground">{attachment.url}</p>
+											</div>
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												onClick={() =>
+													setReportForm((current) => ({
+														...current,
+														attachments: current.attachments.filter((_, currentIndex) => currentIndex !== index),
+													}))
+												}
+											>
+												حذف
+											</Button>
+										</div>
+									))
+								)}
+							</div>
+						</div>
+
+						<div className="space-y-3 md:col-span-2">
+							<div className="flex items-center justify-between">
+								<div>
+									<p className="text-sm font-medium">المستلمون</p>
+									<p className="text-xs text-muted-foreground">البريد والواتساب يعتمد على بيانات المستلمين هنا.</p>
+								</div>
+								<Button type="button" variant="outline" size="sm" onClick={addRecipient}>
+									إضافة مستلم
+								</Button>
+							</div>
+							<div className="space-y-3">
+								{reportForm.recipients.map((recipient, index) => (
+									<div key={`recipient-${index}`} className="grid gap-3 rounded-2xl border border-border/60 p-4 md:grid-cols-4">
+										<Input
+											value={recipient.name}
+											onChange={(event) => updateRecipient(index, "name", event.target.value)}
+											placeholder="اسم المستلم"
+										/>
+										<Input
+											value={recipient.email || ""}
+											onChange={(event) => updateRecipient(index, "email", event.target.value)}
+											placeholder="Email"
+											type="email"
+										/>
+										<Input
+											value={recipient.phone || ""}
+											onChange={(event) => updateRecipient(index, "phone", event.target.value)}
+											placeholder="WhatsApp number"
+										/>
+										<div className="flex gap-2">
+											<Select
+												value={recipient.channel || "both"}
+												onValueChange={(value) => updateRecipient(index, "channel", value)}
+											>
+												<SelectTrigger>
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="both">البريد والواتساب</SelectItem>
+													<SelectItem value="email">البريد فقط</SelectItem>
+													<SelectItem value="whatsapp">الواتساب فقط</SelectItem>
+												</SelectContent>
+											</Select>
+											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)}>
+												حذف
+											</Button>
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+
+						{isAdmin && reportForm.reportType !== "client" && (
+							<div className="space-y-3 md:col-span-2">
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-medium">صلاحيات التقرير</p>
+										<p className="text-xs text-muted-foreground">تحديد من يملك المشاهدة فقط أو التعديل.</p>
+									</div>
+									<Button type="button" variant="outline" size="sm" onClick={addPermission}>
+										إضافة صلاحية
+									</Button>
+								</div>
+								<div className="space-y-3">
+									{reportForm.permissions.length === 0 ? (
+										<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+											لم يتم تعيين صلاحيات إضافية بعد.
+										</div>
+									) : (
+										reportForm.permissions.map((permission, index) => (
+											<div key={`permission-${index}`} className="grid gap-3 rounded-2xl border border-border/60 p-4 md:grid-cols-[minmax(0,1fr)_180px_80px]">
+												<Select
+													value={permission.userId}
+													onValueChange={(value) => updatePermission(index, "userId", value)}
+												>
+													<SelectTrigger>
+														<SelectValue placeholder="اختر المستخدم" />
+													</SelectTrigger>
+													<SelectContent>
+														{visiblePermissionUsers.map((user) => (
+															<SelectItem key={user.id} value={user.id}>
+																{user.name || user.email || user.id}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+												<Select
+													value={permission.accessLevel}
+													onValueChange={(value) => updatePermission(index, "accessLevel", value)}
+												>
+													<SelectTrigger>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="view">مشاهدة فقط</SelectItem>
+														<SelectItem value="edit">تعديل</SelectItem>
+													</SelectContent>
+												</Select>
+												<Button type="button" variant="ghost" onClick={() => removePermission(index)}>
+													حذف
+												</Button>
+											</div>
+										))
+									)}
+								</div>
+							</div>
+						)}
+
+						<div className="rounded-2xl border border-border/60 bg-muted/20 p-4 md:col-span-2">
+							<div className="grid gap-3 sm:grid-cols-3">
+								<div>
+									<p className="text-xs text-muted-foreground">كاتب التقرير</p>
+									<p className="mt-1 text-sm font-medium">{currentUser.name || currentUser.email || "غير محدد"}</p>
+								</div>
+								<div>
+									<p className="text-xs text-muted-foreground">تاريخ الإنشاء</p>
+									<p className="mt-1 text-sm font-medium">{formatDate(new Date().toISOString())}</p>
+								</div>
+								<div>
+									<p className="text-xs text-muted-foreground">الحالة المتوقعة</p>
+									<p className="mt-1 text-sm font-medium">
+										{reportForm.reportType === "client" && !isAdmin
+											? "بانتظار موافقة الأدمن"
+											: reportForm.reportType === "client"
+												? "معتمد وقابل للإرسال"
+												: "معتمد داخليًا"}
+									</p>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={() => setReportDialogOpen(false)}>
+							إلغاء
+						</Button>
+						<Button type="button" onClick={handleReportSubmit} disabled={submittingReport || uploadingAttachments}>
+							{submittingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : reportForm.reportId ? "حفظ التعديلات" : "إنشاء التقرير"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={!!approvalDialog} onOpenChange={(open) => !open && setApprovalDialog(null)}>
+				<DialogContent className="sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>
+							{approvalDialog?.decision === "approve" ? "اعتماد التقرير" : "رفض التقرير"}
+						</DialogTitle>
+						<DialogDescription>
+							{approvalDialog?.decision === "approve"
+								? "عند اعتماد تقرير العميل سيتم توليد PDF رسمي ومحاولة الإرسال عبر البريد والواتساب."
+								: "أدخل سبب الرفض ليظهر لصاحب التقرير داخل صفحة النشاط."}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-3">
+						{approvalDialog?.decision === "approve" ? (
+							<div className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-4 text-sm text-sky-100">
+								سيتم حفظ قرار الاعتماد باسم الأدمن الحالي، ثم إنشاء نسخة PDF رسمية وإرسالها عند توفر قنوات التسليم.
+							</div>
+						) : (
+							<Textarea
+								value={approvalDialog?.reason || ""}
+								onChange={(event) =>
+									setApprovalDialog((current) =>
+										current ? { ...current, reason: event.target.value } : current
+									)
+								}
+								rows={5}
+								placeholder="اكتب سبب الرفض..."
+							/>
+						)}
+					</div>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={() => setApprovalDialog(null)}>
+							إلغاء
+						</Button>
+						<Button type="button" onClick={handleApprovalAction} disabled={actioningReportId === approvalDialog?.reportId}>
+							{actioningReportId === approvalDialog?.reportId ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : approvalDialog?.decision === "approve" ? (
+								"اعتماد وإرسال"
+							) : (
+								"تأكيد الرفض"
+							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</div>
+	);
+}

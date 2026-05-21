@@ -167,7 +167,6 @@ export async function PUT(
 						url: img.url,
 						description: img.description,
 						uploadedAt: new Date(),
-						createdAt: new Date(),
 					}))
 				);
 			}
