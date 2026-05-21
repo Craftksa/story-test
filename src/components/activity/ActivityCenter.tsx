@@ -702,13 +702,17 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 											)}
 										>
 											<div className="flex items-start justify-between gap-3">
-												<div className={cn("space-y-1", activityTextAlignClass)}>
-													<h3 className="text-sm font-semibold text-foreground">{summary.name}</h3>
+												<div className={cn("min-w-0 flex-1 space-y-1", activityTextAlignClass)}>
+													<h3 className="break-words text-sm font-semibold text-foreground">
+														{summary.name}
+													</h3>
 													<p className="text-xs text-muted-foreground">
 														{summary.clientName || "بدون عميل محدد"}
 													</p>
 												</div>
-												<StatusBadge status={formatStatus(summary.status)} />
+												<div className="shrink-0 self-start">
+													<StatusBadge status={formatStatus(summary.status)} />
+												</div>
 											</div>
 											<div className={cn("mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2", activityTextAlignClass)}>
 												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
