@@ -259,8 +259,12 @@ const reportStatusClasses: Record<ProjectReport["status"], string> = {
 	sent: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
 };
 
+const activityPanelScrollHeightClass = "max-h-[calc(100vh-260px)]";
+
 export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const { lang, dir } = useCheckedLocale();
+	const activityDirection = dir === "rtl" ? "rtl" : "ltr";
+	const activityTextAlignClass = activityDirection === "rtl" ? "text-right" : "text-left";
 	const isAdmin = ["admin", "moderator"].includes(currentUser.role ?? "");
 	const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
 	const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -630,10 +634,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const visiblePermissionUsers = internalUsers.filter((user) => user.id !== currentUser.id);
 
 	return (
-		<div dir={dir} className="space-y-4">
+		<div dir={activityDirection} className={cn("space-y-4", activityTextAlignClass)}>
 			<Card className="border-border/70 shadow-sm">
 				<CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
-					<div className="space-y-1">
+					<div className={cn("space-y-1", activityTextAlignClass)}>
 						<CardTitle>مركز النشاط</CardTitle>
 						<CardDescription>
 							عرض مختصر للمشاريع، ملاحظاتها، وتقاريرها مع ربط مباشر بقاعدة البيانات.
@@ -666,13 +670,13 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 			<div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
 				<Card className="overflow-hidden">
-					<CardHeader className="pb-3">
+					<CardHeader className={cn("pb-3", activityTextAlignClass)}>
 						<CardTitle className="text-base">المشاريع</CardTitle>
-						<CardDescription>
+						<CardDescription className={activityTextAlignClass}>
 							بطاقات مختصرة للمشاريع بدل القائمة الطويلة، مع آخر تحديث وعدد الملاحظات والتقارير.
 						</CardDescription>
 					</CardHeader>
-					<CardContent>
+					<CardContent className="min-h-0">
 						{loadingProjects ? (
 							<div className="flex min-h-52 items-center justify-center gap-2 text-sm text-muted-foreground">
 								<Spinner className="h-4 w-4 text-muted-foreground" />
@@ -683,7 +687,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								لا توجد مشاريع مطابقة لهذا الفلتر.
 							</div>
 						) : (
-							<ScrollArea className="max-h-[70vh] pe-2">
+							<ScrollArea className={cn(activityPanelScrollHeightClass, "pe-2")}>
 								<div className="grid gap-3 md:grid-cols-2">
 									{filteredProjects.map((summary) => (
 										<button
@@ -698,7 +702,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 											)}
 										>
 											<div className="flex items-start justify-between gap-3">
-												<div className="space-y-1">
+												<div className={cn("space-y-1", activityTextAlignClass)}>
 													<h3 className="text-sm font-semibold text-foreground">{summary.name}</h3>
 													<p className="text-xs text-muted-foreground">
 														{summary.clientName || "بدون عميل محدد"}
@@ -706,27 +710,27 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 												</div>
 												<StatusBadge status={formatStatus(summary.status)} />
 											</div>
-											<div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-												<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+											<div className={cn("mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2", activityTextAlignClass)}>
+												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
 													<p>آخر تحديث</p>
 													<p className="mt-1 font-medium text-foreground">{formatDate(summary.lastActivityAt || summary.lastUpdatedAt)}</p>
 												</div>
-												<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
 													<p>الملاحظات</p>
 													<p className="mt-1 font-medium text-foreground">{summary.noteCount}</p>
 												</div>
-												<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
 													<p>التقارير</p>
 													<p className="mt-1 font-medium text-foreground">{summary.reportCount}</p>
 												</div>
-												<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
 													<p>المهام الحرجة</p>
 													<p className="mt-1 font-medium text-foreground">
 														{summary.overdueTaskCount} متأخر | {summary.clientActionTaskCount} عميل
 													</p>
 												</div>
 											</div>
-											<div className="mt-3 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground">
+											<div className={cn("mt-3 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground", activityTextAlignClass)}>
 												{summary.lastNote ? truncate(summary.lastNote.content) : "لا توجد ملاحظات بعد"}
 											</div>
 											{summary.pendingApprovalCount > 0 && (
@@ -743,15 +747,15 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				</Card>
 
 				<Card className="overflow-hidden">
-					<CardHeader className="border-b border-border/60">
+					<CardHeader className={cn("border-b border-border/60", activityTextAlignClass)}>
 						<CardTitle className="text-base">
 							{selectedSummary ? selectedSummary.name : "تفاصيل النشاط"}
 						</CardTitle>
-						<CardDescription>
+						<CardDescription className={activityTextAlignClass}>
 							عند اختيار المشروع تظهر هنا الأنشطة والملاحظات والتقارير المرتبطة به.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="p-0">
+					<CardContent className="min-h-0 p-0">
 						{loadingDetails ? (
 							<div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
 								<Loader2 className="h-4 w-4 animate-spin" />
@@ -762,28 +766,28 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								اختر مشروعًا من القائمة لعرض التفاصيل.
 							</div>
 						) : (
-							<ScrollArea className="max-h-[76vh] px-6 py-6">
-								<div className="space-y-5">
+							<ScrollArea className={cn(activityPanelScrollHeightClass, "px-6 py-6")}>
+								<div className={cn("space-y-5", activityTextAlignClass)}>
 									<div className="grid gap-3 sm:grid-cols-2">
-										<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
 											<p className="text-xs text-muted-foreground">العميل</p>
 											<p className="mt-1 font-medium">
 												{projectDetails.project.clientName || "غير محدد"}
 											</p>
 										</div>
-										<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
 											<p className="text-xs text-muted-foreground">آخر نشاط</p>
 											<p className="mt-1 font-medium">
 												{formatDate(projectDetails.project.lastActivityAt || projectDetails.project.lastUpdatedAt)}
 											</p>
 										</div>
-										<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
 											<p className="text-xs text-muted-foreground">الفريق</p>
 											<p className="mt-1 font-medium">
 												{projectDetails.project.teamMembers.map((member) => member.name || member.email).join("، ") || "غير محدد"}
 											</p>
 										</div>
-										<div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
 											<p className="text-xs text-muted-foreground">الوصف</p>
 											<p className="mt-1 font-medium text-sm text-muted-foreground">
 												{projectDetails.project.description || "لا يوجد وصف"}
@@ -791,7 +795,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										</div>
 									</div>
 
-									<section className="space-y-3">
+									<section className={cn("space-y-3", activityTextAlignClass)}>
 										<div className="flex items-center justify-between">
 											<h3 className="text-sm font-semibold">النشاط المرتبط بالمشروع</h3>
 											<Badge variant="outline">{projectDetails.activities.length}</Badge>
@@ -803,9 +807,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 												</div>
 											) : (
 												projectDetails.activities.map((activity) => (
-													<div key={activity.id} className="rounded-2xl border border-border/60 p-4">
+													<div key={activity.id} className={cn("rounded-2xl border border-border/60 p-4", activityTextAlignClass)}>
 														<div className="flex items-start justify-between gap-3">
-															<div className="space-y-1">
+															<div className={cn("space-y-1", activityTextAlignClass)}>
 																<p className="text-sm font-semibold">{activity.title}</p>
 																<p className="text-sm text-muted-foreground">{truncate(activity.description, 160)}</p>
 															</div>
@@ -820,7 +824,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										</div>
 									</section>
 
-									<section className="space-y-3">
+									<section className={cn("space-y-3", activityTextAlignClass)}>
 										<div className="flex items-center justify-between">
 											<h3 className="text-sm font-semibold">الملاحظات</h3>
 											<Button type="button" variant="outline" size="sm" onClick={openAddNoteDialog}>
@@ -835,7 +839,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 												</div>
 											) : (
 												projectDetails.notes.map((note) => (
-													<div key={note.id} className="rounded-2xl border border-border/60 p-4">
+													<div key={note.id} className={cn("rounded-2xl border border-border/60 p-4", activityTextAlignClass)}>
 														<p className="text-sm leading-7 text-foreground">{note.content}</p>
 														<div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
 															<span>{note.authorName}</span>
@@ -847,7 +851,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										</div>
 									</section>
 
-									<section className="space-y-3">
+									<section className={cn("space-y-3", activityTextAlignClass)}>
 										<div className="flex items-center justify-between">
 											<h3 className="text-sm font-semibold">التقارير</h3>
 											<Button type="button" size="sm" onClick={openCreateReportDialog}>
@@ -862,9 +866,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 												</div>
 											) : (
 												projectDetails.reports.map((report) => (
-													<div key={report.id} className="rounded-2xl border border-border/60 p-4">
+													<div key={report.id} className={cn("rounded-2xl border border-border/60 p-4", activityTextAlignClass)}>
 														<div className="flex flex-wrap items-start justify-between gap-3">
-															<div className="space-y-1">
+															<div className={cn("space-y-1", activityTextAlignClass)}>
 																<div className="flex flex-wrap items-center gap-2">
 																	<h4 className="text-sm font-semibold">{report.title}</h4>
 																	<Badge className={reportStatusClasses[report.status]}>
@@ -940,14 +944,14 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 																)}
 															</div>
 														</div>
-														<div className="mt-4 grid gap-3 sm:grid-cols-2">
-															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+														<div className={cn("mt-4 grid gap-3 sm:grid-cols-2", activityTextAlignClass)}>
+															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
 																<p className="text-xs text-muted-foreground">الملخص</p>
 																<p className="mt-1 text-sm text-foreground">
 																	{report.summary || "لا يوجد ملخص"}
 																</p>
 															</div>
-															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
 																<p className="text-xs text-muted-foreground">المستلمون</p>
 																<p className="mt-1 text-sm text-foreground">
 																	{report.recipients.length > 0
@@ -955,24 +959,24 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 																		: "غير محددين"}
 																</p>
 															</div>
-															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3 sm:col-span-2">
+															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3 sm:col-span-2", activityTextAlignClass)}>
 																<p className="text-xs text-muted-foreground">تفاصيل الأعمال</p>
 																<p className="mt-1 whitespace-pre-line text-sm text-foreground">
 																	{truncate(report.details, 280)}
 																</p>
 															</div>
-															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
 																<p className="text-xs text-muted-foreground">إرسال البريد</p>
 																<p className="mt-1 text-sm text-foreground">{deliveryStatusLabel[report.emailStatus]}</p>
 															</div>
-															<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
 																<p className="text-xs text-muted-foreground">إرسال الواتساب</p>
 																<p className="mt-1 text-sm text-foreground">{deliveryStatusLabel[report.whatsappStatus]}</p>
 															</div>
 														</div>
 
 														{report.permissions.length > 0 && (
-															<div className="mt-4 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground">
+															<div className={cn("mt-4 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground", activityTextAlignClass)}>
 																الصلاحيات:
 																<span className="ms-2 text-foreground">
 																	{report.permissions
