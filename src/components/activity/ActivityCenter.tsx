@@ -258,7 +258,7 @@ const reportStatusClasses: Record<ProjectReport["status"], string> = {
 	sent: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
 };
 
-const activityPanelScrollHeightClass = "max-h-[calc(100vh-320px)]";
+const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
 const activityPanelScrollContainerClass =
 	"overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-color:rgba(218,197,143,0.55)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.05] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9f8a58] hover:[&::-webkit-scrollbar-thumb]:bg-[#dac58f]";
 const activityModalOverlayClassName = "fixed inset-0 z-[9998] bg-black/75 backdrop-blur-sm";
