@@ -2,6 +2,7 @@ import type { ActivityReport, ActivityReportRecipient } from "@/lib/activity";
 import { isSmtpConfigured, sendProjectReportEmail } from "@/lib/email";
 import {
 	generateReportPdfBuffer,
+	logPdfErrorDetails,
 	type ReportDocumentPayload,
 	PDF_DELIVERY_FAILURE_MESSAGE,
 } from "@/lib/report-pdf";
@@ -269,7 +270,12 @@ export const deliverClientReport = async (
 				whatsappStatus,
 			}),
 		};
-	} catch {
+	} catch (error) {
+		logPdfErrorDetails("deliverClientReport", error, {
+			projectId: payload.project.id,
+			reportId: payload.report.id,
+			deliveryOption: option,
+		});
 		return {
 			pdfStatus: "failed",
 			emailStatus: "not_applicable",

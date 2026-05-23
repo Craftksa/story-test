@@ -25,6 +25,69 @@ export type ReportDocumentPayload = {
 export const PDF_VIEW_FAILURE_MESSAGE = "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا.";
 export const PDF_DELIVERY_FAILURE_MESSAGE = "تعذر توليد ملف PDF، لم يتم إرسال التقرير.";
 
+type PdfGenerationDiagnostics = {
+	stage:
+		| "initializing"
+		| "building_html"
+		| "resolving_browser"
+		| "launching_browser"
+		| "creating_page"
+		| "setting_content"
+		| "generating_pdf"
+		| "closing_browser"
+		| "completed";
+	browserStrategy: "local" | "serverless_chromium" | "unknown";
+	resolvedExecutablePath: string | null;
+	chromiumExecutablePath: string | null;
+	launchStarted: boolean;
+	launchSucceeded: boolean;
+	pageCreated: boolean;
+	setContentStarted: boolean;
+	setContentSucceeded: boolean;
+	pdfStarted: boolean;
+	pdfSucceeded: boolean;
+	userDataDir: string;
+	isVercel: boolean;
+	nodeEnv: string | null;
+};
+
+const formatUnknownError = (error: unknown) => {
+	if (error instanceof Error) {
+		return {
+			message: error.message,
+			stack: error.stack || null,
+			cause:
+				error.cause instanceof Error
+					? {
+							message: error.cause.message,
+							stack: error.cause.stack || null,
+							cause: error.cause.cause ?? null,
+						}
+					: error.cause ?? null,
+		};
+	}
+
+	return {
+		message: String(error),
+		stack: null,
+		cause: null,
+	};
+};
+
+export const logPdfErrorDetails = (
+	context: string,
+	error: unknown,
+	extra?: Record<string, unknown>
+) => {
+	const formatted = formatUnknownError(error);
+	console.error(`[${context}] PDF generation error`, {
+		message: formatted.message,
+		stack: formatted.stack,
+		cause: formatted.cause,
+		...extra,
+	});
+};
+
 const reportTypeLabel: Record<ActivityReport["reportType"], string> = {
 	client: "تقرير للعميل",
 	internal: "تقرير داخلي",
@@ -249,9 +312,11 @@ const findLocalBrowserExecutable = async () => {
 	return null;
 };
 
-const resolveBrowserLaunchConfig = async () => {
+const resolveBrowserLaunchConfig = async (diagnostics: PdfGenerationDiagnostics) => {
 	const localExecutablePath = await findLocalBrowserExecutable();
 	if (localExecutablePath) {
+		diagnostics.browserStrategy = "local";
+		diagnostics.resolvedExecutablePath = localExecutablePath;
 		return {
 			args: ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"],
 			defaultViewport: { width: 1240, height: 1754, deviceScaleFactor: 1 },
@@ -261,36 +326,68 @@ const resolveBrowserLaunchConfig = async () => {
 	}
 
 	chromium.setGraphicsMode = false;
+	const chromiumExecutablePath = await chromium.executablePath();
+	diagnostics.browserStrategy = "serverless_chromium";
+	diagnostics.chromiumExecutablePath = chromiumExecutablePath || null;
+	diagnostics.resolvedExecutablePath = chromiumExecutablePath || null;
 	return {
 		args: puppeteer.defaultArgs({
 			args: chromium.args,
 			headless: "shell",
 		}),
 		defaultViewport: chromium.defaultViewport,
-		executablePath: await chromium.executablePath(),
+		executablePath: chromiumExecutablePath,
 		headless: "shell" as const,
 	};
 };
 
 export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) => {
-	const html = await buildReportHtml(payload);
 	const userDataDir = path.join(os.tmpdir(), `craft-report-${randomUUID()}`);
 	let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+	const diagnostics: PdfGenerationDiagnostics = {
+		stage: "initializing",
+		browserStrategy: "unknown",
+		resolvedExecutablePath: null,
+		chromiumExecutablePath: null,
+		launchStarted: false,
+		launchSucceeded: false,
+		pageCreated: false,
+		setContentStarted: false,
+		setContentSucceeded: false,
+		pdfStarted: false,
+		pdfSucceeded: false,
+		userDataDir,
+		isVercel: !!process.env.VERCEL,
+		nodeEnv: process.env.NODE_ENV ?? null,
+	};
 
 	try {
-		const launchConfig = await resolveBrowserLaunchConfig();
+		diagnostics.stage = "building_html";
+		const html = await buildReportHtml(payload);
+		diagnostics.stage = "resolving_browser";
+		const launchConfig = await resolveBrowserLaunchConfig(diagnostics);
+		diagnostics.stage = "launching_browser";
+		diagnostics.launchStarted = true;
 		browser = await puppeteer.launch({
 			...launchConfig,
 			args: [...launchConfig.args, `--user-data-dir=${userDataDir}`],
 			ignoreHTTPSErrors: true,
 		});
+		diagnostics.launchSucceeded = true;
 
+		diagnostics.stage = "creating_page";
 		const page = await browser.newPage();
+		diagnostics.pageCreated = true;
+		diagnostics.stage = "setting_content";
+		diagnostics.setContentStarted = true;
 		await page.setContent(html, {
 			waitUntil: ["domcontentloaded", "networkidle0"],
 		});
+		diagnostics.setContentSucceeded = true;
 		await page.emulateMediaType("screen");
 
+		diagnostics.stage = "generating_pdf";
+		diagnostics.pdfStarted = true;
 		const pdfBuffer = await page.pdf({
 			format: "A4",
 			printBackground: true,
@@ -302,13 +399,22 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 				left: "10mm",
 			},
 		});
+		diagnostics.pdfSucceeded = true;
+		diagnostics.stage = "completed";
 
 		return Buffer.from(pdfBuffer);
-	} catch {
-		throw new Error(PDF_DELIVERY_FAILURE_MESSAGE);
+	} catch (error) {
+		logPdfErrorDetails("generateReportPdfBuffer", error, { diagnostics });
+		throw new Error(PDF_DELIVERY_FAILURE_MESSAGE, {
+			cause: {
+				...formatUnknownError(error),
+				diagnostics,
+			},
+		});
 	} finally {
 		if (browser) {
 			try {
+				diagnostics.stage = "closing_browser";
 				await browser.close();
 			} catch {
 				// Ignore close failures.
