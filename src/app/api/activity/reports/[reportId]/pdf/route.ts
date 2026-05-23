@@ -15,6 +15,8 @@ export async function GET(
 	req: NextRequest,
 	{ params }: { params: { reportId: string } }
 ) {
+	console.log("[pdf-route] request started");
+	console.log(`[pdf-route] reportId=${params.reportId}`);
 	const { user } = await authenticate(req);
 
 	if (!canAccessActivity(user) || !isValidId(params.reportId)) {
@@ -32,6 +34,7 @@ export async function GET(
 			return NextResponse.json({ error: "Project not found" }, { status: 404 });
 		}
 
+		console.log("[pdf-route] before generateReportPdf");
 		const pdfBuffer = await generateReportPdfBuffer({
 			project,
 			report,
@@ -46,6 +49,18 @@ export async function GET(
 			},
 		});
 	} catch (error) {
+		console.error("[pdf-route] failed");
+		console.error(
+			`[pdf-route] error message=${error instanceof Error ? error.message : String(error)}`
+		);
+		console.error(
+			`[pdf-route] error stack=${error instanceof Error ? error.stack || "null" : "null"}`
+		);
+		console.error(
+			`[pdf-route] error cause=${
+				error instanceof Error && error.cause ? JSON.stringify(error.cause) : "null"
+			}`
+		);
 		logPdfErrorDetails("GET /api/activity/reports/[reportId]/pdf", error, {
 			reportId: params.reportId,
 		});

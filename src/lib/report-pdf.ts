@@ -74,12 +74,29 @@ const formatUnknownError = (error: unknown) => {
 	};
 };
 
+const getErrorMessage = (error: unknown) =>
+	error instanceof Error ? error.message : String(error);
+
+const getErrorStack = (error: unknown) =>
+	error instanceof Error ? error.stack || null : null;
+
+const getErrorCause = (error: unknown) =>
+	error instanceof Error ? error.cause ?? null : null;
+
+const logPdfTrace = (message: string) => {
+	console.log(`[pdf] ${message}`);
+};
+
 export const logPdfErrorDetails = (
 	context: string,
 	error: unknown,
 	extra?: Record<string, unknown>
 ) => {
 	const formatted = formatUnknownError(error);
+	console.error(`[pdf] failed context=${context}`);
+	console.error(`[pdf] error message=${formatted.message}`);
+	console.error(`[pdf] error stack=${formatted.stack || "null"}`);
+	console.error(`[pdf] error cause=${formatted.cause ? JSON.stringify(formatted.cause) : "null"}`);
 	console.error(`[${context}] PDF generation error`, {
 		message: formatted.message,
 		stack: formatted.stack,
@@ -313,10 +330,13 @@ const findLocalBrowserExecutable = async () => {
 };
 
 const resolveBrowserLaunchConfig = async (diagnostics: PdfGenerationDiagnostics) => {
+	logPdfTrace("stage=resolve-browser");
 	const localExecutablePath = await findLocalBrowserExecutable();
 	if (localExecutablePath) {
 		diagnostics.browserStrategy = "local";
 		diagnostics.resolvedExecutablePath = localExecutablePath;
+		logPdfTrace("stage=resolve-browser strategy=local");
+		logPdfTrace(`executablePath=${localExecutablePath}`);
 		return {
 			args: ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"],
 			defaultViewport: { width: 1240, height: 1754, deviceScaleFactor: 1 },
@@ -326,10 +346,12 @@ const resolveBrowserLaunchConfig = async (diagnostics: PdfGenerationDiagnostics)
 	}
 
 	chromium.setGraphicsMode = false;
+	logPdfTrace("stage=resolve-chromium");
 	const chromiumExecutablePath = await chromium.executablePath();
 	diagnostics.browserStrategy = "serverless_chromium";
 	diagnostics.chromiumExecutablePath = chromiumExecutablePath || null;
 	diagnostics.resolvedExecutablePath = chromiumExecutablePath || null;
+	logPdfTrace(`chromium.executablePath=${chromiumExecutablePath || "null"}`);
 	return {
 		args: puppeteer.defaultArgs({
 			args: chromium.args,
@@ -362,32 +384,46 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 	};
 
 	try {
+		logPdfTrace("request=generateReportPdfBuffer started");
+		logPdfTrace(`projectId=${payload.project.id}`);
+		logPdfTrace(`reportId=${payload.report.id}`);
+		logPdfTrace(`isVercel=${String(diagnostics.isVercel)}`);
+		logPdfTrace(`nodeEnv=${diagnostics.nodeEnv || "null"}`);
+		logPdfTrace(`userDataDir=${userDataDir}`);
 		diagnostics.stage = "building_html";
+		logPdfTrace("stage=build-html");
 		const html = await buildReportHtml(payload);
 		diagnostics.stage = "resolving_browser";
 		const launchConfig = await resolveBrowserLaunchConfig(diagnostics);
 		diagnostics.stage = "launching_browser";
 		diagnostics.launchStarted = true;
+		logPdfTrace(`resolvedExecutablePath=${diagnostics.resolvedExecutablePath || "null"}`);
+		logPdfTrace("stage=launch-browser");
 		browser = await puppeteer.launch({
 			...launchConfig,
 			args: [...launchConfig.args, `--user-data-dir=${userDataDir}`],
 			ignoreHTTPSErrors: true,
 		});
 		diagnostics.launchSucceeded = true;
+		logPdfTrace("stage=launch-browser success=true");
 
 		diagnostics.stage = "creating_page";
+		logPdfTrace("stage=create-page");
 		const page = await browser.newPage();
 		diagnostics.pageCreated = true;
 		diagnostics.stage = "setting_content";
 		diagnostics.setContentStarted = true;
+		logPdfTrace("stage=set-content");
 		await page.setContent(html, {
 			waitUntil: ["domcontentloaded", "networkidle0"],
 		});
 		diagnostics.setContentSucceeded = true;
+		logPdfTrace("stage=set-content success=true");
 		await page.emulateMediaType("screen");
 
 		diagnostics.stage = "generating_pdf";
 		diagnostics.pdfStarted = true;
+		logPdfTrace("stage=page-pdf");
 		const pdfBuffer = await page.pdf({
 			format: "A4",
 			printBackground: true,
@@ -401,9 +437,29 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		});
 		diagnostics.pdfSucceeded = true;
 		diagnostics.stage = "completed";
+		logPdfTrace("stage=page-pdf success=true");
+		logPdfTrace("stage=completed");
 
 		return Buffer.from(pdfBuffer);
 	} catch (error) {
+		console.error(`[pdf] failed stage=${diagnostics.stage}`);
+		console.error(`[pdf] launchStarted=${String(diagnostics.launchStarted)}`);
+		console.error(`[pdf] launchSucceeded=${String(diagnostics.launchSucceeded)}`);
+		console.error(`[pdf] pageCreated=${String(diagnostics.pageCreated)}`);
+		console.error(`[pdf] setContentStarted=${String(diagnostics.setContentStarted)}`);
+		console.error(`[pdf] setContentSucceeded=${String(diagnostics.setContentSucceeded)}`);
+		console.error(`[pdf] pdfStarted=${String(diagnostics.pdfStarted)}`);
+		console.error(`[pdf] pdfSucceeded=${String(diagnostics.pdfSucceeded)}`);
+		console.error(`[pdf] browserStrategy=${diagnostics.browserStrategy}`);
+		console.error(`[pdf] executablePath=${diagnostics.resolvedExecutablePath || "null"}`);
+		console.error(`[pdf] chromiumExecutablePath=${diagnostics.chromiumExecutablePath || "null"}`);
+		console.error(`[pdf] error message=${getErrorMessage(error)}`);
+		console.error(`[pdf] error stack=${getErrorStack(error) || "null"}`);
+		console.error(
+			`[pdf] error cause=${
+				getErrorCause(error) ? JSON.stringify(getErrorCause(error)) : "null"
+			}`
+		);
 		logPdfErrorDetails("generateReportPdfBuffer", error, { diagnostics });
 		throw new Error(PDF_DELIVERY_FAILURE_MESSAGE, {
 			cause: {
