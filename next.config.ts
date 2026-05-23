@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
 		ignoreDuringBuilds: true,
 	},
 	serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+	outputFileTracingIncludes: {
+		"/api/activity/reports/*/pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
+		"/api/activity/reports/*/approval": ["./node_modules/@sparticuz/chromium/bin/**"],
+		"/api/activity/reports/*/send": ["./node_modules/@sparticuz/chromium/bin/**"],
+	},
 	images: {
 		remotePatterns: [
 			{

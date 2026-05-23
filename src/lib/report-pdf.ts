@@ -130,6 +130,7 @@ const candidateBrowserPaths = [
 	"/usr/bin/chromium-browser",
 	"/usr/bin/chromium",
 ].filter(Boolean) as string[];
+const bundledChromiumBinPath = path.join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin");
 
 const escapeHtml = (value: string) =>
 	value
@@ -347,7 +348,15 @@ const resolveBrowserLaunchConfig = async (diagnostics: PdfGenerationDiagnostics)
 
 	chromium.setGraphicsMode = false;
 	logPdfTrace("stage=resolve-chromium");
-	const chromiumExecutablePath = await chromium.executablePath();
+	let chromiumExecutablePath: string | null = null;
+	try {
+		await fs.access(bundledChromiumBinPath);
+		logPdfTrace(`chromium.binPath=${bundledChromiumBinPath}`);
+		chromiumExecutablePath = await chromium.executablePath(bundledChromiumBinPath);
+	} catch {
+		logPdfTrace(`chromium.binPath-missing=${bundledChromiumBinPath}`);
+		chromiumExecutablePath = await chromium.executablePath();
+	}
 	diagnostics.browserStrategy = "serverless_chromium";
 	diagnostics.chromiumExecutablePath = chromiumExecutablePath || null;
 	diagnostics.resolvedExecutablePath = chromiumExecutablePath || null;
