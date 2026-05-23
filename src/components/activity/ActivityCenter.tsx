@@ -39,7 +39,6 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Select,
 	SelectContent,
@@ -259,7 +258,27 @@ const reportStatusClasses: Record<ProjectReport["status"], string> = {
 	sent: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
 };
 
-const activityPanelScrollHeightClass = "max-h-[calc(100vh-260px)]";
+const activityPanelScrollHeightClass = "max-h-[calc(100vh-320px)]";
+const activityPanelScrollContainerClass =
+	"overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-color:rgba(218,197,143,0.55)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.05] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9f8a58] hover:[&::-webkit-scrollbar-thumb]:bg-[#dac58f]";
+const activityModalOverlayClassName = "fixed inset-0 z-[9998] bg-black/75 backdrop-blur-sm";
+const activityModalContentClassName =
+	"fixed left-1/2 top-1/2 z-[9999] w-full max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[#dac58f]/20 bg-[#111315] p-0 text-white shadow-2xl shadow-black/60";
+const activityModalFieldClassName =
+	"w-full rounded-xl border border-[#dac58f]/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#8f8a7d] focus:border-[#dac58f]/45 focus:bg-white/[0.07] focus:ring-2 focus:ring-[#dac58f]/10";
+const activityModalSelectContentClassName =
+	"z-[10001] border border-[#dac58f]/20 bg-[#111315] text-white shadow-2xl shadow-black/60";
+const activityModalLabelClassName = "mb-2 block text-sm font-medium text-[#e8dfc8]";
+const activityModalPrimaryButtonClassName =
+	"rounded-xl bg-[#dac58f] px-5 py-2.5 text-sm font-semibold text-[#111315] transition hover:bg-[#e7d3a3] disabled:cursor-not-allowed disabled:opacity-50";
+const activityModalSecondaryButtonClassName =
+	"rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-5 py-2.5 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15 disabled:cursor-not-allowed disabled:opacity-50";
+const activityModalCancelButtonClassName =
+	"rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-medium text-[#b8b2a3] transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white";
+const activityModalCloseButtonClassName =
+	"rounded-full border border-white/10 bg-white/5 p-2 text-[#b8b2a3] transition hover:border-[#dac58f]/30 hover:bg-[#dac58f]/10 hover:text-white";
+const activityModalCardClassName = "rounded-2xl border border-[#dac58f]/12 bg-white/[0.03] p-4";
+const activityModalHelperTextClassName = "text-xs text-[#8f8a7d]";
 
 export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const { lang, dir } = useCheckedLocale();
@@ -687,7 +706,13 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								لا توجد مشاريع مطابقة لهذا الفلتر.
 							</div>
 						) : (
-							<ScrollArea className={cn(activityPanelScrollHeightClass, "pe-2")}>
+							<div
+								className={cn(
+									activityPanelScrollHeightClass,
+									activityPanelScrollContainerClass,
+									"pe-2"
+								)}
+							>
 								<div className="grid gap-3 md:grid-cols-2">
 									{filteredProjects.map((summary) => (
 										<button
@@ -745,7 +770,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										</button>
 									))}
 								</div>
-							</ScrollArea>
+							</div>
 						)}
 					</CardContent>
 				</Card>
@@ -770,8 +795,13 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								اختر مشروعًا من القائمة لعرض التفاصيل.
 							</div>
 						) : (
-							<ScrollArea className={cn(activityPanelScrollHeightClass, "px-6 py-6")}>
-								<div className={cn("space-y-5", activityTextAlignClass)}>
+							<div
+								className={cn(
+									activityPanelScrollHeightClass,
+									activityPanelScrollContainerClass
+								)}
+							>
+								<div className={cn("space-y-5 px-6 py-6", activityTextAlignClass)}>
 									<div className="grid gap-3 sm:grid-cols-2">
 										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
 											<p className="text-xs text-muted-foreground">العميل</p>
@@ -1007,77 +1037,125 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										</div>
 									</section>
 								</div>
-							</ScrollArea>
+							</div>
 						)}
 					</CardContent>
 				</Card>
 			</div>
 
 			<Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
-				<DialogContent className="sm:max-w-xl">
-					<DialogHeader>
-						<DialogTitle>إضافة ملاحظة</DialogTitle>
-						<DialogDescription>
-							الملاحظة ترتبط مباشرة بالمشروع المختار وتظهر داخل تفاصيله فقط.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="space-y-4">
-						<div className="space-y-2">
-							<label className="text-sm font-medium">المشروع</label>
-							<Select value={noteProjectId} onValueChange={setNoteProjectId}>
-								<SelectTrigger>
-									<SelectValue placeholder="اختر المشروع" />
-								</SelectTrigger>
-								<SelectContent>
-									{projects.map((project) => (
-										<SelectItem key={project.id} value={project.id}>
-											{project.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+				<DialogContent
+					overlayClassName={activityModalOverlayClassName}
+					className={cn(activityModalContentClassName, "sm:max-w-xl")}
+				>
+					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
+						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+							<div>
+								<DialogTitle className="text-xl font-semibold text-white">إضافة ملاحظة</DialogTitle>
+								<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
+									الملاحظة ترتبط مباشرة بالمشروع المختار وتظهر داخل تفاصيله فقط.
+								</DialogDescription>
+							</div>
+							<Button
+								type="button"
+								variant="ghost"
+								onClick={() => setNoteDialogOpen(false)}
+								className={activityModalCloseButtonClassName}
+							>
+								X
+							</Button>
+						</DialogHeader>
+						<div className="space-y-5 px-6 py-6">
+							<div className={cn(activityModalCardClassName, "space-y-4")}>
+								<div className="space-y-2">
+									<label className={activityModalLabelClassName}>المشروع</label>
+									<Select value={noteProjectId} onValueChange={setNoteProjectId}>
+										<SelectTrigger className={activityModalFieldClassName}>
+											<SelectValue placeholder="اختر المشروع" />
+										</SelectTrigger>
+										<SelectContent className={activityModalSelectContentClassName}>
+											{projects.map((project) => (
+												<SelectItem key={project.id} value={project.id}>
+													{project.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-2">
+									<label className={activityModalLabelClassName}>الملاحظة</label>
+									<Textarea
+										value={noteText}
+										onChange={(event) => setNoteText(event.target.value)}
+										placeholder="اكتب ملاحظة واضحة مرتبطة بالمشروع..."
+										rows={6}
+										className={cn(activityModalFieldClassName, "min-h-[150px] resize-y")}
+									/>
+								</div>
+								<p className={activityModalHelperTextClassName}>
+									سيتم حفظ هذه الملاحظة داخل المشروع المحدد فقط.
+								</p>
+							</div>
 						</div>
-						<div className="space-y-2">
-							<label className="text-sm font-medium">الملاحظة</label>
-							<Textarea
-								value={noteText}
-								onChange={(event) => setNoteText(event.target.value)}
-								placeholder="اكتب ملاحظة واضحة مرتبطة بالمشروع..."
-								rows={6}
-							/>
-						</div>
+						<DialogFooter className="sticky bottom-0 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setNoteDialogOpen(false)}
+								className={activityModalCancelButtonClassName}
+							>
+								إلغاء
+							</Button>
+							<Button
+								type="button"
+								onClick={handleNoteSubmit}
+								disabled={submittingNote}
+								className={activityModalPrimaryButtonClassName}
+							>
+								{submittingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ الملاحظة"}
+							</Button>
+						</DialogFooter>
 					</div>
-					<DialogFooter>
-						<Button type="button" variant="outline" onClick={() => setNoteDialogOpen(false)}>
-							إلغاء
-						</Button>
-						<Button type="button" onClick={handleNoteSubmit} disabled={submittingNote}>
-							{submittingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ الملاحظة"}
-						</Button>
-					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 
 			<Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-				<DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-4xl">
-					<DialogHeader>
-						<DialogTitle>{reportForm.reportId ? "تعديل تقرير" : "إنشاء تقرير"}</DialogTitle>
-						<DialogDescription>
-							نموذج رسمي للتقارير مع ربط بالمشروع والمستلمين والصلاحيات وحالة الاعتماد.
-						</DialogDescription>
-					</DialogHeader>
+				<DialogContent
+					overlayClassName={activityModalOverlayClassName}
+					className={cn(activityModalContentClassName, "sm:max-w-4xl")}
+				>
+					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
+						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+							<div>
+								<DialogTitle className="text-xl font-semibold text-white">
+									{reportForm.reportId ? "تعديل تقرير" : "إنشاء تقرير"}
+								</DialogTitle>
+								<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
+									نموذج رسمي للتقارير مع ربط بالمشروع والمستلمين والصلاحيات وحالة الاعتماد.
+								</DialogDescription>
+							</div>
+							<Button
+								type="button"
+								variant="ghost"
+								onClick={() => setReportDialogOpen(false)}
+								className={activityModalCloseButtonClassName}
+							>
+								X
+							</Button>
+						</DialogHeader>
 
+					<div className="space-y-5 px-6 py-6">
 					<div className="grid gap-4 md:grid-cols-2">
 						<div className="space-y-2">
-							<label className="text-sm font-medium">اسم المشروع</label>
+							<label className={activityModalLabelClassName}>اسم المشروع</label>
 							<Select
 								value={reportForm.projectId}
 								onValueChange={(value) => setReportForm((current) => ({ ...current, projectId: value }))}
 							>
-								<SelectTrigger>
+								<SelectTrigger className={activityModalFieldClassName}>
 									<SelectValue placeholder="اختر المشروع" />
 								</SelectTrigger>
-								<SelectContent>
+								<SelectContent className={activityModalSelectContentClassName}>
 									{projects.map((project) => (
 										<SelectItem key={project.id} value={project.id}>
 											{project.name}
@@ -1087,7 +1165,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</Select>
 						</div>
 						<div className="space-y-2">
-							<label className="text-sm font-medium">نوع التقرير</label>
+							<label className={activityModalLabelClassName}>نوع التقرير</label>
 							<Select
 								value={reportForm.reportType}
 								onValueChange={(value) =>
@@ -1097,10 +1175,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 									}))
 								}
 							>
-								<SelectTrigger>
+								<SelectTrigger className={activityModalFieldClassName}>
 									<SelectValue />
 								</SelectTrigger>
-								<SelectContent>
+								<SelectContent className={activityModalSelectContentClassName}>
 									<SelectItem value="client">تقرير للعميل</SelectItem>
 									<SelectItem value="internal">تقرير داخلي</SelectItem>
 									<SelectItem value="shared">تقرير مشترك بين الأدمن والمهندسين</SelectItem>
@@ -1108,17 +1186,18 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</Select>
 						</div>
 						<div className="space-y-2 md:col-span-2">
-							<label className="text-sm font-medium">عنوان التقرير</label>
+							<label className={activityModalLabelClassName}>عنوان التقرير</label>
 							<Input
 								value={reportForm.title}
 								onChange={(event) =>
 									setReportForm((current) => ({ ...current, title: event.target.value }))
 								}
 								placeholder="مثال: تقرير تقدم الأعمال للأسبوع الحالي"
+								className={activityModalFieldClassName}
 							/>
 						</div>
 						<div className="space-y-2 md:col-span-2">
-							<label className="text-sm font-medium">وصف / ملخص</label>
+							<label className={activityModalLabelClassName}>وصف / ملخص</label>
 							<Textarea
 								value={reportForm.summary}
 								onChange={(event) =>
@@ -1126,10 +1205,11 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								}
 								rows={3}
 								placeholder="ملخص تنفيذي موجز للتقرير"
+								className={cn(activityModalFieldClassName, "min-h-[110px] resize-y")}
 							/>
 						</div>
 						<div className="space-y-2 md:col-span-2">
-							<label className="text-sm font-medium">تفاصيل الأعمال أو الملاحظات</label>
+							<label className={activityModalLabelClassName}>تفاصيل الأعمال أو الملاحظات</label>
 							<Textarea
 								value={reportForm.details}
 								onChange={(event) =>
@@ -1137,10 +1217,11 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								}
 								rows={6}
 								placeholder="اكتب التفاصيل الرسمية للتقرير"
+								className={cn(activityModalFieldClassName, "min-h-[150px] resize-y")}
 							/>
 						</div>
 						<div className="space-y-2 md:col-span-2">
-							<label className="text-sm font-medium">تفاصيل إضافية</label>
+							<label className={activityModalLabelClassName}>تفاصيل إضافية</label>
 							<Textarea
 								value={reportForm.workDetails}
 								onChange={(event) =>
@@ -1148,16 +1229,17 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								}
 								rows={4}
 								placeholder="أي توضيحات أو أعمال منفذة أو ملاحظات داخلية"
+								className={cn(activityModalFieldClassName, "min-h-[110px] resize-y")}
 							/>
 						</div>
 
-						<div className="space-y-3 md:col-span-2">
+						<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 							<div className="flex flex-wrap items-center justify-between gap-3">
 								<div>
-									<p className="text-sm font-medium">الصور أو المرفقات</p>
-									<p className="text-xs text-muted-foreground">يمكن رفع ملفات مباشرة ثم ربطها بالتقرير.</p>
+									<p className="text-sm font-medium text-[#e8dfc8]">الصور أو المرفقات</p>
+									<p className={activityModalHelperTextClassName}>يمكن رفع ملفات مباشرة ثم ربطها بالتقرير.</p>
 								</div>
-								<label className="inline-flex cursor-pointer items-center rounded-lg border border-dashed border-border/70 px-4 py-2 text-sm transition hover:bg-muted/40">
+								<label className="inline-flex cursor-pointer items-center rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-4 py-2 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15">
 									<UploadCloud className="me-2 h-4 w-4" />
 									{uploadingAttachments ? "جاري الرفع..." : "رفع مرفقات"}
 									<input
@@ -1170,20 +1252,21 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 							<div className="space-y-2">
 								{reportForm.attachments.length === 0 ? (
-									<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+									<div className="rounded-xl border border-dashed border-[#dac58f]/15 bg-white/[0.03] px-4 py-4 text-sm text-[#8f8a7d]">
 										لا توجد مرفقات بعد.
 									</div>
 								) : (
 									reportForm.attachments.map((attachment, index) => (
-										<div key={`${attachment.url}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-3 text-sm">
+										<div key={`${attachment.url}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-3 py-3 text-sm">
 											<div className="min-w-0">
-												<p className="truncate font-medium">{attachment.name || attachment.url}</p>
-												<p className="truncate text-xs text-muted-foreground">{attachment.url}</p>
+												<p className="truncate font-medium text-[#e8dfc8]">{attachment.name || attachment.url}</p>
+												<p className="truncate text-xs text-[#8f8a7d]">{attachment.url}</p>
 											</div>
 											<Button
 												type="button"
 												variant="ghost"
 												size="sm"
+												className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white"
 												onClick={() =>
 													setReportForm((current) => ({
 														...current,
@@ -1199,50 +1282,53 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 						</div>
 
-						<div className="space-y-3 md:col-span-2">
+						<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 							<div className="flex items-center justify-between">
 								<div>
-									<p className="text-sm font-medium">المستلمون</p>
-									<p className="text-xs text-muted-foreground">البريد والواتساب يعتمد على بيانات المستلمين هنا.</p>
+									<p className="text-sm font-medium text-[#e8dfc8]">المستلمون</p>
+									<p className={activityModalHelperTextClassName}>البريد والواتساب يعتمد على بيانات المستلمين هنا.</p>
 								</div>
-								<Button type="button" variant="outline" size="sm" onClick={addRecipient}>
+								<Button type="button" variant="outline" size="sm" onClick={addRecipient} className={activityModalSecondaryButtonClassName}>
 									إضافة مستلم
 								</Button>
 							</div>
 							<div className="space-y-3">
 								{reportForm.recipients.map((recipient, index) => (
-									<div key={`recipient-${index}`} className="grid gap-3 rounded-2xl border border-border/60 p-4 md:grid-cols-4">
+									<div key={`recipient-${index}`} className="grid gap-3 rounded-2xl border border-[#dac58f]/15 bg-white/[0.03] p-4 md:grid-cols-4">
 										<Input
 											value={recipient.name}
 											onChange={(event) => updateRecipient(index, "name", event.target.value)}
 											placeholder="اسم المستلم"
+											className={activityModalFieldClassName}
 										/>
 										<Input
 											value={recipient.email || ""}
 											onChange={(event) => updateRecipient(index, "email", event.target.value)}
 											placeholder="Email"
 											type="email"
+											className={activityModalFieldClassName}
 										/>
 										<Input
 											value={recipient.phone || ""}
 											onChange={(event) => updateRecipient(index, "phone", event.target.value)}
 											placeholder="WhatsApp number"
+											className={activityModalFieldClassName}
 										/>
 										<div className="flex gap-2">
 											<Select
 												value={recipient.channel || "both"}
 												onValueChange={(value) => updateRecipient(index, "channel", value)}
 											>
-												<SelectTrigger>
+												<SelectTrigger className={activityModalFieldClassName}>
 													<SelectValue />
 												</SelectTrigger>
-												<SelectContent>
+												<SelectContent className={activityModalSelectContentClassName}>
 													<SelectItem value="both">البريد والواتساب</SelectItem>
 													<SelectItem value="email">البريد فقط</SelectItem>
 													<SelectItem value="whatsapp">الواتساب فقط</SelectItem>
 												</SelectContent>
 											</Select>
-											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)}>
+											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)} className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white">
 												حذف
 											</Button>
 										</div>
@@ -1252,32 +1338,32 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						</div>
 
 						{isAdmin && reportForm.reportType !== "client" && (
-							<div className="space-y-3 md:col-span-2">
+							<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 								<div className="flex items-center justify-between">
 									<div>
-										<p className="text-sm font-medium">صلاحيات التقرير</p>
-										<p className="text-xs text-muted-foreground">تحديد من يملك المشاهدة فقط أو التعديل.</p>
+										<p className="text-sm font-medium text-[#e8dfc8]">صلاحيات التقرير</p>
+										<p className={activityModalHelperTextClassName}>تحديد من يملك المشاهدة فقط أو التعديل.</p>
 									</div>
-									<Button type="button" variant="outline" size="sm" onClick={addPermission}>
+									<Button type="button" variant="outline" size="sm" onClick={addPermission} className={activityModalSecondaryButtonClassName}>
 										إضافة صلاحية
 									</Button>
 								</div>
 								<div className="space-y-3">
 									{reportForm.permissions.length === 0 ? (
-										<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+										<div className="rounded-xl border border-dashed border-[#dac58f]/15 bg-white/[0.03] px-4 py-4 text-sm text-[#8f8a7d]">
 											لم يتم تعيين صلاحيات إضافية بعد.
 										</div>
 									) : (
 										reportForm.permissions.map((permission, index) => (
-											<div key={`permission-${index}`} className="grid gap-3 rounded-2xl border border-border/60 p-4 md:grid-cols-[minmax(0,1fr)_180px_80px]">
+											<div key={`permission-${index}`} className="grid gap-3 rounded-2xl border border-[#dac58f]/15 bg-white/[0.03] p-4 md:grid-cols-[minmax(0,1fr)_180px_80px]">
 												<Select
 													value={permission.userId}
 													onValueChange={(value) => updatePermission(index, "userId", value)}
 												>
-													<SelectTrigger>
+													<SelectTrigger className={activityModalFieldClassName}>
 														<SelectValue placeholder="اختر المستخدم" />
 													</SelectTrigger>
-													<SelectContent>
+													<SelectContent className={activityModalSelectContentClassName}>
 														{visiblePermissionUsers.map((user) => (
 															<SelectItem key={user.id} value={user.id}>
 																{user.name || user.email || user.id}
@@ -1289,15 +1375,15 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 													value={permission.accessLevel}
 													onValueChange={(value) => updatePermission(index, "accessLevel", value)}
 												>
-													<SelectTrigger>
+													<SelectTrigger className={activityModalFieldClassName}>
 														<SelectValue />
 													</SelectTrigger>
-													<SelectContent>
+													<SelectContent className={activityModalSelectContentClassName}>
 														<SelectItem value="view">مشاهدة فقط</SelectItem>
 														<SelectItem value="edit">تعديل</SelectItem>
 													</SelectContent>
 												</Select>
-												<Button type="button" variant="ghost" onClick={() => removePermission(index)}>
+												<Button type="button" variant="ghost" onClick={() => removePermission(index)} className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white">
 													حذف
 												</Button>
 											</div>
@@ -1307,19 +1393,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 						)}
 
-						<div className="rounded-2xl border border-border/60 bg-muted/20 p-4 md:col-span-2">
+						<div className="rounded-2xl border border-[#dac58f]/15 bg-white/[0.03] p-4 md:col-span-2">
 							<div className="grid gap-3 sm:grid-cols-3">
 								<div>
-									<p className="text-xs text-muted-foreground">كاتب التقرير</p>
-									<p className="mt-1 text-sm font-medium">{currentUser.name || currentUser.email || "غير محدد"}</p>
+									<p className="text-xs text-[#8f8a7d]">كاتب التقرير</p>
+									<p className="mt-1 text-sm font-medium text-[#e8dfc8]">{currentUser.name || currentUser.email || "غير محدد"}</p>
 								</div>
 								<div>
-									<p className="text-xs text-muted-foreground">تاريخ الإنشاء</p>
-									<p className="mt-1 text-sm font-medium">{formatDate(new Date().toISOString())}</p>
+									<p className="text-xs text-[#8f8a7d]">تاريخ الإنشاء</p>
+									<p className="mt-1 text-sm font-medium text-[#e8dfc8]">{formatDate(new Date().toISOString())}</p>
 								</div>
 								<div>
-									<p className="text-xs text-muted-foreground">الحالة المتوقعة</p>
-									<p className="mt-1 text-sm font-medium">
+									<p className="text-xs text-[#8f8a7d]">الحالة المتوقعة</p>
+									<p className="mt-1 text-sm font-medium text-[#e8dfc8]">
 										{reportForm.reportType === "client" && !isAdmin
 											? "بانتظار موافقة الأدمن"
 											: reportForm.reportType === "client"
@@ -1331,14 +1417,16 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						</div>
 					</div>
 
-					<DialogFooter>
-						<Button type="button" variant="outline" onClick={() => setReportDialogOpen(false)}>
+					<DialogFooter className="sticky bottom-0 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur">
+						<Button type="button" variant="outline" onClick={() => setReportDialogOpen(false)} className={activityModalCancelButtonClassName}>
 							إلغاء
 						</Button>
-						<Button type="button" onClick={handleReportSubmit} disabled={submittingReport || uploadingAttachments}>
+						<Button type="button" onClick={handleReportSubmit} disabled={submittingReport || uploadingAttachments} className={activityModalPrimaryButtonClassName}>
 							{submittingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : reportForm.reportId ? "حفظ التعديلات" : "إنشاء التقرير"}
 						</Button>
 					</DialogFooter>
+					</div>
+					</div>
 				</DialogContent>
 			</Dialog>
 
