@@ -49,6 +49,7 @@ type PdfGenerationDiagnostics = {
 	userDataDir: string;
 	isVercel: boolean;
 	nodeEnv: string | null;
+	argsCount: number;
 };
 
 const formatUnknownError = (error: unknown) => {
@@ -85,6 +86,21 @@ const getErrorCause = (error: unknown) =>
 
 const logPdfTrace = (message: string) => {
 	console.log(`[pdf] ${message}`);
+};
+
+const resolveChromiumArgs = async () => {
+	const candidateArgs = chromium.args as unknown;
+
+	if (Array.isArray(candidateArgs)) {
+		return candidateArgs;
+	}
+
+	if (typeof candidateArgs === "function") {
+		const resolved = await candidateArgs();
+		return Array.isArray(resolved) ? resolved : [];
+	}
+
+	return [];
 };
 
 export const logPdfErrorDetails = (
@@ -336,6 +352,7 @@ const resolveBrowserLaunchConfig = async (diagnostics: PdfGenerationDiagnostics)
 	if (localExecutablePath) {
 		diagnostics.browserStrategy = "local";
 		diagnostics.resolvedExecutablePath = localExecutablePath;
+		diagnostics.argsCount = 3;
 		logPdfTrace("stage=resolve-browser strategy=local");
 		logPdfTrace(`executablePath=${localExecutablePath}`);
 		return {
@@ -360,15 +377,15 @@ const resolveBrowserLaunchConfig = async (diagnostics: PdfGenerationDiagnostics)
 	diagnostics.browserStrategy = "serverless_chromium";
 	diagnostics.chromiumExecutablePath = chromiumExecutablePath || null;
 	diagnostics.resolvedExecutablePath = chromiumExecutablePath || null;
+	const chromiumArgs = await resolveChromiumArgs();
+	diagnostics.argsCount = chromiumArgs.length;
 	logPdfTrace(`chromium.executablePath=${chromiumExecutablePath || "null"}`);
+	logPdfTrace(`chromium.args.count=${chromiumArgs.length}`);
 	return {
-		args: puppeteer.defaultArgs({
-			args: chromium.args,
-			headless: "shell",
-		}),
+		args: chromiumArgs,
 		defaultViewport: chromium.defaultViewport,
 		executablePath: chromiumExecutablePath,
-		headless: "shell" as const,
+		headless: true as const,
 	};
 };
 
@@ -390,6 +407,7 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		userDataDir,
 		isVercel: !!process.env.VERCEL,
 		nodeEnv: process.env.NODE_ENV ?? null,
+		argsCount: 0,
 	};
 
 	try {
@@ -407,6 +425,7 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		diagnostics.stage = "launching_browser";
 		diagnostics.launchStarted = true;
 		logPdfTrace(`resolvedExecutablePath=${diagnostics.resolvedExecutablePath || "null"}`);
+		logPdfTrace(`launchArgsCount=${diagnostics.argsCount}`);
 		logPdfTrace("stage=launch-browser");
 		browser = await puppeteer.launch({
 			...launchConfig,
@@ -462,6 +481,7 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		console.error(`[pdf] browserStrategy=${diagnostics.browserStrategy}`);
 		console.error(`[pdf] executablePath=${diagnostics.resolvedExecutablePath || "null"}`);
 		console.error(`[pdf] chromiumExecutablePath=${diagnostics.chromiumExecutablePath || "null"}`);
+		console.error(`[pdf] argsCount=${String(diagnostics.argsCount)}`);
 		console.error(`[pdf] error message=${getErrorMessage(error)}`);
 		console.error(`[pdf] error stack=${getErrorStack(error) || "null"}`);
 		console.error(
