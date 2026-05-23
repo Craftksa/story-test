@@ -12,12 +12,13 @@ import {
 import { db } from "@/drizzle/db";
 import { projectReportPermissions, projectReports, users } from "@/drizzle/schema";
 import { hasRole, isValidId } from "@/lib/utils";
+import type { ReportDeliveryOption } from "@/lib/report-delivery";
 
 const recipientSchema = z.object({
 	name: z.string().min(1),
 	email: z.string().email().optional().or(z.literal("")).nullable(),
 	phone: z.string().optional().or(z.literal("")).nullable(),
-	channel: z.enum(["email", "whatsapp", "both"]).optional(),
+	channel: z.enum(["email", "whatsapp", "both", "none"]).optional(),
 });
 
 const attachmentSchema = z.object({
@@ -39,7 +40,30 @@ const updateReportSchema = z.object({
 	attachments: z.array(attachmentSchema).optional().default([]),
 	recipients: z.array(recipientSchema).optional().default([]),
 	permissions: z.array(reportPermissionSchema).optional().default([]),
+	deliveryOption: z
+		.enum(["draft", "pdf_only", "email", "whatsapp", "email_whatsapp"])
+		.optional()
+		.default("draft"),
 });
+
+const normalizeRecipientChannel = (
+	option: ReportDeliveryOption,
+	recipient: z.infer<typeof recipientSchema>
+) => {
+	switch (option) {
+		case "email":
+			return recipient.email?.trim() ? "email" : "none";
+		case "whatsapp":
+			return recipient.phone?.trim() ? "whatsapp" : "none";
+		case "email_whatsapp":
+			return recipient.email?.trim() || recipient.phone?.trim() ? "both" : "none";
+		case "pdf_only":
+			return "none";
+		case "draft":
+		default:
+			return recipient.channel ?? "both";
+	}
+};
 
 export async function GET(
 	req: NextRequest,
@@ -115,6 +139,13 @@ export async function PATCH(
 			}
 		}
 
+		const normalizedRecipients = parsed.data.recipients.map((recipient) => ({
+			name: recipient.name.trim(),
+			email: recipient.email?.trim() || null,
+			phone: recipient.phone?.trim() || null,
+			channel: normalizeRecipientChannel(parsed.data.deliveryOption, recipient),
+		}));
+
 		await db
 			.update(projectReports)
 			.set({
@@ -123,14 +154,7 @@ export async function PATCH(
 				details: parsed.data.details.trim(),
 				workDetails: parsed.data.workDetails?.trim() || null,
 				attachments: serializeJsonList(parsed.data.attachments),
-				recipients: serializeJsonList(
-					parsed.data.recipients.map((recipient) => ({
-						name: recipient.name.trim(),
-						email: recipient.email?.trim() || null,
-						phone: recipient.phone?.trim() || null,
-						channel: recipient.channel ?? "both",
-					}))
-				),
+				recipients: serializeJsonList(normalizedRecipients),
 				updatedAt: new Date(),
 			})
 			.where(eq(projectReports.id, params.reportId));

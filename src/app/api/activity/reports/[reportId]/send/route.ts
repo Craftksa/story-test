@@ -42,7 +42,10 @@ export async function POST(
 			approvedByName: report.approvedByName || user?.name || null,
 		});
 
-		const emailCompleted = delivery.emailStatus === "sent" || delivery.emailStatus === "not_applicable" || delivery.emailStatus === "not_configured";
+		const emailCompleted =
+			delivery.emailStatus === "sent" ||
+			delivery.emailStatus === "not_applicable" ||
+			delivery.emailStatus === "not_configured";
 		const whatsappCompleted =
 			delivery.whatsappStatus === "sent" ||
 			delivery.whatsappStatus === "not_applicable" ||
@@ -64,14 +67,7 @@ export async function POST(
 		const details = await getActivityProjectDetails(report.projectId, user ?? {});
 		return NextResponse.json({
 			details,
-			message:
-				delivery.pdfStatus === "failed"
-					? delivery.userMessage
-					: delivery.emailStatus === "not_configured" || delivery.whatsappStatus === "not_configured"
-						? "تم إنشاء التقرير وملف PDF، لكن لم يتم الإرسال بسبب عدم إعداد خدمة البريد أو الواتساب."
-						: delivery.emailStatus === "failed" || delivery.whatsappStatus === "failed"
-							? delivery.userMessage
-							: "تم إرسال التقرير للعميل بنجاح.",
+			message: delivery.userMessage,
 		});
 	} catch (error) {
 		console.error("POST /api/activity/reports/[reportId]/send error:", error);

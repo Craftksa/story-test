@@ -35,7 +35,7 @@ export type ActivityReportRecipient = {
 	name: string;
 	email?: string | null;
 	phone?: string | null;
-	channel?: "email" | "whatsapp" | "both";
+	channel?: "email" | "whatsapp" | "both" | "none";
 };
 
 export type ActivityReportAttachment = {

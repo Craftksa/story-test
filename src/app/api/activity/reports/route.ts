@@ -1,22 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { authenticate } from "@/lib/authenticate";
 import {
 	canAccessActivity,
 	getActivityProjectDetails,
+	getProjectAndClientById,
+	getReportById,
 	serializeJsonList,
 	userCanAccessProjectActivity,
 } from "@/lib/activity";
 import { db } from "@/drizzle/db";
 import { projectReportPermissions, projectReports, users } from "@/drizzle/schema";
 import { hasRole } from "@/lib/utils";
+import { deliverClientReport, type ReportDeliveryOption } from "@/lib/report-delivery";
 
 const recipientSchema = z.object({
 	name: z.string().min(1),
 	email: z.string().email().optional().or(z.literal("")).nullable(),
 	phone: z.string().optional().or(z.literal("")).nullable(),
-	channel: z.enum(["email", "whatsapp", "both"]).optional(),
+	channel: z.enum(["email", "whatsapp", "both", "none"]).optional(),
 });
 
 const attachmentSchema = z.object({
@@ -40,6 +43,59 @@ const createReportSchema = z.object({
 	attachments: z.array(attachmentSchema).optional().default([]),
 	recipients: z.array(recipientSchema).optional().default([]),
 	permissions: z.array(reportPermissionSchema).optional().default([]),
+	deliveryOption: z
+		.enum(["draft", "pdf_only", "email", "whatsapp", "email_whatsapp"])
+		.optional()
+		.default("draft"),
+});
+
+const normalizeRecipientChannel = (
+	option: ReportDeliveryOption,
+	recipient: z.infer<typeof recipientSchema>
+) => {
+	switch (option) {
+		case "email":
+			return recipient.email?.trim() ? "email" : "none";
+		case "whatsapp":
+			return recipient.phone?.trim() ? "whatsapp" : "none";
+		case "email_whatsapp":
+			return recipient.email?.trim() || recipient.phone?.trim() ? "both" : "none";
+		case "pdf_only":
+			return "none";
+		case "draft":
+		default:
+			return recipient.channel ?? "both";
+	}
+};
+
+const getInitialStatus = ({
+	reportType,
+	deliveryOption,
+	isAdmin,
+}: {
+	reportType: "client" | "internal" | "shared";
+	deliveryOption: ReportDeliveryOption;
+	isAdmin: boolean;
+}) => {
+	if (deliveryOption === "draft") {
+		return "draft" as const;
+	}
+
+	if (reportType === "client") {
+		return isAdmin ? ("approved" as const) : ("pending_admin_approval" as const);
+	}
+
+	return "approved" as const;
+};
+
+const getInitialChannelStatuses = (option: ReportDeliveryOption) => ({
+	pdfStatus: "not_generated" as const,
+	emailStatus:
+		option === "email" || option === "email_whatsapp" ? ("pending" as const) : ("not_applicable" as const),
+	whatsappStatus:
+		option === "whatsapp" || option === "email_whatsapp"
+			? ("pending" as const)
+			: ("not_applicable" as const),
 });
 
 export async function POST(req: NextRequest) {
@@ -86,12 +142,19 @@ export async function POST(req: NextRequest) {
 			}
 		}
 
-		const status =
-			parsed.data.reportType === "client"
-				? isAdmin
-					? "approved"
-					: "pending_admin_approval"
-				: "approved";
+		const normalizedRecipients = parsed.data.recipients.map((recipient) => ({
+			name: recipient.name.trim(),
+			email: recipient.email?.trim() || null,
+			phone: recipient.phone?.trim() || null,
+			channel: normalizeRecipientChannel(parsed.data.deliveryOption, recipient),
+		}));
+
+		const initialStatus = getInitialStatus({
+			reportType: parsed.data.reportType,
+			deliveryOption: parsed.data.deliveryOption,
+			isAdmin,
+		});
+		const initialChannelStatuses = getInitialChannelStatuses(parsed.data.deliveryOption);
 
 		const insertedReports = await db
 			.insert(projectReports)
@@ -103,18 +166,12 @@ export async function POST(req: NextRequest) {
 				details: parsed.data.details.trim(),
 				workDetails: parsed.data.workDetails?.trim() || null,
 				attachments: serializeJsonList(parsed.data.attachments),
-				recipients: serializeJsonList(
-					parsed.data.recipients.map((recipient) => ({
-						name: recipient.name.trim(),
-						email: recipient.email?.trim() || null,
-						phone: recipient.phone?.trim() || null,
-						channel: recipient.channel ?? "both",
-					}))
-				),
-				status,
+				recipients: serializeJsonList(normalizedRecipients),
+				status: initialStatus,
 				authorId: user?.id ?? null,
-				emailStatus: parsed.data.reportType === "client" ? "pending" : "not_applicable",
-				whatsappStatus: parsed.data.reportType === "client" ? "pending" : "not_applicable",
+				pdfStatus: initialChannelStatuses.pdfStatus,
+				emailStatus: initialChannelStatuses.emailStatus,
+				whatsappStatus: initialChannelStatuses.whatsappStatus,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 			})
@@ -134,15 +191,82 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		let message: string;
+		const shouldProcessImmediately =
+			parsed.data.deliveryOption !== "draft" &&
+			(parsed.data.reportType !== "client" || isAdmin);
+
+		if (shouldProcessImmediately) {
+			const report = await getReportById(createdReport.id, user ?? {});
+			const project = report ? await getProjectAndClientById(report.projectId) : null;
+
+			if (report && project) {
+				const delivery = await deliverClientReport(
+					{
+						project,
+						report,
+						approvedByName: report.approvedByName || user?.name || null,
+					},
+					{ option: parsed.data.deliveryOption }
+				);
+
+				const emailCompleted =
+					delivery.emailStatus === "sent" ||
+					delivery.emailStatus === "not_applicable" ||
+					delivery.emailStatus === "not_configured";
+				const whatsappCompleted =
+					delivery.whatsappStatus === "sent" ||
+					delivery.whatsappStatus === "not_applicable" ||
+					delivery.whatsappStatus === "not_configured";
+				const deliveredToClientChannels =
+					parsed.data.deliveryOption === "email" ||
+					parsed.data.deliveryOption === "whatsapp" ||
+					parsed.data.deliveryOption === "email_whatsapp";
+
+				const nextStatus =
+					parsed.data.reportType === "client" &&
+					deliveredToClientChannels &&
+					delivery.pdfStatus === "generated" &&
+					emailCompleted &&
+					whatsappCompleted
+						? ("sent" as const)
+						: initialStatus === "draft"
+							? ("draft" as const)
+							: ("approved" as const);
+
+				await db
+					.update(projectReports)
+					.set({
+						status: nextStatus,
+						pdfStatus: delivery.pdfStatus,
+						emailStatus: delivery.emailStatus,
+						whatsappStatus: delivery.whatsappStatus,
+						lastDeliveryError: delivery.lastDeliveryError,
+						sentAt:
+							nextStatus === "sent" && delivery.pdfStatus === "generated" ? new Date() : null,
+						updatedAt: new Date(),
+					})
+					.where(eq(projectReports.id, createdReport.id));
+
+				message = delivery.userMessage;
+			} else {
+				message = "تم إنشاء التقرير، لكن تعذر تحميل بياناته الكاملة بعد الحفظ.";
+			}
+		} else if (parsed.data.deliveryOption === "draft") {
+			message = "تم حفظ التقرير كمسودة.";
+		} else if (parsed.data.reportType === "client" && !isAdmin) {
+			message = "تم إنشاء التقرير وبانتظار موافقة الأدمن.";
+		} else {
+			message =
+				parsed.data.reportType === "client"
+					? "تم إنشاء تقرير العميل وهو جاهز للاعتماد أو الإرسال."
+					: "تم إنشاء التقرير بنجاح.";
+		}
+
 		const details = await getActivityProjectDetails(parsed.data.projectId, user ?? {});
 		return NextResponse.json({
 			details,
-			message:
-				parsed.data.reportType === "client" && !isAdmin
-					? "تم إنشاء التقرير وبانتظار موافقة الأدمن."
-					: parsed.data.reportType === "client"
-						? "تم إنشاء تقرير العميل وهو جاهز للاعتماد أو الإرسال."
-						: "تم إنشاء التقرير الداخلي بنجاح.",
+			message,
 		});
 	} catch (error) {
 		console.error("POST /api/activity/reports error:", error);

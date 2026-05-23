@@ -77,8 +77,15 @@ type ReportRecipient = {
 	name: string;
 	email?: string | null;
 	phone?: string | null;
-	channel?: "email" | "whatsapp" | "both";
+	channel?: "email" | "whatsapp" | "both" | "none";
 };
+
+type ReportDeliveryOption =
+	| "draft"
+	| "pdf_only"
+	| "email"
+	| "whatsapp"
+	| "email_whatsapp";
 
 type ReportPermission = {
 	userId: string;
@@ -170,6 +177,7 @@ type ReportFormState = {
 	reportId: string | null;
 	projectId: string;
 	reportType: "client" | "internal" | "shared";
+	deliveryOption: ReportDeliveryOption;
 	title: string;
 	summary: string;
 	details: string;
@@ -201,6 +209,7 @@ const EMPTY_REPORT_FORM: ReportFormState = {
 	reportId: null,
 	projectId: "",
 	reportType: "client",
+	deliveryOption: "draft",
 	title: "",
 	summary: "",
 	details: "",
@@ -232,6 +241,20 @@ const deliveryStatusLabel: Record<ProjectReport["emailStatus"], string> = {
 	not_configured: "غير مهيأ",
 };
 
+const pdfStatusLabel: Record<ProjectReport["pdfStatus"], string> = {
+	not_generated: "غير مولد",
+	generated: "تم التوليد",
+	failed: "فشل",
+};
+
+const deliveryOptionLabel: Record<ReportDeliveryOption, string> = {
+	draft: "حفظ كمسودة",
+	pdf_only: "إنشاء PDF فقط",
+	email: "إرسال PDF عبر البريد الإلكتروني",
+	whatsapp: "إرسال PDF عبر واتساب",
+	email_whatsapp: "إرسال PDF عبر البريد والواتساب",
+};
+
 const isRecentProject = (summary: ProjectSummary) => {
 	if (!summary.lastActivityAt) return false;
 	const diff = Date.now() - new Date(summary.lastActivityAt).getTime();
@@ -242,6 +265,33 @@ const truncate = (value?: string | null, max = 110) => {
 	if (!value) return "";
 	if (value.length <= max) return value;
 	return `${value.slice(0, max).trim()}...`;
+};
+
+const inferDeliveryOption = (report: ProjectReport): ReportDeliveryOption => {
+	if (report.status === "draft") return "draft";
+	if (report.recipients.length === 0) return "pdf_only";
+
+	const channels = new Set(report.recipients.map((recipient) => recipient.channel ?? "both"));
+	if (channels.size === 1 && channels.has("none")) return "pdf_only";
+	if (channels.size === 1 && channels.has("email")) return "email";
+	if (channels.size === 1 && channels.has("whatsapp")) return "whatsapp";
+
+	return "email_whatsapp";
+};
+
+const extractApiErrorMessage = (error: unknown, fallbackMessage: string) => {
+	if (axios.isAxiosError(error)) {
+		const apiMessage = error.response?.data?.error;
+		if (typeof apiMessage === "string" && apiMessage.trim()) {
+			return apiMessage;
+		}
+	}
+
+	if (error instanceof Error && error.message.trim()) {
+		return error.message;
+	}
+
+	return fallbackMessage;
 };
 
 const priorityClasses: Record<"high" | "medium" | "low", string> = {
@@ -302,6 +352,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [submittingReport, setSubmittingReport] = useState(false);
 	const [uploadingAttachments, setUploadingAttachments] = useState(false);
 	const [actioningReportId, setActioningReportId] = useState<string | null>(null);
+	const [openingPdfReportId, setOpeningPdfReportId] = useState<string | null>(null);
 
 	const formatDate = (value?: string | null) => {
 		if (!value) return "غير متوفر";
@@ -395,6 +446,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			reportId: report.id,
 			projectId: report.projectId,
 			reportType: report.reportType,
+			deliveryOption: inferDeliveryOption(report),
 			title: report.title,
 			summary: report.summary || "",
 			details: report.details,
@@ -511,6 +563,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			const payload = {
 				projectId: reportForm.projectId,
 				reportType: reportForm.reportType,
+				deliveryOption: reportForm.deliveryOption,
 				title: reportForm.title.trim(),
 				summary: reportForm.summary.trim() || null,
 				details: reportForm.details.trim(),
@@ -539,7 +592,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			});
 		} catch (error) {
 			console.error("Failed to submit report", error);
-			toast.error("تعذر حفظ التقرير.");
+			toast.error(extractApiErrorMessage(error, "تعذر حفظ التقرير."));
 		} finally {
 			setSubmittingReport(false);
 		}
@@ -567,7 +620,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			setApprovalDialog(null);
 		} catch (error) {
 			console.error("Failed to process report approval", error);
-			toast.error("تعذر تنفيذ إجراء الموافقة.");
+			toast.error(extractApiErrorMessage(error, "تعذر تنفيذ إجراء الموافقة."));
 		} finally {
 			setActioningReportId(null);
 		}
@@ -582,9 +635,51 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			toast.success(message || "تم إرسال التقرير للعميل.");
 		} catch (error) {
 			console.error("Failed to send report", error);
-			toast.error("تعذر إرسال التقرير.");
+			toast.error(extractApiErrorMessage(error, "تعذر إرسال التقرير."));
 		} finally {
 			setActioningReportId(null);
+		}
+	};
+
+	const handleOpenReportPdf = async (report: ProjectReport) => {
+		setOpeningPdfReportId(report.id);
+		try {
+			const response = await fetch(`/api/activity/reports/${report.id}/pdf`, {
+				method: "GET",
+			});
+			const contentType = response.headers.get("content-type") || "";
+
+			if (!response.ok || !contentType.includes("application/pdf")) {
+				let message = "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا.";
+				try {
+					const payload = (await response.json()) as { error?: string };
+					if (payload?.error) {
+						message = payload.error;
+					}
+				} catch {
+					// Keep fallback message.
+				}
+				throw new Error(message);
+			}
+
+			const pdfBlob = await response.blob();
+			const pdfUrl = URL.createObjectURL(pdfBlob);
+			const pdfWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer");
+
+			if (!pdfWindow) {
+				const link = document.createElement("a");
+				link.href = pdfUrl;
+				link.target = "_blank";
+				link.rel = "noopener noreferrer";
+				link.click();
+			}
+
+			window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+		} catch (error) {
+			console.error("Failed to open report PDF", error);
+			toast.error(extractApiErrorMessage(error, "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا."));
+		} finally {
+			setOpeningPdfReportId(null);
 		}
 	};
 
@@ -970,15 +1065,20 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 																		type="button"
 																		variant="ghost"
 																		size="sm"
-																		onClick={() => window.open(`/api/activity/reports/${report.id}/pdf`, "_blank")}
+																		onClick={() => handleOpenReportPdf(report)}
+																		disabled={openingPdfReportId === report.id}
 																	>
-																		<FileText className="me-2 h-4 w-4" />
+																		{openingPdfReportId === report.id ? (
+																			<Loader2 className="me-2 h-4 w-4 animate-spin" />
+																		) : (
+																			<FileText className="me-2 h-4 w-4" />
+																		)}
 																		PDF
 																	</Button>
 																)}
 															</div>
 														</div>
-														<div className={cn("mt-4 grid gap-3 sm:grid-cols-2", activityTextAlignClass)}>
+														<div className={cn("mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3", activityTextAlignClass)}>
 															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
 																<p className="text-xs text-muted-foreground">الملخص</p>
 																<p className="mt-1 text-sm text-foreground">
@@ -998,6 +1098,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 																<p className="mt-1 whitespace-pre-line text-sm text-foreground">
 																	{truncate(report.details, 280)}
 																</p>
+															</div>
+															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
+																<p className="text-xs text-muted-foreground">حالة PDF</p>
+																<p className="mt-1 text-sm text-foreground">{pdfStatusLabel[report.pdfStatus]}</p>
 															</div>
 															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
 																<p className="text-xs text-muted-foreground">إرسال البريد</p>
@@ -1186,6 +1290,45 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</Select>
 						</div>
 						<div className="space-y-2 md:col-span-2">
+							<div className={cn(activityModalCardClassName, "space-y-4")}>
+								<div>
+									<p className="text-sm font-medium text-[#e8dfc8]">خيارات الإرسال</p>
+									<p className={activityModalHelperTextClassName}>
+										سيتم توليد ملف PDF أولًا قبل أي إرسال عبر البريد أو الواتساب، وعند فشل التوليد لن يتم الإرسال.
+									</p>
+								</div>
+								<Select
+									value={reportForm.deliveryOption}
+									onValueChange={(value) =>
+										setReportForm((current) => ({
+											...current,
+											deliveryOption: value as ReportDeliveryOption,
+										}))
+									}
+								>
+									<SelectTrigger className={activityModalFieldClassName}>
+										<SelectValue />
+									</SelectTrigger>
+								<SelectContent className={activityModalSelectContentClassName}>
+									<SelectItem value="draft">{deliveryOptionLabel.draft}</SelectItem>
+									<SelectItem value="pdf_only">{deliveryOptionLabel.pdf_only}</SelectItem>
+									<SelectItem value="email">{deliveryOptionLabel.email}</SelectItem>
+									<SelectItem value="whatsapp">{deliveryOptionLabel.whatsapp}</SelectItem>
+									<SelectItem value="email_whatsapp">{deliveryOptionLabel.email_whatsapp}</SelectItem>
+								</SelectContent>
+							</Select>
+							<div className="rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-4 py-3 text-sm text-[#c7c0af]">
+								{reportForm.reportType === "client" && !isAdmin && reportForm.deliveryOption !== "draft"
+									? "سيتم حفظ التقرير الآن ثم إرساله للأدمن للموافقة قبل إنشاء PDF أو الإرسال الخارجي."
+									: reportForm.deliveryOption === "draft"
+										? "سيتم حفظ التقرير كمسودة بدون توليد PDF أو إرسال خارجي."
+										: reportForm.deliveryOption === "pdf_only"
+											? "سيتم إنشاء ملف PDF فقط بدون إرسال خارجي."
+											: "سيتم إنشاء ملف PDF ثم محاولة الإرسال حسب الخيار المختار والمتغيرات المهيأة في البيئة."}
+							</div>
+						</div>
+						</div>
+						<div className="space-y-2 md:col-span-2">
 							<label className={activityModalLabelClassName}>عنوان التقرير</label>
 							<Input
 								value={reportForm.title}
@@ -1286,7 +1429,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							<div className="flex items-center justify-between">
 								<div>
 									<p className="text-sm font-medium text-[#e8dfc8]">المستلمون</p>
-									<p className={activityModalHelperTextClassName}>البريد والواتساب يعتمد على بيانات المستلمين هنا.</p>
+									<p className={activityModalHelperTextClassName}>
+										بيانات المستلمين هنا تُستخدم عند اختيار الإرسال عبر البريد أو الواتساب من قسم خيارات الإرسال.
+									</p>
 								</div>
 								<Button type="button" variant="outline" size="sm" onClick={addRecipient} className={activityModalSecondaryButtonClassName}>
 									إضافة مستلم
@@ -1326,6 +1471,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 													<SelectItem value="both">البريد والواتساب</SelectItem>
 													<SelectItem value="email">البريد فقط</SelectItem>
 													<SelectItem value="whatsapp">الواتساب فقط</SelectItem>
+													<SelectItem value="none">بدون إرسال مباشر</SelectItem>
 												</SelectContent>
 											</Select>
 											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)} className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white">
@@ -1406,11 +1552,17 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								<div>
 									<p className="text-xs text-[#8f8a7d]">الحالة المتوقعة</p>
 									<p className="mt-1 text-sm font-medium text-[#e8dfc8]">
-										{reportForm.reportType === "client" && !isAdmin
+										{reportForm.deliveryOption === "draft"
+											? "مسودة"
+											: reportForm.reportType === "client" && !isAdmin
 											? "بانتظار موافقة الأدمن"
 											: reportForm.reportType === "client"
-												? "معتمد وقابل للإرسال"
-												: "معتمد داخليًا"}
+												? reportForm.deliveryOption === "pdf_only"
+													? "معتمد مع إنشاء PDF"
+													: "معتمد مع محاولة الإرسال"
+												: reportForm.deliveryOption === "pdf_only"
+													? "داخلي مع إنشاء PDF"
+													: "معتمد داخليًا"}
 									</p>
 								</div>
 							</div>
@@ -1422,7 +1574,13 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							إلغاء
 						</Button>
 						<Button type="button" onClick={handleReportSubmit} disabled={submittingReport || uploadingAttachments} className={activityModalPrimaryButtonClassName}>
-							{submittingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : reportForm.reportId ? "حفظ التعديلات" : "إنشاء التقرير"}
+							{submittingReport ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : reportForm.reportId ? (
+								"حفظ التعديلات"
+							) : (
+								deliveryOptionLabel[reportForm.deliveryOption]
+							)}
 						</Button>
 					</DialogFooter>
 					</div>

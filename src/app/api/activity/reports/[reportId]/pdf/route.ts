@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/authenticate";
-import { getProjectAndClientById, getReportById } from "@/lib/activity";
-import { generateReportPdfBuffer } from "@/lib/report-delivery";
-import { canAccessActivity } from "@/lib/activity";
+import { canAccessActivity, getProjectAndClientById, getReportById } from "@/lib/activity";
+import { generateReportPdfBuffer, PDF_VIEW_FAILURE_MESSAGE } from "@/lib/report-pdf";
 import { isValidId } from "@/lib/utils";
+
+export const runtime = "nodejs";
 
 export async function GET(
 	req: NextRequest,
@@ -41,6 +42,6 @@ export async function GET(
 		});
 	} catch (error) {
 		console.error("GET /api/activity/reports/[reportId]/pdf error:", error);
-		return NextResponse.json({ error: "Failed to generate report PDF" }, { status: 500 });
+		return NextResponse.json({ error: PDF_VIEW_FAILURE_MESSAGE }, { status: 500 });
 	}
 }

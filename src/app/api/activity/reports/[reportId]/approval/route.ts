@@ -65,6 +65,7 @@ export async function PATCH(
 		let whatsappStatus = report.whatsappStatus;
 		let lastDeliveryError: string | null = null;
 		let sentAt: Date | null = null;
+		let message = "تم اعتماد التقرير الداخلي بنجاح.";
 
 		if (report.reportType === "client") {
 			const project = await getProjectAndClientById(report.projectId);
@@ -82,8 +83,10 @@ export async function PATCH(
 			emailStatus = delivery.emailStatus;
 			whatsappStatus = delivery.whatsappStatus;
 			lastDeliveryError = delivery.lastDeliveryError;
+			message = delivery.userMessage;
 
-			const emailCompleted = emailStatus === "sent" || emailStatus === "not_applicable" || emailStatus === "not_configured";
+			const emailCompleted =
+				emailStatus === "sent" || emailStatus === "not_applicable" || emailStatus === "not_configured";
 			const whatsappCompleted =
 				whatsappStatus === "sent" ||
 				whatsappStatus === "not_applicable" ||
@@ -115,44 +118,10 @@ export async function PATCH(
 		const details = await getActivityProjectDetails(report.projectId, user ?? {});
 		return NextResponse.json({
 			details,
-			message:
-				report.reportType === "client"
-					? deliveryMessageFromStatuses({
-						pdfStatus,
-						emailStatus,
-						whatsappStatus,
-						lastDeliveryError,
-					})
-					: "تم اعتماد التقرير الداخلي بنجاح.",
+			message,
 		});
 	} catch (error) {
 		console.error("PATCH /api/activity/reports/[reportId]/approval error:", error);
 		return NextResponse.json({ error: "Failed to process approval" }, { status: 500 });
 	}
 }
-
-const deliveryMessageFromStatuses = ({
-	pdfStatus,
-	emailStatus,
-	whatsappStatus,
-	lastDeliveryError,
-}: {
-	pdfStatus: "not_generated" | "generated" | "failed";
-	emailStatus: string;
-	whatsappStatus: string;
-	lastDeliveryError: string | null;
-}) => {
-	if (pdfStatus === "failed") {
-		return lastDeliveryError || "تم اعتماد التقرير لكن تعذر توليد ملف PDF.";
-	}
-
-	if (emailStatus === "not_configured" || whatsappStatus === "not_configured") {
-		return "تم إنشاء التقرير وملف PDF، لكن لم يتم الإرسال بسبب عدم إعداد خدمة البريد أو الواتساب.";
-	}
-
-	if (emailStatus === "failed" || whatsappStatus === "failed") {
-		return lastDeliveryError || "تم إنشاء التقرير وملف PDF، لكن فشل الإرسال عبر إحدى القنوات.";
-	}
-
-	return "تم اعتماد التقرير وإنشاء ملف PDF ومحاولة الإرسال بنجاح.";
-};
