@@ -176,21 +176,13 @@ const getLogoMarkup = async () => {
 
 export const buildReportHtml = async ({ project, report, approvedByName }: ReportDocumentPayload) => {
 	const logoSrc = await getLogoMarkup();
-	const imageAttachments = report.attachments.filter(isImageAttachment);
-	const fileAttachments = report.attachments.filter((attachment) => !isImageAttachment(attachment));
-	const recipientsText =
-		report.recipients.length > 0
-			? report.recipients
-					.map((recipient) => {
-						const parts = [
-							recipient.name,
-							recipient.email || null,
-							recipient.phone || null,
-						].filter(Boolean);
-						return parts.join(" • ");
-					})
-					.join(" | ")
-			: "غير محدد";
+	const reportDate = report.createdAt
+		? new Date(report.createdAt).toLocaleDateString("ar-SA")
+		: "غير محدد";
+	const summaryText = report.summary?.trim() || "لا يوجد ملخص.";
+	const bodyText = [report.details?.trim(), report.workDetails?.trim()]
+		.filter(Boolean)
+		.join("\n\n");
 
 	return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -198,135 +190,85 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
   <meta charset="utf-8" />
   <title>${escapeHtml(report.title)}</title>
   <style>
-    @page { size: A4; margin: 22mm 18mm; }
-    body { font-family: Tahoma, Arial, sans-serif; color: #1f2937; margin: 0; background: #f4f1e8; }
-    .page { padding: 32px; }
-    .card { background: white; border-radius: 18px; padding: 28px; box-shadow: 0 16px 40px rgba(17,24,39,.08); }
-    .header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
-    .brand { display: flex; align-items: center; gap: 16px; }
-    .brand img { width: 96px; height: auto; }
-    .eyebrow { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: #8b7355; }
-    h1 { margin: 8px 0 4px; font-size: 28px; color: #1f2937; }
-    h2 { margin: 0 0 10px; font-size: 18px; color: #7c6241; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
-    .panel { border: 1px solid #eadfca; border-radius: 14px; padding: 14px 16px; background: #fffdf8; }
-    .label { font-size: 11px; color: #8b7355; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .16em; }
-    .value { font-size: 15px; color: #1f2937; line-height: 1.7; }
-    .section { margin-top: 24px; }
-    .section p { margin: 0; line-height: 1.9; white-space: normal; }
-    .attachments { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
-    .attachments img { width: 100%; border-radius: 12px; border: 1px solid #eadfca; object-fit: cover; }
-    ul { margin: 10px 0 0; padding: 0 18px 0 0; }
-    li { margin-bottom: 8px; line-height: 1.7; }
-    .footer { margin-top: 32px; padding-top: 18px; border-top: 1px solid #eadfca; display: flex; justify-content: space-between; gap: 16px; }
+    @page { size: A4; margin: 24mm 22mm; }
+    body {
+      font-family: "Tahoma", "Arial", sans-serif;
+      color: #000;
+      margin: 0;
+      background: #fff;
+      font-size: 15px;
+      line-height: 2;
+    }
+    .page {
+      direction: rtl;
+      text-align: right;
+    }
+    .logo-space {
+      min-height: 52px;
+      margin-bottom: 20px;
+    }
+    .logo-space img {
+      max-width: 110px;
+      height: auto;
+      display: block;
+      margin-right: 0;
+      margin-left: auto;
+    }
+    h1 {
+      margin: 0 0 22px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    p {
+      margin: 0 0 14px;
+      white-space: pre-line;
+    }
+    .meta {
+      margin-bottom: 26px;
+    }
+    .meta p {
+      margin-bottom: 6px;
+    }
+    .greeting {
+      margin: 24px 0 18px;
+    }
+    .closing {
+      margin-top: 34px;
+    }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="card">
-      <div class="header">
-        <div class="brand">
-          ${logoSrc ? `<img src="${logoSrc}" alt="Craft Flow" />` : ""}
-          <div>
-            <div class="eyebrow">Craft Flow</div>
-            <h1>${escapeHtml(report.title)}</h1>
-            <div class="value">${escapeHtml(project.name)}</div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="label">حالة الاعتماد</div>
-          <div class="value">${escapeHtml(reportStatusLabel[report.status])}</div>
-        </div>
-      </div>
+    <div class="logo-space">${logoSrc ? `<img src="${logoSrc}" alt="شعار الشركة" />` : ""}</div>
+    <h1>تقرير مشروع</h1>
 
-      <div class="grid">
-        <div class="panel">
-          <div class="label">اسم الشركة</div>
-          <div class="value">Craft Flow</div>
-        </div>
-        <div class="panel">
-          <div class="label">اسم المشروع</div>
-          <div class="value">${escapeHtml(project.name)}</div>
-        </div>
-        <div class="panel">
-          <div class="label">عنوان التقرير</div>
-          <div class="value">${escapeHtml(report.title)}</div>
-        </div>
-        <div class="panel">
-          <div class="label">نوع التقرير</div>
-          <div class="value">${escapeHtml(reportTypeLabel[report.reportType])}</div>
-        </div>
-        <div class="panel">
-          <div class="label">كاتب التقرير</div>
-          <div class="value">${escapeHtml(report.authorName)}</div>
-        </div>
-        <div class="panel">
-          <div class="label">تاريخ التقرير</div>
-          <div class="value">${escapeHtml(report.createdAt ? new Date(report.createdAt).toLocaleString("ar-SA") : "غير محدد")}</div>
-        </div>
-        <div class="panel">
-          <div class="label">بيانات العميل</div>
-          <div class="value">${escapeHtml(project.clientName || "غير محدد")}<br />${escapeHtml(project.clientEmail || "")}</div>
-        </div>
-        <div class="panel">
-          <div class="label">المستلمون</div>
-          <div class="value">${escapeHtml(recipientsText)}</div>
-        </div>
-      </div>
+    <div class="meta">
+      <p>اسم المشروع: ${escapeHtml(project.name)}</p>
+      <p>نوع التقرير: ${escapeHtml(reportTypeLabel[report.reportType])}</p>
+      <p>التاريخ: ${escapeHtml(reportDate)}</p>
+      <p>إعداد: ${escapeHtml(report.authorName)}</p>
+    </div>
 
-      <div class="section">
-        <h2>الملخص</h2>
-        <p>${nl2br(report.summary || "لا يوجد ملخص.")}</p>
-      </div>
+    <p class="greeting">السلام عليكم ورحمة الله وبركاته،</p>
 
-      <div class="section">
-        <h2>تفاصيل التقرير</h2>
-        <p>${nl2br(report.details)}</p>
-        ${report.workDetails ? `<p style="margin-top:12px">${nl2br(report.workDetails)}</p>` : ""}
-      </div>
+    <p>${escapeHtml(
+			"نقدم لكم هذا التقرير الذي يعرض أحدث مستجدات المشروع، موضحًا أبرز ما تم إنجازه من أعمال، والنتائج المحققة حتى تاريخ إعداد هذا التقرير، وذلك في إطار الحرص على تعزيز الشفافية ومتابعة سير العمل بكفاءة وفعالية."
+		)}</p>
 
-      ${
-				imageAttachments.length > 0
-					? `<div class="section">
-        <h2>الصور والمرفقات المرئية</h2>
-        <div class="attachments">
-          ${imageAttachments
-						.map(
-							(attachment) =>
-								`<div><img src="${attachment.url}" alt="${escapeHtml(attachment.name || "attachment")}" /></div>`
-						)
-						.join("")}
-        </div>
-      </div>`
-					: ""
-			}
+    <h2>ملخص التقرير</h2>
+    <p>${nl2br(summaryText)}</p>
 
-      ${
-				fileAttachments.length > 0
-					? `<div class="section">
-        <h2>المرفقات الأخرى</h2>
-        <ul>
-          ${fileAttachments
-						.map(
-							(attachment) =>
-								`<li>${escapeHtml(attachment.name || attachment.url)} - ${escapeHtml(attachment.url)}</li>`
-						)
-						.join("")}
-        </ul>
-      </div>`
-					: ""
-			}
+    <h2>متن التقرير</h2>
+    <p>${nl2br(bodyText || "لا توجد تفاصيل إضافية.")}</p>
 
-      <div class="footer">
-        <div>
-          <div class="label">اعتماد الأدمن</div>
-          <div class="value">${escapeHtml(approvedByName || "غير معتمد بعد")}</div>
-        </div>
-        <div>
-          <div class="label">الموقع</div>
-          <div class="value">${escapeHtml([project.city, project.district].filter(Boolean).join(" - ") || "غير محدد")}</div>
-        </div>
-      </div>
+    <div class="closing">
+      <p>أطيب التحيات،</p>
+      <p>فريق شركة كرافت</p>
     </div>
   </div>
 </body>
