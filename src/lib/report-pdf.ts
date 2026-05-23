@@ -177,7 +177,6 @@ const getLogoMarkup = async () => {
 export const buildReportHtml = async ({ project, report, approvedByName }: ReportDocumentPayload) => {
 	console.log("[pdf-template] using simple official text template");
 	console.log(`[pdf-template] reportId=${report.id}`);
-	const logoSrc = await getLogoMarkup();
 	const reportDate = report.createdAt
 		? new Date(report.createdAt).toLocaleDateString("ar-SA")
 		: "غير محدد";
@@ -186,79 +185,86 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
 		.filter(Boolean)
 		.join("\n\n");
 
-	return `<!DOCTYPE html>
+	const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(report.title)}</title>
   <style>
-    @page { size: A4; margin: 24mm 22mm; }
+    @page { size: A4; margin: 28mm 22mm; }
+    html {
+      direction: rtl;
+      background: #fff;
+    }
     body {
-      font-family: "Tahoma", "Arial", sans-serif;
+      direction: rtl;
+      text-align: right;
+      font-family: Arial, sans-serif;
       color: #000;
       margin: 0;
       background: #fff;
-      font-size: 15px;
-      line-height: 2;
+      font-size: 14px;
+      line-height: 1.9;
     }
-    .page {
+    main {
+      width: 100%;
+      max-width: 100%;
       direction: rtl;
       text-align: right;
     }
-    .logo-space {
-      min-height: 52px;
-      margin-bottom: 20px;
-    }
-    .logo-space img {
-      max-width: 110px;
-      height: auto;
-      display: block;
-      margin-right: 0;
-      margin-left: auto;
+    .header-space {
+      height: 18mm;
     }
     h1 {
-      margin: 0 0 22px;
-      font-size: 28px;
+      margin: 0 0 18px;
+      font-size: 26px;
       font-weight: 700;
     }
     h2 {
-      margin: 28px 0 10px;
-      font-size: 20px;
+      margin: 26px 0 10px;
+      font-size: 18px;
       font-weight: 700;
     }
     p {
-      margin: 0 0 14px;
+      margin: 0 0 12px;
       white-space: pre-line;
     }
-    .meta {
-      margin-bottom: 26px;
+    .meta-section {
+      margin-bottom: 22px;
     }
-    .meta p {
+    .meta-line {
       margin-bottom: 6px;
     }
     .greeting {
-      margin: 24px 0 18px;
+      margin: 18px 0 14px;
+    }
+    .intro {
+      margin-bottom: 18px;
+    }
+    .body-text {
+      white-space: pre-line;
     }
     .closing {
-      margin-top: 34px;
+      margin-top: 28px;
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="logo-space">${logoSrc ? `<img src="${logoSrc}" alt="شعار الشركة" />` : ""}</div>
+  <main>
+    <div class="header-space"></div>
     <h1>تقرير مشروع</h1>
 
-    <div class="meta">
-      <p>اسم المشروع: ${escapeHtml(project.name)}</p>
-      <p>نوع التقرير: ${escapeHtml(reportTypeLabel[report.reportType])}</p>
-      <p>التاريخ: ${escapeHtml(reportDate)}</p>
-      <p>إعداد: ${escapeHtml(report.authorName)}</p>
-    </div>
+    <section class="meta-section">
+      <p class="meta-line">اسم المشروع: ${escapeHtml(project.name)}</p>
+      <p class="meta-line">نوع التقرير: ${escapeHtml(reportTypeLabel[report.reportType])}</p>
+      <p class="meta-line">التاريخ: ${escapeHtml(reportDate)}</p>
+      <p class="meta-line">إعداد: ${escapeHtml(report.authorName)}</p>
+    </section>
 
     <p class="greeting">السلام عليكم ورحمة الله وبركاته،</p>
 
-    <p>${escapeHtml(
+    <p class="intro">${escapeHtml(
 			"نقدم لكم هذا التقرير الذي يعرض أحدث مستجدات المشروع، موضحًا أبرز ما تم إنجازه من أعمال، والنتائج المحققة حتى تاريخ إعداد هذا التقرير، وذلك في إطار الحرص على تعزيز الشفافية ومتابعة سير العمل بكفاءة وفعالية."
 		)}</p>
 
@@ -266,15 +272,17 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
     <p>${nl2br(summaryText)}</p>
 
     <h2>متن التقرير</h2>
-    <p>${nl2br(bodyText || "لا توجد تفاصيل إضافية.")}</p>
+    <p class="body-text">${nl2br(bodyText || "لا توجد تفاصيل إضافية.")}</p>
 
-    <div class="closing">
+    <section class="closing">
       <p>أطيب التحيات،</p>
       <p>فريق شركة كرافت</p>
-    </div>
-  </div>
+    </section>
+  </main>
 </body>
 </html>`;
+	console.log("[pdf-template] simple official template rendered");
+	return html;
 };
 
 const findLocalBrowserExecutable = async () => {
@@ -388,7 +396,7 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		diagnostics.setContentStarted = true;
 		logPdfTrace("stage=set-content");
 		await page.setContent(html, {
-			waitUntil: ["domcontentloaded", "networkidle0"],
+			waitUntil: "networkidle0",
 		});
 		diagnostics.setContentSucceeded = true;
 		logPdfTrace("stage=set-content success=true");
