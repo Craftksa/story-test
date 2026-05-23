@@ -422,14 +422,15 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		const html = await buildReportHtml(payload);
 		diagnostics.stage = "resolving_browser";
 		const launchConfig = await resolveBrowserLaunchConfig(diagnostics);
+		const launchArgs = Array.isArray(launchConfig.args) ? launchConfig.args : [];
 		diagnostics.stage = "launching_browser";
 		diagnostics.launchStarted = true;
 		logPdfTrace(`resolvedExecutablePath=${diagnostics.resolvedExecutablePath || "null"}`);
-		logPdfTrace(`launchArgsCount=${diagnostics.argsCount}`);
+		logPdfTrace(`launchArgsCount=${launchArgs.length}`);
 		logPdfTrace("stage=launch-browser");
 		browser = await puppeteer.launch({
 			...launchConfig,
-			args: [...launchConfig.args, `--user-data-dir=${userDataDir}`],
+			args: [...launchArgs, `--user-data-dir=${userDataDir}`],
 			ignoreHTTPSErrors: true,
 		});
 		diagnostics.launchSucceeded = true;
