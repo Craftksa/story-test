@@ -221,6 +221,10 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
       font-size: 26px;
       font-weight: 700;
     }
+    .template-note {
+      margin: 0 0 18px;
+      font-size: 14px;
+    }
     h2 {
       margin: 26px 0 10px;
       font-size: 18px;
@@ -254,6 +258,7 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
   <main>
     <div class="header-space"></div>
     <h1>تقرير مشروع</h1>
+    <p class="template-note">نموذج التقرير الرسمي النصي</p>
 
     <section class="meta-section">
       <p class="meta-line">اسم المشروع: ${escapeHtml(project.name)}</p>
