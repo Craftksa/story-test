@@ -10,6 +10,8 @@ import { isValidId } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(
 	req: NextRequest,
@@ -46,6 +48,9 @@ export async function GET(
 			headers: {
 				"Content-Type": "application/pdf",
 				"Content-Disposition": `inline; filename="${encodeURIComponent(report.title)}.pdf"`,
+				"Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+				Pragma: "no-cache",
+				Expires: "0",
 			},
 		});
 	} catch (error) {

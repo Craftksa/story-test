@@ -644,8 +644,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const handleOpenReportPdf = async (report: ProjectReport) => {
 		setOpeningPdfReportId(report.id);
 		try {
-			const response = await fetch(`/api/activity/reports/${report.id}/pdf`, {
+			const response = await fetch(`/api/activity/reports/${report.id}/pdf?ts=${Date.now()}`, {
 				method: "GET",
+				cache: "no-store",
 			});
 			const contentType = response.headers.get("content-type") || "";
 

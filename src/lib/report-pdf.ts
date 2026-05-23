@@ -175,6 +175,8 @@ const getLogoMarkup = async () => {
 };
 
 export const buildReportHtml = async ({ project, report, approvedByName }: ReportDocumentPayload) => {
+	console.log("[pdf-template] using simple official text template");
+	console.log(`[pdf-template] reportId=${report.id}`);
 	const logoSrc = await getLogoMarkup();
 	const reportDate = report.createdAt
 		? new Date(report.createdAt).toLocaleDateString("ar-SA")
