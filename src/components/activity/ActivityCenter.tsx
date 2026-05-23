@@ -344,6 +344,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [loadingDetails, setLoadingDetails] = useState(false);
 	const [noteDialogOpen, setNoteDialogOpen] = useState(false);
 	const [reportDialogOpen, setReportDialogOpen] = useState(false);
+	const [viewingReportId, setViewingReportId] = useState<string | null>(null);
 	const [approvalDialog, setApprovalDialog] = useState<ApprovalDialogState | null>(null);
 	const [noteProjectId, setNoteProjectId] = useState("");
 	const [noteText, setNoteText] = useState("");
@@ -426,6 +427,17 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	}, [filteredProjects, selectedProjectId]);
 
 	const selectedSummary = projects.find((project) => project.id === selectedProjectId) ?? null;
+	const viewedReport = useMemo(
+		() => projectDetails?.reports.find((report) => report.id === viewingReportId) ?? null,
+		[projectDetails?.reports, viewingReportId]
+	);
+
+	useEffect(() => {
+		if (!viewingReportId) return;
+		if (!projectDetails?.reports.some((report) => report.id === viewingReportId)) {
+			setViewingReportId(null);
+		}
+	}, [projectDetails, viewingReportId]);
 
 	const openAddNoteDialog = () => {
 		setNoteProjectId(selectedProjectId || filteredProjects[0]?.id || "");
@@ -467,6 +479,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			})),
 		});
 		setReportDialogOpen(true);
+	};
+
+	const openViewReportDialog = (report: ProjectReport) => {
+		setViewingReportId(report.id);
 	};
 
 	const handleNoteSubmit = async () => {
@@ -996,146 +1012,56 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 												</div>
 											) : (
 												projectDetails.reports.map((report) => (
-													<div key={report.id} className={cn("rounded-2xl border border-border/60 p-4", activityTextAlignClass)}>
-														<div className="flex flex-wrap items-start justify-between gap-3">
-															<div className={cn("space-y-1", activityTextAlignClass)}>
+													<div
+														key={report.id}
+														className={cn(
+															"w-full rounded-2xl border border-border/60 bg-muted/10 px-4 py-4 transition hover:border-border/90 hover:bg-muted/15",
+															activityTextAlignClass
+														)}
+													>
+														<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+															<div className={cn("min-w-0 flex-1 space-y-3", activityTextAlignClass)}>
 																<div className="flex flex-wrap items-center gap-2">
-																	<h4 className="text-sm font-semibold">{report.title}</h4>
+																	<h4 className="min-w-0 text-sm font-semibold text-foreground">{report.title}</h4>
 																	<Badge className={reportStatusClasses[report.status]}>
 																		{reportStatusLabel[report.status]}
 																	</Badge>
 																</div>
-																<p className="text-xs text-muted-foreground">
-																	{reportTypeLabel[report.reportType]} • {report.authorName} • {formatDate(report.createdAt)}
-																</p>
+																<div
+																	className={cn(
+																		"grid gap-3 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4",
+																		activityTextAlignClass
+																	)}
+																>
+																	<div className="space-y-1">
+																		<p>نوع التقرير</p>
+																		<p className="text-sm text-foreground">{reportTypeLabel[report.reportType]}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>حالة التقرير</p>
+																		<p className="text-sm text-foreground">{reportStatusLabel[report.status]}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>تاريخ الإنشاء</p>
+																		<p className="text-sm text-foreground">{formatDate(report.createdAt)}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>كاتب التقرير</p>
+																		<p className="text-sm text-foreground">{report.authorName}</p>
+																	</div>
+																</div>
 															</div>
-															<div className="flex flex-wrap gap-2">
+															<div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+																<Button type="button" variant="outline" size="sm" onClick={() => openViewReportDialog(report)}>
+																	عرض
+																</Button>
 																{report.canEdit && (
-																	<Button type="button" variant="outline" size="sm" onClick={() => openEditReportDialog(report)}>
+																	<Button type="button" size="sm" onClick={() => openEditReportDialog(report)}>
 																		تعديل
 																	</Button>
 																)}
-																{report.canApprove && (
-																	<>
-																		<Button
-																			type="button"
-																			size="sm"
-																			onClick={() =>
-																				setApprovalDialog({
-																					reportId: report.id,
-																					projectId: report.projectId,
-																					decision: "approve",
-																					reason: "",
-																				})
-																			}
-																			disabled={actioningReportId === report.id}
-																		>
-																			{actioningReportId === report.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "اعتماد"}
-																		</Button>
-																		<Button
-																			type="button"
-																			variant="outline"
-																			size="sm"
-																			onClick={() =>
-																				setApprovalDialog({
-																					reportId: report.id,
-																					projectId: report.projectId,
-																					decision: "reject",
-																					reason: report.rejectionReason || "",
-																				})
-																			}
-																		>
-																			رفض
-																		</Button>
-																	</>
-																)}
-																{report.canSendToClient && (
-																	<Button
-																		type="button"
-																		variant="outline"
-																		size="sm"
-																		onClick={() => handleSendReport(report)}
-																		disabled={actioningReportId === report.id}
-																	>
-																		<Send className="me-2 h-4 w-4" />
-																		إرسال
-																	</Button>
-																)}
-																{(report.status === "approved" || report.status === "sent") && (
-																	<Button
-																		type="button"
-																		variant="ghost"
-																		size="sm"
-																		onClick={() => handleOpenReportPdf(report)}
-																		disabled={openingPdfReportId === report.id}
-																	>
-																		{openingPdfReportId === report.id ? (
-																			<Loader2 className="me-2 h-4 w-4 animate-spin" />
-																		) : (
-																			<FileText className="me-2 h-4 w-4" />
-																		)}
-																		PDF
-																	</Button>
-																)}
 															</div>
 														</div>
-														<div className={cn("mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3", activityTextAlignClass)}>
-															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
-																<p className="text-xs text-muted-foreground">الملخص</p>
-																<p className="mt-1 text-sm text-foreground">
-																	{report.summary || "لا يوجد ملخص"}
-																</p>
-															</div>
-															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
-																<p className="text-xs text-muted-foreground">المستلمون</p>
-																<p className="mt-1 text-sm text-foreground">
-																	{report.recipients.length > 0
-																		? report.recipients.map((recipient) => recipient.name).join("، ")
-																		: "غير محددين"}
-																</p>
-															</div>
-															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3 sm:col-span-2", activityTextAlignClass)}>
-																<p className="text-xs text-muted-foreground">تفاصيل الأعمال</p>
-																<p className="mt-1 whitespace-pre-line text-sm text-foreground">
-																	{truncate(report.details, 280)}
-																</p>
-															</div>
-															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
-																<p className="text-xs text-muted-foreground">حالة PDF</p>
-																<p className="mt-1 text-sm text-foreground">{pdfStatusLabel[report.pdfStatus]}</p>
-															</div>
-															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
-																<p className="text-xs text-muted-foreground">إرسال البريد</p>
-																<p className="mt-1 text-sm text-foreground">{deliveryStatusLabel[report.emailStatus]}</p>
-															</div>
-															<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-3", activityTextAlignClass)}>
-																<p className="text-xs text-muted-foreground">إرسال الواتساب</p>
-																<p className="mt-1 text-sm text-foreground">{deliveryStatusLabel[report.whatsappStatus]}</p>
-															</div>
-														</div>
-
-														{report.permissions.length > 0 && (
-															<div className={cn("mt-4 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground", activityTextAlignClass)}>
-																الصلاحيات:
-																<span className="ms-2 text-foreground">
-																	{report.permissions
-																		.map((permission) => `${permission.userName} (${permission.accessLevel === "edit" ? "تعديل" : "مشاهدة"})`)
-																		.join("، ")}
-																</span>
-															</div>
-														)}
-
-														{report.rejectionReason && (
-															<div className="mt-4 rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-3 text-sm text-rose-200">
-																سبب الرفض: {report.rejectionReason}
-															</div>
-														)}
-
-														{report.lastDeliveryError && (
-															<div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-3 text-sm text-amber-200">
-																{report.lastDeliveryError}
-															</div>
-														)}
 													</div>
 												))
 											)}
@@ -1147,6 +1073,250 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					</CardContent>
 				</Card>
 			</div>
+
+			<Dialog open={!!viewingReportId} onOpenChange={(open) => !open && setViewingReportId(null)}>
+				<DialogContent
+					overlayClassName={activityModalOverlayClassName}
+					className={cn(activityModalContentClassName, "sm:max-w-5xl")}
+				>
+					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
+						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+							<div>
+								<DialogTitle className="text-xl font-semibold text-white">
+									{viewedReport?.title || "عرض التقرير"}
+								</DialogTitle>
+								<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
+									قراءة التقرير الكامل وإدارة إجراءات PDF والإرسال والاعتماد من مكان واحد.
+								</DialogDescription>
+							</div>
+							<Button
+								type="button"
+								variant="ghost"
+								onClick={() => setViewingReportId(null)}
+								className={activityModalCloseButtonClassName}
+							>
+								X
+							</Button>
+						</DialogHeader>
+
+						{viewedReport ? (
+							<div className="space-y-5 px-6 py-6">
+								<div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]">
+									<div className={cn(activityModalCardClassName, "space-y-5")}>
+										<div className="space-y-3">
+											<h3 className="text-2xl font-semibold text-white">{viewedReport.title}</h3>
+											<p className="text-sm text-[#c7c0af]">تقرير مشروع</p>
+										</div>
+
+										<div className="grid gap-3 sm:grid-cols-2">
+											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+												<p className="text-xs text-[#8f8a7d]">اسم المشروع</p>
+												<p className="text-sm text-[#f5f1e8]">{projectDetails?.project.name || "غير متوفر"}</p>
+											</div>
+											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+												<p className="text-xs text-[#8f8a7d]">نوع التقرير</p>
+												<p className="text-sm text-[#f5f1e8]">{reportTypeLabel[viewedReport.reportType]}</p>
+											</div>
+											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+												<p className="text-xs text-[#8f8a7d]">التاريخ</p>
+												<p className="text-sm text-[#f5f1e8]">{formatDate(viewedReport.createdAt)}</p>
+											</div>
+											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+												<p className="text-xs text-[#8f8a7d]">إعداد</p>
+												<p className="text-sm text-[#f5f1e8]">{viewedReport.authorName}</p>
+											</div>
+										</div>
+
+										<div className="space-y-4 rounded-2xl border border-[#dac58f]/12 bg-black/20 px-5 py-5">
+											<p className="text-base text-[#f5f1e8]">السلام عليكم ورحمة الله وبركاته،</p>
+											<p className="text-sm leading-8 text-[#d6d0c2]">
+												نقدم لكم هذا التقرير الذي يعرض أحدث مستجدات المشروع، موضحًا أبرز ما تم إنجازه من أعمال، والنتائج المحققة حتى تاريخ إعداد هذا التقرير، وذلك في إطار الحرص على تعزيز الشفافية ومتابعة سير العمل بكفاءة وفعالية.
+											</p>
+
+											<section className="space-y-2">
+												<h4 className="text-sm font-semibold text-white">ملخص التقرير</h4>
+												<p className="whitespace-pre-line text-sm leading-8 text-[#d6d0c2]">
+													{viewedReport.summary || "لا يوجد ملخص لهذا التقرير."}
+												</p>
+											</section>
+
+											<section className="space-y-2">
+												<h4 className="text-sm font-semibold text-white">متن التقرير</h4>
+												<p className="whitespace-pre-line text-sm leading-8 text-[#d6d0c2]">
+													{viewedReport.details}
+												</p>
+												{viewedReport.workDetails && (
+													<p className="whitespace-pre-line text-sm leading-8 text-[#d6d0c2]">
+														{viewedReport.workDetails}
+													</p>
+												)}
+											</section>
+
+											<section className="space-y-1 pt-2">
+												<p className="text-sm text-[#f5f1e8]">أطيب التحيات،</p>
+												<p className="text-sm text-[#f5f1e8]">فريق شركة كرافت</p>
+											</section>
+										</div>
+									</div>
+
+									<div className="space-y-4">
+										<div className={cn(activityModalCardClassName, "space-y-4")}>
+											<div className="flex flex-wrap gap-2">
+												{(viewedReport.status === "approved" || viewedReport.status === "sent") && (
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														onClick={() => handleOpenReportPdf(viewedReport)}
+														disabled={openingPdfReportId === viewedReport.id}
+														className={activityModalCancelButtonClassName}
+													>
+														{openingPdfReportId === viewedReport.id ? (
+															<Loader2 className="me-2 h-4 w-4 animate-spin" />
+														) : (
+															<FileText className="me-2 h-4 w-4" />
+														)}
+														PDF
+													</Button>
+												)}
+												{viewedReport.canSendToClient && (
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														onClick={() => handleSendReport(viewedReport)}
+														disabled={actioningReportId === viewedReport.id}
+														className={activityModalCancelButtonClassName}
+													>
+														<Send className="me-2 h-4 w-4" />
+														إرسال
+													</Button>
+												)}
+												{viewedReport.canApprove && (
+													<>
+														<Button
+															type="button"
+															size="sm"
+															onClick={() =>
+																setApprovalDialog({
+																	reportId: viewedReport.id,
+																	projectId: viewedReport.projectId,
+																	decision: "approve",
+																	reason: "",
+																})
+															}
+															disabled={actioningReportId === viewedReport.id}
+															className={activityModalPrimaryButtonClassName}
+														>
+															{actioningReportId === viewedReport.id ? (
+																<Loader2 className="h-4 w-4 animate-spin" />
+															) : (
+																"اعتماد"
+															)}
+														</Button>
+														<Button
+															type="button"
+															variant="outline"
+															size="sm"
+															onClick={() =>
+																setApprovalDialog({
+																	reportId: viewedReport.id,
+																	projectId: viewedReport.projectId,
+																	decision: "reject",
+																	reason: viewedReport.rejectionReason || "",
+																})
+															}
+															className={activityModalCancelButtonClassName}
+														>
+															رفض
+														</Button>
+													</>
+												)}
+											</div>
+
+											<div className="grid gap-3 sm:grid-cols-2">
+												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+													<p className="text-xs text-[#8f8a7d]">حالة التقرير</p>
+													<p className="mt-1 text-sm text-[#f5f1e8]">{reportStatusLabel[viewedReport.status]}</p>
+												</div>
+												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+													<p className="text-xs text-[#8f8a7d]">حالة PDF</p>
+													<p className="mt-1 text-sm text-[#f5f1e8]">{pdfStatusLabel[viewedReport.pdfStatus]}</p>
+												</div>
+												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+													<p className="text-xs text-[#8f8a7d]">إرسال البريد</p>
+													<p className="mt-1 text-sm text-[#f5f1e8]">{deliveryStatusLabel[viewedReport.emailStatus]}</p>
+												</div>
+												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+													<p className="text-xs text-[#8f8a7d]">إرسال الواتساب</p>
+													<p className="mt-1 text-sm text-[#f5f1e8]">{deliveryStatusLabel[viewedReport.whatsappStatus]}</p>
+												</div>
+											</div>
+										</div>
+
+										<div className={cn(activityModalCardClassName, "space-y-4")}>
+											<div className="space-y-2">
+												<p className="text-sm font-medium text-[#e8dfc8]">معلومات الإرسال</p>
+												<p className="text-sm text-[#c7c0af]">
+													{viewedReport.recipients.length > 0
+														? viewedReport.recipients
+																.map((recipient) => `${recipient.name}${recipient.channel && recipient.channel !== "both" ? ` - ${recipient.channel === "email" ? "بريد" : recipient.channel === "whatsapp" ? "واتساب" : "بدون إرسال"}` : ""}`)
+																.join("، ")
+														: "لا يوجد مستلمون محددون لهذا التقرير."}
+												</p>
+											</div>
+
+											{viewedReport.permissions.length > 0 && (
+												<div className="space-y-2">
+													<p className="text-sm font-medium text-[#e8dfc8]">صلاحيات التقرير</p>
+													<p className="text-sm text-[#c7c0af]">
+														{viewedReport.permissions
+															.map((permission) => `${permission.userName} (${permission.accessLevel === "edit" ? "تعديل" : "مشاهدة"})`)
+															.join("، ")}
+													</p>
+												</div>
+											)}
+
+											{viewedReport.attachments.length > 0 && (
+												<div className="space-y-2">
+													<p className="text-sm font-medium text-[#e8dfc8]">المرفقات</p>
+													<div className="flex flex-wrap gap-2">
+														{viewedReport.attachments.map((attachment, index) => (
+															<a
+																key={`${attachment.url}-${index}`}
+																href={attachment.url}
+																target="_blank"
+																rel="noreferrer"
+																className="rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-3 py-2 text-xs text-[#f5f1e8] transition hover:border-[#dac58f]/35"
+															>
+																{attachment.name || `مرفق ${index + 1}`}
+															</a>
+														))}
+													</div>
+												</div>
+											)}
+										</div>
+
+										{viewedReport.rejectionReason && (
+											<div className="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-4 text-sm text-rose-200">
+												سبب الرفض: {viewedReport.rejectionReason}
+											</div>
+										)}
+
+										{viewedReport.lastDeliveryError && (
+											<div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-4 text-sm text-amber-200">
+												{viewedReport.lastDeliveryError}
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+						) : (
+							<div className="px-6 py-8 text-sm text-[#b8b2a3]">تعذر تحميل بيانات التقرير المحدد.</div>
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
 				<DialogContent
