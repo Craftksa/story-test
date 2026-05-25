@@ -813,7 +813,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								className={cn(
 									activityPanelScrollHeightClass,
 									activityPanelScrollContainerClass,
-									"activity-panel-scroll pr-2"
+									"activity-scrollbar-right pe-2"
 								)}
 							>
 								<div dir="rtl" className="grid gap-3 text-right md:grid-cols-2">
@@ -897,7 +897,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								className={cn(
 									activityPanelScrollHeightClass,
 									activityPanelScrollContainerClass,
-									"activity-panel-scroll"
+									"activity-scrollbar-right"
 								)}
 							>
 								<div dir="rtl" className={cn("space-y-5 px-6 py-6 text-right", activityTextAlignClass)}>

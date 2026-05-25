@@ -258,13 +258,11 @@
   color: #ffffff;
 }
 
-.activity-panel-scroll {
-  direction: rtl;
-  overflow-y: scroll;
-  scrollbar-width: thin;
+.activity-scrollbar-right {
+  direction: ltr;
 }
 
-.activity-panel-scroll > * {
+.activity-scrollbar-right > * {
   direction: rtl;
   text-align: right;
 }
