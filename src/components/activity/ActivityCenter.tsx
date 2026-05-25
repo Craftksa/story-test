@@ -350,7 +350,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [submittingReport, setSubmittingReport] = useState(false);
 	const [uploadingAttachments, setUploadingAttachments] = useState(false);
 	const [actioningReportId, setActioningReportId] = useState<string | null>(null);
-	const [openingPdfReportId, setOpeningPdfReportId] = useState<string | null>(null);
 
 	const formatDate = (value?: string | null) => {
 		if (!value) return "غير متوفر";
@@ -654,46 +653,16 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}
 	};
 
-	const handleOpenReportPdf = async (report: ProjectReport) => {
-		setOpeningPdfReportId(report.id);
-		try {
-			const response = await fetch(`/api/activity/reports/${report.id}/pdf?ts=${Date.now()}`, {
-				method: "GET",
-				cache: "no-store",
-			});
-			const contentType = response.headers.get("content-type") || "";
+	const handleOpenReportPdf = (report: ProjectReport) => {
+		const printUrl = `/activity/reports/${report.id}/print`;
+		const printWindow = window.open(printUrl, "_blank", "noopener,noreferrer");
 
-			if (!response.ok || !contentType.includes("application/pdf")) {
-				let message = "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا.";
-				try {
-					const payload = (await response.json()) as { error?: string };
-					if (payload?.error) {
-						message = payload.error;
-					}
-				} catch {
-					// Keep fallback message.
-				}
-				throw new Error(message);
-			}
-
-			const pdfBlob = await response.blob();
-			const pdfUrl = URL.createObjectURL(pdfBlob);
-			const pdfWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer");
-
-			if (!pdfWindow) {
-				const link = document.createElement("a");
-				link.href = pdfUrl;
-				link.target = "_blank";
-				link.rel = "noopener noreferrer";
-				link.click();
-			}
-
-			window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
-		} catch (error) {
-			console.error("Failed to open report PDF", error);
-			toast.error(extractApiErrorMessage(error, "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا."));
-		} finally {
-			setOpeningPdfReportId(null);
+		if (!printWindow) {
+			const link = document.createElement("a");
+			link.href = printUrl;
+			link.target = "_blank";
+			link.rel = "noopener noreferrer";
+			link.click();
 		}
 	};
 
@@ -1151,15 +1120,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 														variant="outline"
 														size="sm"
 														onClick={() => handleOpenReportPdf(viewedReport)}
-														disabled={openingPdfReportId === viewedReport.id}
 														className={activityModalCancelButtonClassName}
 													>
-														{openingPdfReportId === viewedReport.id ? (
-															<Loader2 className="me-2 h-4 w-4 animate-spin" />
-														) : (
-															<FileText className="me-2 h-4 w-4" />
-														)}
-														PDF
+														<FileText className="me-2 h-4 w-4" />
+														طباعة / حفظ PDF
 													</Button>
 												)}
 												{viewedReport.canSendToClient && (
