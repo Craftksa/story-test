@@ -4,7 +4,7 @@ import os from "os";
 import path from "path";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
-import type { ActivityReport, ActivityReportAttachment } from "@/lib/activity";
+import type { ActivityReport } from "@/lib/activity";
 
 export type ReportProjectPayload = {
 	id: string;
@@ -22,8 +22,8 @@ export type ReportDocumentPayload = {
 	approvedByName?: string | null;
 };
 
-export const PDF_VIEW_FAILURE_MESSAGE = "ØªØ¹Ø°Ø± ØªÙˆÙ„ÙŠØ¯ Ù…Ù„Ù PDFØŒ ÙŠØ±Ø¬Ù‰ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© Ù„Ø§Ø­Ù‚Ù‹Ø§.";
-export const PDF_DELIVERY_FAILURE_MESSAGE = "ØªØ¹Ø°Ø± ØªÙˆÙ„ÙŠØ¯ Ù…Ù„Ù PDFØŒ Ù„Ù… ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„ØªÙ‚Ø±ÙŠØ±.";
+export const PDF_VIEW_FAILURE_MESSAGE = "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا.";
+export const PDF_DELIVERY_FAILURE_MESSAGE = "تعذر توليد ملف PDF، لم يتم إرسال التقرير.";
 
 type PdfGenerationDiagnostics = {
 	stage:
@@ -122,17 +122,9 @@ export const logPdfErrorDetails = (
 };
 
 const reportTypeLabel: Record<ActivityReport["reportType"], string> = {
-	client: "ØªÙ‚Ø±ÙŠØ± Ù„Ù„Ø¹Ù…ÙŠÙ„",
-	internal: "ØªÙ‚Ø±ÙŠØ± Ø¯Ø§Ø®Ù„ÙŠ",
-	shared: "ØªÙ‚Ø±ÙŠØ± Ù…Ø´ØªØ±Ùƒ",
-};
-
-const reportStatusLabel: Record<ActivityReport["status"], string> = {
-	draft: "Ù…Ø³ÙˆØ¯Ø©",
-	pending_admin_approval: "Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ù…ÙˆØ§ÙÙ‚Ø© Ø§Ù„Ø£Ø¯Ù…Ù†",
-	approved: "Ù…Ø¹ØªÙ…Ø¯",
-	rejected: "Ù…Ø±ÙÙˆØ¶",
-	sent: "ØªÙ… Ø§Ù„Ø¥Ø±Ø³Ø§Ù„",
+	client: "تقرير للعميل",
+	internal: "تقرير داخلي",
+	shared: "تقرير مشترك",
 };
 
 const candidateBrowserPaths = [
@@ -146,7 +138,14 @@ const candidateBrowserPaths = [
 	"/usr/bin/chromium-browser",
 	"/usr/bin/chromium",
 ].filter(Boolean) as string[];
-const bundledChromiumBinPath = path.join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin");
+
+const bundledChromiumBinPath = path.join(
+	process.cwd(),
+	"node_modules",
+	"@sparticuz",
+	"chromium",
+	"bin"
+);
 
 const escapeHtml = (value: string) =>
 	value
@@ -156,26 +155,11 @@ const escapeHtml = (value: string) =>
 		.replaceAll('"', "&quot;")
 		.replaceAll("'", "&#39;");
 
-const nl2br = (value?: string | null) => escapeHtml(value || "").replaceAll("\n", "<br />");
-
-const isImageAttachment = (attachment: ActivityReportAttachment) =>
-	/\.(png|jpe?g|gif|webp|svg)$/i.test(attachment.url) ||
-	(attachment.type ? attachment.type.startsWith("image/") : false);
-
-const getLogoMarkup = async () => {
-	const svgPath = path.join(process.cwd(), "public", "Craft_Logo.svg");
-
-	try {
-		const logo = await fs.readFile(svgPath, "utf8");
-		const encoded = Buffer.from(logo).toString("base64");
-		return `data:image/svg+xml;base64,${encoded}`;
-	} catch {
-		return null;
-	}
-};
-
-export const buildReportHtml = async ({ project, report, approvedByName }: ReportDocumentPayload) => {
-	const logoSrc = await getLogoMarkup();
+export const buildReportHtml = async ({
+	project,
+	report,
+	approvedByName,
+}: ReportDocumentPayload) => {
 	const reportDate = report.createdAt
 		? new Date(report.createdAt).toLocaleDateString("ar-SA")
 		: "غير محدد";
@@ -189,22 +173,17 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
 	const summaryText = hasSummary
 		? report.summary!.trim()
 		: "لا يوجد ملخص مضاف لهذا التقرير.";
-	const completedWorkText = hasWorkDetails
+	const workText = hasWorkDetails
 		? report.workDetails!.trim()
 		: hasDetails
 			? report.details!.trim()
 			: "لا توجد أعمال منجزة مضافة لهذا التقرير.";
-	const logoMarkup = logoSrc ? `<img src="${logoSrc}" alt="شعار الشركة" />` : "";
-
-	console.log("[pdf-template] official work report template rendered");
-	console.log(`[pdf-template] hasSummary=${hasSummary}`);
-	console.log(`[pdf-template] hasWorkDetails=${hasWorkDetails}`);
-	console.log(`[pdf-template] hasDetails=${hasDetails}`);
 
 	const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(reportTitle)}</title>
   <style>
@@ -217,39 +196,29 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
     body {
       margin: 0;
       padding: 0;
-      background: #ffffff;
-      color: #000000;
+      width: 210mm;
+      min-height: 297mm;
       direction: rtl;
       text-align: right;
-      font-family: Arial, "Tahoma", sans-serif;
+      background: #fff;
+      color: #000;
+      font-family: "Tahoma", "Arial", sans-serif;
     }
 
     main {
-      padding: 28mm 22mm;
+      padding: 24mm 22mm;
       box-sizing: border-box;
     }
 
-    .logo-space {
-      height: 28mm;
-    }
-
-    .logo-space img {
-      display: block;
-      max-height: 22mm;
-      max-width: 60mm;
-      margin-right: 0;
-      margin-left: auto;
-    }
-
     h1 {
-      margin: 0 0 18mm;
+      margin: 0 0 12mm;
       text-align: center;
       font-size: 26px;
       font-weight: 700;
     }
 
     .meta {
-      margin-bottom: 14mm;
+      margin-bottom: 10mm;
       font-size: 14px;
       line-height: 1.9;
     }
@@ -274,17 +243,15 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
       line-height: 2;
       white-space: pre-line;
     }
-
-    .closing {
-      margin-top: 14mm;
-    }
   </style>
 </head>
 <body>
   <main>
-    <div class="logo-space">${logoMarkup}</div>
-
     <h1>تقرير أعمال الموقع</h1>
+
+    <section>
+      <p>اختبار اللغة العربية داخل التقرير</p>
+    </section>
 
     <section class="meta">
       <p>اسم المشروع: ${escapeHtml(projectName)}</p>
@@ -311,22 +278,21 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
 
     <section>
       <h2>الأعمال المنجزة</h2>
-      <p>${escapeHtml(completedWorkText)}</p>
+      <p>${escapeHtml(workText)}</p>
     </section>
 
     <section>
-      <p>${escapeHtml(
-			"نؤكد أن الأعمال المذكورة أعلاه تم تنفيذها ضمن خطة تطوير الموقع، وسيتم استكمال بقية التحسينات والاختبارات لضمان استقرار النظام ورفع جودة تجربة المستخدم."
-		)}</p>
-    </section>
-
-    <section class="closing">
       <p>أطيب التحيات،</p>
       <p>فريق شركة كرافت</p>
     </section>
   </main>
 </body>
 </html>`;
+
+	console.log("[pdf-template] utf8 test rendered");
+	console.log(`[pdf-template] title included=${html.includes("تقرير أعمال الموقع")}`);
+	console.log(`[pdf-template] summary included=${html.includes(escapeHtml(summaryText))}`);
+	console.log(`[pdf-template] work included=${html.includes(escapeHtml(workText))}`);
 
 	return html;
 };
@@ -444,7 +410,6 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		await page.setContent(html, {
 			waitUntil: "networkidle0",
 		});
-		await page.evaluate(() => document.fonts?.ready ?? Promise.resolve());
 		diagnostics.setContentSucceeded = true;
 		logPdfTrace("stage=set-content success=true");
 		await page.emulateMediaType("screen");
