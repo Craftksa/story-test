@@ -258,8 +258,14 @@
   color: #ffffff;
 }
 
-.activity-scrollbar-right {
-  direction: ltr;
+.activity-panel-scroll {
+  direction: rtl;
+  scrollbar-width: thin;
+}
+
+.activity-panel-scroll > * {
+  direction: rtl;
+  text-align: right;
 }
 
 .app-shell-theme [data-slot="progress"] {
