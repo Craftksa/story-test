@@ -260,6 +260,7 @@
 
 .activity-panel-scroll {
   direction: rtl;
+  overflow-y: scroll;
   scrollbar-width: thin;
 }
 
