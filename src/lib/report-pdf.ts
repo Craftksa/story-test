@@ -22,8 +22,8 @@ export type ReportDocumentPayload = {
 	approvedByName?: string | null;
 };
 
-export const PDF_VIEW_FAILURE_MESSAGE = "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا.";
-export const PDF_DELIVERY_FAILURE_MESSAGE = "تعذر توليد ملف PDF، لم يتم إرسال التقرير.";
+export const PDF_VIEW_FAILURE_MESSAGE = "ØªØ¹Ø°Ø± ØªÙˆÙ„ÙŠØ¯ Ù…Ù„Ù PDFØŒ ÙŠØ±Ø¬Ù‰ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© Ù„Ø§Ø­Ù‚Ù‹Ø§.";
+export const PDF_DELIVERY_FAILURE_MESSAGE = "ØªØ¹Ø°Ø± ØªÙˆÙ„ÙŠØ¯ Ù…Ù„Ù PDFØŒ Ù„Ù… ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„ØªÙ‚Ø±ÙŠØ±.";
 
 type PdfGenerationDiagnostics = {
 	stage:
@@ -122,17 +122,17 @@ export const logPdfErrorDetails = (
 };
 
 const reportTypeLabel: Record<ActivityReport["reportType"], string> = {
-	client: "تقرير للعميل",
-	internal: "تقرير داخلي",
-	shared: "تقرير مشترك",
+	client: "ØªÙ‚Ø±ÙŠØ± Ù„Ù„Ø¹Ù…ÙŠÙ„",
+	internal: "ØªÙ‚Ø±ÙŠØ± Ø¯Ø§Ø®Ù„ÙŠ",
+	shared: "ØªÙ‚Ø±ÙŠØ± Ù…Ø´ØªØ±Ùƒ",
 };
 
 const reportStatusLabel: Record<ActivityReport["status"], string> = {
-	draft: "مسودة",
-	pending_admin_approval: "بانتظار موافقة الأدمن",
-	approved: "معتمد",
-	rejected: "مرفوض",
-	sent: "تم الإرسال",
+	draft: "Ù…Ø³ÙˆØ¯Ø©",
+	pending_admin_approval: "Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ù…ÙˆØ§ÙÙ‚Ø© Ø§Ù„Ø£Ø¯Ù…Ù†",
+	approved: "Ù…Ø¹ØªÙ…Ø¯",
+	rejected: "Ù…Ø±ÙÙˆØ¶",
+	sent: "ØªÙ… Ø§Ù„Ø¥Ø±Ø³Ø§Ù„",
 };
 
 const candidateBrowserPaths = [
@@ -175,109 +175,150 @@ const getLogoMarkup = async () => {
 };
 
 export const buildReportHtml = async ({ project, report, approvedByName }: ReportDocumentPayload) => {
-	console.log("[pdf-template] using simple official text template");
-	console.log(`[pdf-template] reportId=${report.id}`);
+	const logoSrc = await getLogoMarkup();
 	const reportDate = report.createdAt
 		? new Date(report.createdAt).toLocaleDateString("ar-SA")
 		: "غير محدد";
-	const summaryText = report.summary?.trim() || "لا يوجد ملخص.";
-	const bodyText = [report.details?.trim(), report.workDetails?.trim()]
-		.filter(Boolean)
-		.join("\n\n");
+	const projectName = project.name?.trim() || "غير محدد";
+	const reportTitle = report.title?.trim() || "غير محدد";
+	const reportType = reportTypeLabel[report.reportType] || "غير محدد";
+	const authorName = report.authorName?.trim() || approvedByName?.trim() || "غير محدد";
+	const hasSummary = Boolean(report.summary?.trim());
+	const hasWorkDetails = Boolean(report.workDetails?.trim());
+	const hasDetails = Boolean(report.details?.trim());
+	const summaryText = hasSummary
+		? report.summary!.trim()
+		: "لا يوجد ملخص مضاف لهذا التقرير.";
+	const completedWorkText = hasWorkDetails
+		? report.workDetails!.trim()
+		: hasDetails
+			? report.details!.trim()
+			: "لا توجد أعمال منجزة مضافة لهذا التقرير.";
+	const logoMarkup = logoSrc ? `<img src="${logoSrc}" alt="شعار الشركة" />` : "";
+
+	console.log("[pdf-template] official work report template rendered");
+	console.log(`[pdf-template] hasSummary=${hasSummary}`);
+	console.log(`[pdf-template] hasWorkDetails=${hasWorkDetails}`);
+	console.log(`[pdf-template] hasDetails=${hasDetails}`);
 
 	const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(report.title)}</title>
+  <title>${escapeHtml(reportTitle)}</title>
   <style>
-    @page { size: A4; margin: 28mm 22mm; }
-    html {
-      direction: rtl;
-      background: #fff;
-    }
-    body {
-      direction: rtl;
-      text-align: right;
-      font-family: Arial, sans-serif;
-      color: #000;
+    @page {
+      size: A4;
       margin: 0;
-      background: #fff;
-      font-size: 14px;
-      line-height: 1.9;
     }
-    main {
-      width: 100%;
-      max-width: 100%;
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #000000;
       direction: rtl;
       text-align: right;
+      font-family: Arial, "Tahoma", sans-serif;
     }
-    .header-space {
-      height: 18mm;
+
+    main {
+      padding: 28mm 22mm;
+      box-sizing: border-box;
     }
+
+    .logo-space {
+      height: 28mm;
+    }
+
+    .logo-space img {
+      display: block;
+      max-height: 22mm;
+      max-width: 60mm;
+      margin-right: 0;
+      margin-left: auto;
+    }
+
     h1 {
-      margin: 0 0 18px;
+      margin: 0 0 18mm;
+      text-align: center;
       font-size: 26px;
       font-weight: 700;
     }
-    .template-note {
-      margin: 0 0 18px;
+
+    .meta {
+      margin-bottom: 14mm;
       font-size: 14px;
+      line-height: 1.9;
     }
+
+    .meta p {
+      margin: 0 0 3mm;
+    }
+
+    section {
+      margin-bottom: 10mm;
+    }
+
     h2 {
-      margin: 26px 0 10px;
-      font-size: 18px;
+      margin: 0 0 5mm;
+      font-size: 17px;
       font-weight: 700;
     }
+
     p {
-      margin: 0 0 12px;
+      margin: 0 0 5mm;
+      font-size: 15px;
+      line-height: 2;
       white-space: pre-line;
     }
-    .meta-section {
-      margin-bottom: 22px;
-    }
-    .meta-line {
-      margin-bottom: 6px;
-    }
-    .greeting {
-      margin: 18px 0 14px;
-    }
-    .intro {
-      margin-bottom: 18px;
-    }
-    .body-text {
-      white-space: pre-line;
-    }
+
     .closing {
-      margin-top: 28px;
+      margin-top: 14mm;
     }
   </style>
 </head>
 <body>
   <main>
-    <div class="header-space"></div>
-    <h1>تقرير مشروع</h1>
-    <p class="template-note">نموذج التقرير الرسمي النصي</p>
+    <div class="logo-space">${logoMarkup}</div>
 
-    <section class="meta-section">
-      <p class="meta-line">اسم المشروع: ${escapeHtml(project.name)}</p>
-      <p class="meta-line">نوع التقرير: ${escapeHtml(reportTypeLabel[report.reportType])}</p>
-      <p class="meta-line">التاريخ: ${escapeHtml(reportDate)}</p>
-      <p class="meta-line">إعداد: ${escapeHtml(report.authorName)}</p>
+    <h1>تقرير أعمال الموقع</h1>
+
+    <section class="meta">
+      <p>اسم المشروع: ${escapeHtml(projectName)}</p>
+      <p>عنوان التقرير: ${escapeHtml(reportTitle)}</p>
+      <p>نوع التقرير: ${escapeHtml(reportType)}</p>
+      <p>التاريخ: ${escapeHtml(reportDate)}</p>
+      <p>إعداد: ${escapeHtml(authorName)}</p>
     </section>
 
-    <p class="greeting">السلام عليكم ورحمة الله وبركاته،</p>
+    <section>
+      <p>السلام عليكم ورحمة الله وبركاته،</p>
+    </section>
 
-    <p class="intro">${escapeHtml(
-			"نقدم لكم هذا التقرير الذي يعرض أحدث مستجدات المشروع، موضحًا أبرز ما تم إنجازه من أعمال، والنتائج المحققة حتى تاريخ إعداد هذا التقرير، وذلك في إطار الحرص على تعزيز الشفافية ومتابعة سير العمل بكفاءة وفعالية."
+    <section>
+      <p>${escapeHtml(
+			"نقدم لكم هذا التقرير الذي يوضح الأعمال التي تم إنجازها في الموقع خلال الفترة المحددة، مع توضيح أبرز التحديثات والتحسينات التي تم تنفيذها، وذلك بهدف توثيق سير العمل ومتابعة تقدم المشروع بشكل واضح ومنظم."
 		)}</p>
+    </section>
 
-    <h2>ملخص التقرير</h2>
-    <p>${nl2br(summaryText)}</p>
+    <section>
+      <h2>ملخص التقرير</h2>
+      <p>${escapeHtml(summaryText)}</p>
+    </section>
 
-    <h2>متن التقرير</h2>
-    <p class="body-text">${nl2br(bodyText || "لا توجد تفاصيل إضافية.")}</p>
+    <section>
+      <h2>الأعمال المنجزة</h2>
+      <p>${escapeHtml(completedWorkText)}</p>
+    </section>
+
+    <section>
+      <p>${escapeHtml(
+			"نؤكد أن الأعمال المذكورة أعلاه تم تنفيذها ضمن خطة تطوير الموقع، وسيتم استكمال بقية التحسينات والاختبارات لضمان استقرار النظام ورفع جودة تجربة المستخدم."
+		)}</p>
+    </section>
 
     <section class="closing">
       <p>أطيب التحيات،</p>
@@ -286,7 +327,7 @@ export const buildReportHtml = async ({ project, report, approvedByName }: Repor
   </main>
 </body>
 </html>`;
-	console.log("[pdf-template] simple official template rendered");
+
 	return html;
 };
 
@@ -403,6 +444,7 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		await page.setContent(html, {
 			waitUntil: "networkidle0",
 		});
+		await page.evaluate(() => document.fonts?.ready ?? Promise.resolve());
 		diagnostics.setContentSucceeded = true;
 		logPdfTrace("stage=set-content success=true");
 		await page.emulateMediaType("screen");
