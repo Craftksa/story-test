@@ -26,14 +26,12 @@ import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
@@ -328,7 +326,6 @@ const activityModalCancelButtonClassName =
 const activityModalCloseButtonClassName =
 	"rounded-full border border-white/10 bg-white/5 p-2 text-[#b8b2a3] transition hover:border-[#dac58f]/30 hover:bg-[#dac58f]/10 hover:text-white";
 const activityModalCardClassName = "rounded-2xl border border-[#dac58f]/12 bg-white/[0.03] p-4";
-const activityModalHelperTextClassName = "text-xs text-[#8f8a7d]";
 
 export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const { lang, dir } = useCheckedLocale();
@@ -770,9 +767,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				<CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
 					<div className={cn("space-y-1", activityTextAlignClass)}>
 						<CardTitle>مركز النشاط</CardTitle>
-						<CardDescription>
-							عرض مختصر للمشاريع، ملاحظاتها، وتقاريرها مع ربط مباشر بقاعدة البيانات.
-						</CardDescription>
 					</div>
 					<div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
 						<Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as ActivityFilter)}>
@@ -803,9 +797,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				<Card className="overflow-hidden">
 					<CardHeader className={cn("pb-3", activityTextAlignClass)}>
 						<CardTitle className="text-base">المشاريع</CardTitle>
-						<CardDescription className={activityTextAlignClass}>
-							بطاقات مختصرة للمشاريع بدل القائمة الطويلة، مع آخر تحديث وعدد الملاحظات والتقارير.
-						</CardDescription>
 					</CardHeader>
 					<CardContent className="min-h-0">
 						{loadingProjects ? (
@@ -892,9 +883,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						<CardTitle className="text-base">
 							{selectedSummary ? selectedSummary.name : "تفاصيل النشاط"}
 						</CardTitle>
-						<CardDescription className={activityTextAlignClass}>
-							عند اختيار المشروع تظهر هنا الأنشطة والملاحظات والتقارير المرتبطة به.
-						</CardDescription>
 					</CardHeader>
 					<CardContent className="min-h-0 p-0">
 						{loadingDetails ? (
@@ -903,9 +891,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								جاري تحميل تفاصيل المشروع...
 							</div>
 						) : !projectDetails ? (
-							<div className="px-6 py-10 text-center text-sm text-muted-foreground">
-								اختر مشروعًا من القائمة لعرض التفاصيل.
-							</div>
+							<div className="px-6 py-10" />
 						) : (
 							<div
 								className={cn(
@@ -1086,9 +1072,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								<DialogTitle className="text-xl font-semibold text-white">
 									{viewedReport?.title || "عرض التقرير"}
 								</DialogTitle>
-								<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
-									قراءة التقرير الكامل وإدارة إجراءات PDF والإرسال والاعتماد من مكان واحد.
-								</DialogDescription>
 							</div>
 							<Button
 								type="button"
@@ -1106,7 +1089,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 									<div className={cn(activityModalCardClassName, "space-y-5")}>
 										<div className="space-y-3">
 											<h3 className="text-2xl font-semibold text-white">{viewedReport.title}</h3>
-											<p className="text-sm text-[#c7c0af]">تقرير مشروع</p>
 										</div>
 
 										<div className="grid gap-3 sm:grid-cols-2">
@@ -1328,9 +1310,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
 							<div>
 								<DialogTitle className="text-xl font-semibold text-white">إضافة ملاحظة</DialogTitle>
-								<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
-									الملاحظة ترتبط مباشرة بالمشروع المختار وتظهر داخل تفاصيله فقط.
-								</DialogDescription>
 							</div>
 							<Button
 								type="button"
@@ -1368,9 +1347,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										className={cn(activityModalFieldClassName, "min-h-[150px] resize-y")}
 									/>
 								</div>
-								<p className={activityModalHelperTextClassName}>
-									سيتم حفظ هذه الملاحظة داخل المشروع المحدد فقط.
-								</p>
 							</div>
 						</div>
 						<DialogFooter className="sticky bottom-0 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur">
@@ -1406,9 +1382,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								<DialogTitle className="text-xl font-semibold text-white">
 									{reportForm.reportId ? "تعديل تقرير" : "إنشاء تقرير"}
 								</DialogTitle>
-								<DialogDescription className="mt-1 text-sm text-[#b8b2a3]">
-									نموذج رسمي للتقارير مع ربط بالمشروع والمستلمين والصلاحيات وحالة الاعتماد.
-								</DialogDescription>
 							</div>
 							<Button
 								type="button"
@@ -1465,9 +1438,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							<div className={cn(activityModalCardClassName, "space-y-4")}>
 								<div>
 									<p className="text-sm font-medium text-[#e8dfc8]">خيارات الإرسال</p>
-									<p className={activityModalHelperTextClassName}>
-										سيتم توليد ملف PDF أولًا قبل أي إرسال عبر البريد أو الواتساب، وعند فشل التوليد لن يتم الإرسال.
-									</p>
 								</div>
 								<Select
 									value={reportForm.deliveryOption}
@@ -1489,15 +1459,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 									<SelectItem value="email_whatsapp">{deliveryOptionLabel.email_whatsapp}</SelectItem>
 								</SelectContent>
 							</Select>
-							<div className="rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-4 py-3 text-sm text-[#c7c0af]">
-								{reportForm.reportType === "client" && !isAdmin && reportForm.deliveryOption !== "draft"
-									? "سيتم حفظ التقرير الآن ثم إرساله للأدمن للموافقة قبل إنشاء PDF أو الإرسال الخارجي."
-									: reportForm.deliveryOption === "draft"
-										? "سيتم حفظ التقرير كمسودة بدون توليد PDF أو إرسال خارجي."
-										: reportForm.deliveryOption === "pdf_only"
-											? "سيتم إنشاء ملف PDF فقط بدون إرسال خارجي."
-											: "سيتم إنشاء ملف PDF ثم محاولة الإرسال حسب الخيار المختار والمتغيرات المهيأة في البيئة."}
-							</div>
 						</div>
 						</div>
 						<div className="space-y-2 md:col-span-2">
@@ -1552,7 +1513,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							<div className="flex flex-wrap items-center justify-between gap-3">
 								<div>
 									<p className="text-sm font-medium text-[#e8dfc8]">الصور أو المرفقات</p>
-									<p className={activityModalHelperTextClassName}>يمكن رفع ملفات مباشرة ثم ربطها بالتقرير.</p>
 								</div>
 								<label className="inline-flex cursor-pointer items-center rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-4 py-2 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15">
 									<UploadCloud className="me-2 h-4 w-4" />
@@ -1601,9 +1561,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							<div className="flex items-center justify-between">
 								<div>
 									<p className="text-sm font-medium text-[#e8dfc8]">المستلمون</p>
-									<p className={activityModalHelperTextClassName}>
-										بيانات المستلمين هنا تُستخدم عند اختيار الإرسال عبر البريد أو الواتساب من قسم خيارات الإرسال.
-									</p>
 								</div>
 								<Button type="button" variant="outline" size="sm" onClick={addRecipient} className={activityModalSecondaryButtonClassName}>
 									إضافة مستلم
@@ -1660,7 +1617,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								<div className="flex items-center justify-between">
 									<div>
 										<p className="text-sm font-medium text-[#e8dfc8]">صلاحيات التقرير</p>
-										<p className={activityModalHelperTextClassName}>تحديد من يملك المشاهدة فقط أو التعديل.</p>
 									</div>
 									<Button type="button" variant="outline" size="sm" onClick={addPermission} className={activityModalSecondaryButtonClassName}>
 										إضافة صلاحية
@@ -1766,18 +1722,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						<DialogTitle>
 							{approvalDialog?.decision === "approve" ? "اعتماد التقرير" : "رفض التقرير"}
 						</DialogTitle>
-						<DialogDescription>
-							{approvalDialog?.decision === "approve"
-								? "عند اعتماد تقرير العميل سيتم توليد PDF رسمي ومحاولة الإرسال عبر البريد والواتساب."
-								: "أدخل سبب الرفض ليظهر لصاحب التقرير داخل صفحة النشاط."}
-						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3">
-						{approvalDialog?.decision === "approve" ? (
-							<div className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-4 text-sm text-sky-100">
-								سيتم حفظ قرار الاعتماد باسم الأدمن الحالي، ثم إنشاء نسخة PDF رسمية وإرسالها عند توفر قنوات التسليم.
-							</div>
-						) : (
+						{approvalDialog?.decision !== "approve" && (
 							<Textarea
 								value={approvalDialog?.reason || ""}
 								onChange={(event) =>
