@@ -334,6 +334,8 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const { lang, dir } = useCheckedLocale();
 	const activityDirection = dir === "rtl" ? "rtl" : "ltr";
 	const activityTextAlignClass = activityDirection === "rtl" ? "text-right" : "text-left";
+	const activityScrollbarWrapperClass =
+		activityDirection === "rtl" ? "activity-scrollbar-right" : undefined;
 	const isAdmin = ["admin", "moderator"].includes(currentUser.role ?? "");
 	const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
 	const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -822,10 +824,11 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								className={cn(
 									activityPanelScrollHeightClass,
 									activityPanelScrollContainerClass,
+									activityScrollbarWrapperClass,
 									"pe-2"
 								)}
 							>
-								<div className="grid gap-3 md:grid-cols-2">
+								<div dir={activityDirection} className="grid gap-3 md:grid-cols-2">
 									{filteredProjects.map((summary) => (
 										<button
 											type="button"
@@ -910,10 +913,14 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							<div
 								className={cn(
 									activityPanelScrollHeightClass,
-									activityPanelScrollContainerClass
+									activityPanelScrollContainerClass,
+									activityScrollbarWrapperClass
 								)}
 							>
-								<div className={cn("space-y-5 px-6 py-6", activityTextAlignClass)}>
+								<div
+									dir={activityDirection}
+									className={cn("space-y-5 px-6 py-6", activityTextAlignClass)}
+								>
 									<div className="grid gap-3 sm:grid-cols-2">
 										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
 											<p className="text-xs text-muted-foreground">العميل</p>

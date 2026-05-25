@@ -258,6 +258,10 @@
   color: #ffffff;
 }
 
+.activity-scrollbar-right {
+  direction: ltr;
+}
+
 .app-shell-theme [data-slot="progress"] {
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
