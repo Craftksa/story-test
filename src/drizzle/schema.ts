@@ -266,3 +266,23 @@ export const projectReportPermissions = pgTable("project_report_permission", {
 }, (table) => ({
 	pk: primaryKey({ columns: [table.reportId, table.userId] }),
 }));
+
+export const projectLetters = pgTable("project_letter", {
+	id: text("id").primaryKey().$defaultFn(() => nanoid(14)),
+	projectId: text("project_id")
+		.references(() => projects.id, { onDelete: "cascade" })
+		.notNull(),
+	recipientName: text("recipient_name").notNull(),
+	subject: text("subject").notNull(),
+	body: text("body").notNull(),
+	letterDate: timestamp("letter_date", { mode: "date" }),
+	attachments: text("attachments"),
+	status: text("status")
+		.$type<"draft" | "ready">()
+		.notNull()
+		.default("ready"),
+	authorId: text("author_id")
+		.references(() => users.id, { onDelete: "set null" }),
+	createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
+});

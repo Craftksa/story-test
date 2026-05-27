@@ -1,6 +1,7 @@
 import { db } from "@/drizzle/db";
 import {
 	projectAssignments,
+	projectLetters,
 	projectNotes,
 	projectReportPermissions,
 	projectReports,
@@ -49,6 +50,22 @@ export type ActivityReportPermission = {
 	userName: string;
 	userEmail: string | null;
 	accessLevel: "view" | "edit";
+};
+
+export type ActivityLetter = {
+	id: string;
+	projectId: string;
+	recipientName: string;
+	subject: string;
+	body: string;
+	letterDate: string | null;
+	attachments: ActivityReportAttachment[];
+	status: "draft" | "ready";
+	authorId: string | null;
+	authorName: string;
+	createdAt: string | null;
+	updatedAt: string | null;
+	canEdit: boolean;
 };
 
 export type ActivityReport = {
@@ -110,6 +127,7 @@ export type ActivityProjectDetails = {
 	};
 	notes: ActivityNote[];
 	reports: ActivityReport[];
+	letters: ActivityLetter[];
 	activities: Array<{
 		id: string;
 		type: "task" | "note" | "report";
@@ -186,9 +204,26 @@ type RawReportRow = {
 	updatedAt: Date | null;
 };
 
+type RawLetterRow = {
+	id: string;
+	projectId: string;
+	recipientName: string;
+	subject: string;
+	body: string;
+	letterDate: Date | null;
+	attachments: string | null;
+	status: "draft" | "ready";
+	authorId: string | null;
+	authorName: string | null;
+	authorEmail: string | null;
+	createdAt: Date | null;
+	updatedAt: Date | null;
+};
+
 const ACTIVITY_ALLOWED_ROLES = ["admin", "moderator", "employee"];
 
 const noteAuthor = alias(users, "note_author");
+const letterAuthor = alias(users, "letter_author");
 const reportAuthor = alias(users, "report_author");
 const reportApprover = alias(users, "report_approver");
 const reportPermissionUser = alias(users, "report_permission_user");
@@ -236,11 +271,13 @@ const getLastActivityDate = ({
 	projectTasks,
 	projectNotesList,
 	projectReportsList,
+	projectLettersList,
 }: {
 	project: BaseProjectRow;
 	projectTasks: ProjectTaskRow[];
 	projectNotesList: ActivityNote[];
 	projectReportsList: ActivityReport[];
+	projectLettersList: ActivityLetter[];
 }) => {
 	const dates = [
 		project.updatedAt,
@@ -248,6 +285,11 @@ const getLastActivityDate = ({
 		...projectNotesList.flatMap((note) => [note.updatedAt, note.createdAt].map((value) => (value ? new Date(value) : null))),
 		...projectReportsList.flatMap((report) =>
 			[report.updatedAt, report.createdAt, report.sentAt, report.approvedAt].map((value) =>
+				value ? new Date(value) : null
+			)
+		),
+		...projectLettersList.flatMap((letter) =>
+			[letter.updatedAt, letter.createdAt, letter.letterDate].map((value) =>
 				value ? new Date(value) : null
 			)
 		),
@@ -294,6 +336,12 @@ const canUserSendReportToClient = (report: RawReportRow, user: AuthLikeUser) =>
 	report.reportType === "client" &&
 	(report.status === "approved" || report.status === "sent");
 
+const canUserEditLetter = (letter: RawLetterRow, user: AuthLikeUser) => {
+	if (canManageAllReports(user)) return true;
+	if (!user.id) return false;
+	return letter.authorId === user.id;
+};
+
 const getAccessibleReports = (
 	rawReports: RawReportRow[],
 	user: AuthLikeUser,
@@ -308,6 +356,22 @@ const mapPermissions = (permissions: RawReportPermissionRow[]): ActivityReportPe
 		userEmail: permission.userEmail,
 		accessLevel: permission.accessLevel,
 	}));
+
+const mapLetter = (letter: RawLetterRow, user: AuthLikeUser): ActivityLetter => ({
+	id: letter.id,
+	projectId: letter.projectId,
+	recipientName: letter.recipientName,
+	subject: letter.subject,
+	body: letter.body,
+	letterDate: toIsoString(letter.letterDate),
+	attachments: parseJsonList<ActivityReportAttachment>(letter.attachments),
+	status: letter.status,
+	authorId: letter.authorId,
+	authorName: getDisplayName(letter.authorName, letter.authorEmail),
+	createdAt: toIsoString(letter.createdAt),
+	updatedAt: toIsoString(letter.updatedAt),
+	canEdit: canUserEditLetter(letter, user),
+});
 
 const mapReport = (
 	report: RawReportRow,
@@ -467,6 +531,31 @@ const loadRawReports = async (projectIds: string[]) => {
 		.orderBy(desc(projectReports.createdAt));
 };
 
+const loadRawLetters = async (projectIds: string[]) => {
+	if (projectIds.length === 0) return [];
+
+	return db
+		.select({
+			id: projectLetters.id,
+			projectId: projectLetters.projectId,
+			recipientName: projectLetters.recipientName,
+			subject: projectLetters.subject,
+			body: projectLetters.body,
+			letterDate: projectLetters.letterDate,
+			attachments: projectLetters.attachments,
+			status: projectLetters.status,
+			authorId: projectLetters.authorId,
+			authorName: letterAuthor.name,
+			authorEmail: letterAuthor.email,
+			createdAt: projectLetters.createdAt,
+			updatedAt: projectLetters.updatedAt,
+		})
+		.from(projectLetters)
+		.leftJoin(letterAuthor, eq(projectLetters.authorId, letterAuthor.id))
+		.where(inArray(projectLetters.projectId, projectIds))
+		.orderBy(desc(projectLetters.createdAt));
+};
+
 const loadReportPermissions = async (reportIds: string[]) => {
 	if (reportIds.length === 0) return [];
 
@@ -516,10 +605,11 @@ export const getInternalActivityUsers = async (): Promise<ActivityUser[]> => {
 export const getActivityProjectsPayload = async (user: AuthLikeUser) => {
 	const baseProjects = (await loadBaseProjects(user)) as BaseProjectRow[];
 	const projectIds = baseProjects.map((project) => project.id);
-	const [projectTasks, rawNotes, rawReports, teamRows, internalUsers] = await Promise.all([
+	const [projectTasks, rawNotes, rawReports, rawLetters, teamRows, internalUsers] = await Promise.all([
 		loadProjectTasks(projectIds),
 		loadProjectNotes(projectIds),
 		loadRawReports(projectIds),
+		loadRawLetters(projectIds),
 		loadProjectTeamMembers(projectIds),
 		getInternalActivityUsers(),
 	]);
@@ -541,6 +631,12 @@ export const getActivityProjectsPayload = async (user: AuthLikeUser) => {
 		const current = reportsByProjectId.get(report.projectId) ?? [];
 		current.push(report);
 		reportsByProjectId.set(report.projectId, current);
+	});
+	const lettersByProjectId = new Map<string, ActivityLetter[]>();
+	rawLetters.map((letter) => mapLetter(letter, user)).forEach((letter) => {
+		const current = lettersByProjectId.get(letter.projectId) ?? [];
+		current.push(letter);
+		lettersByProjectId.set(letter.projectId, current);
 	});
 
 	const notes: ActivityNote[] = rawNotes.map((note) => ({
@@ -582,11 +678,13 @@ export const getActivityProjectsPayload = async (user: AuthLikeUser) => {
 		const projectTaskList = tasksByProjectId.get(project.id) ?? [];
 		const projectNotesList = notesByProjectId.get(project.id) ?? [];
 		const projectReportsList = reportsByProjectId.get(project.id) ?? [];
+		const projectLettersList = lettersByProjectId.get(project.id) ?? [];
 		const lastActivityDate = getLastActivityDate({
 			project,
 			projectTasks: projectTaskList,
 			projectNotesList,
 			projectReportsList,
+			projectLettersList,
 		});
 
 		return {
@@ -629,10 +727,11 @@ export const getActivityProjectDetails = async (
 		return null;
 	}
 
-	const [projectTasks, rawNotes, rawReports, teamRows] = await Promise.all([
+	const [projectTasks, rawNotes, rawReports, rawLetters, teamRows] = await Promise.all([
 		loadProjectTasks([projectId]),
 		loadProjectNotes([projectId]),
 		loadRawReports([projectId]),
+		loadRawLetters([projectId]),
 		loadProjectTeamMembers([projectId]),
 	]);
 
@@ -662,6 +761,7 @@ export const getActivityProjectDetails = async (
 		email: member.email,
 		role: member.role,
 	}));
+	const letters = rawLetters.map((letter) => mapLetter(letter, user));
 
 	const summary: ActivityProjectSummary = {
 		id: baseProject.id,
@@ -677,6 +777,7 @@ export const getActivityProjectDetails = async (
 				projectTasks,
 				projectNotesList: notes,
 				projectReportsList: accessibleReports,
+				projectLettersList: letters,
 			})
 		),
 		lastUpdatedAt: toIsoString(baseProject.updatedAt),
@@ -774,6 +875,7 @@ export const getActivityProjectDetails = async (
 		},
 		notes,
 		reports: accessibleReports,
+		letters,
 		activities: activities.slice(0, 20),
 	};
 };
@@ -862,6 +964,68 @@ export const canUserModifyReport = async (reportId: string, user: AuthLikeUser) 
 	const permissions = await loadReportPermissions([reportId]);
 	const permissionsByReportId = new Map<string, RawReportPermissionRow[]>([[reportId, permissions]]);
 	return canUserEditReport(rawReport, user, permissionsByReportId);
+};
+
+export const getLetterById = async (letterId: string, user: AuthLikeUser) => {
+	const rawLetters = await db
+		.select({
+			id: projectLetters.id,
+			projectId: projectLetters.projectId,
+			recipientName: projectLetters.recipientName,
+			subject: projectLetters.subject,
+			body: projectLetters.body,
+			letterDate: projectLetters.letterDate,
+			attachments: projectLetters.attachments,
+			status: projectLetters.status,
+			authorId: projectLetters.authorId,
+			authorName: letterAuthor.name,
+			authorEmail: letterAuthor.email,
+			createdAt: projectLetters.createdAt,
+			updatedAt: projectLetters.updatedAt,
+		})
+		.from(projectLetters)
+		.leftJoin(letterAuthor, eq(projectLetters.authorId, letterAuthor.id))
+		.where(eq(projectLetters.id, letterId));
+
+	const rawLetter = rawLetters[0];
+	if (!rawLetter) return null;
+
+	const hasAccess = await userCanAccessProjectActivity(rawLetter.projectId, user);
+	if (!hasAccess) {
+		return null;
+	}
+
+	return mapLetter(rawLetter, user);
+};
+
+export const canUserModifyLetter = async (letterId: string, user: AuthLikeUser) => {
+	const rawLetters = await db
+		.select({
+			id: projectLetters.id,
+			projectId: projectLetters.projectId,
+			recipientName: projectLetters.recipientName,
+			subject: projectLetters.subject,
+			body: projectLetters.body,
+			letterDate: projectLetters.letterDate,
+			attachments: projectLetters.attachments,
+			status: projectLetters.status,
+			authorId: projectLetters.authorId,
+			authorName: letterAuthor.name,
+			authorEmail: letterAuthor.email,
+			createdAt: projectLetters.createdAt,
+			updatedAt: projectLetters.updatedAt,
+		})
+		.from(projectLetters)
+		.leftJoin(letterAuthor, eq(projectLetters.authorId, letterAuthor.id))
+		.where(eq(projectLetters.id, letterId));
+
+	const rawLetter = rawLetters[0];
+	if (!rawLetter) return false;
+
+	const hasAccess = await userCanAccessProjectActivity(rawLetter.projectId, user);
+	if (!hasAccess) return false;
+
+	return canUserEditLetter(rawLetter, user);
 };
 
 export const getProjectAndClientById = async (projectId: string) => {

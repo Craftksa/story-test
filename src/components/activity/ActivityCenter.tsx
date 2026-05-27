@@ -71,6 +71,8 @@ type ReportAttachment = {
 	type?: string | null;
 };
 
+type LetterAttachment = ReportAttachment;
+
 type ReportRecipient = {
 	name: string;
 	email?: string | null;
@@ -123,6 +125,22 @@ type ProjectReport = {
 	canSendToClient: boolean;
 };
 
+type ProjectLetter = {
+	id: string;
+	projectId: string;
+	recipientName: string;
+	subject: string;
+	body: string;
+	letterDate: string | null;
+	attachments: LetterAttachment[];
+	status: "draft" | "ready";
+	authorId: string | null;
+	authorName: string;
+	createdAt: string | null;
+	updatedAt: string | null;
+	canEdit: boolean;
+};
+
 type ProjectSummary = {
 	id: string;
 	name: string;
@@ -151,6 +169,7 @@ type ProjectDetails = {
 	};
 	notes: ProjectNote[];
 	reports: ProjectReport[];
+	letters: ProjectLetter[];
 	activities: Array<{
 		id: string;
 		type: "task" | "note" | "report";
@@ -185,6 +204,16 @@ type ReportFormState = {
 	permissions: Array<{ userId: string; accessLevel: "view" | "edit" }>;
 };
 
+type LetterFormState = {
+	letterId: string | null;
+	projectId: string;
+	recipientName: string;
+	subject: string;
+	letterDate: string;
+	body: string;
+	attachments: LetterAttachment[];
+};
+
 type ApprovalDialogState = {
 	reportId: string;
 	projectId: string;
@@ -217,6 +246,16 @@ const EMPTY_REPORT_FORM: ReportFormState = {
 	permissions: [],
 };
 
+const EMPTY_LETTER_FORM: LetterFormState = {
+	letterId: null,
+	projectId: "",
+	recipientName: "",
+	subject: "",
+	letterDate: "",
+	body: "",
+	attachments: [],
+};
+
 const reportTypeLabel: Record<ProjectReport["reportType"], string> = {
 	client: "تقرير للعميل",
 	internal: "تقرير داخلي",
@@ -229,6 +268,11 @@ const reportStatusLabel: Record<ProjectReport["status"], string> = {
 	approved: "معتمد",
 	rejected: "مرفوض",
 	sent: "تم الإرسال",
+};
+
+const letterStatusLabel: Record<ProjectLetter["status"], string> = {
+	draft: "مسودة",
+	ready: "جاهز",
 };
 
 const deliveryStatusLabel: Record<ProjectReport["emailStatus"], string> = {
@@ -341,14 +385,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [loadingDetails, setLoadingDetails] = useState(false);
 	const [noteDialogOpen, setNoteDialogOpen] = useState(false);
 	const [reportDialogOpen, setReportDialogOpen] = useState(false);
+	const [letterDialogOpen, setLetterDialogOpen] = useState(false);
 	const [viewingReportId, setViewingReportId] = useState<string | null>(null);
+	const [viewingLetterId, setViewingLetterId] = useState<string | null>(null);
 	const [approvalDialog, setApprovalDialog] = useState<ApprovalDialogState | null>(null);
 	const [noteProjectId, setNoteProjectId] = useState("");
 	const [noteText, setNoteText] = useState("");
 	const [reportForm, setReportForm] = useState<ReportFormState>(EMPTY_REPORT_FORM);
+	const [letterForm, setLetterForm] = useState<LetterFormState>(EMPTY_LETTER_FORM);
 	const [submittingNote, setSubmittingNote] = useState(false);
 	const [submittingReport, setSubmittingReport] = useState(false);
+	const [submittingLetter, setSubmittingLetter] = useState(false);
 	const [uploadingAttachments, setUploadingAttachments] = useState(false);
+	const [uploadingLetterAttachments, setUploadingLetterAttachments] = useState(false);
 	const [actioningReportId, setActioningReportId] = useState<string | null>(null);
 
 	const formatDate = (value?: string | null) => {
@@ -427,6 +476,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		() => projectDetails?.reports.find((report) => report.id === viewingReportId) ?? null,
 		[projectDetails?.reports, viewingReportId]
 	);
+	const viewedLetter = useMemo(
+		() => projectDetails?.letters.find((letter) => letter.id === viewingLetterId) ?? null,
+		[projectDetails?.letters, viewingLetterId]
+	);
 
 	useEffect(() => {
 		if (!viewingReportId) return;
@@ -434,6 +487,13 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			setViewingReportId(null);
 		}
 	}, [projectDetails, viewingReportId]);
+
+	useEffect(() => {
+		if (!viewingLetterId) return;
+		if (!projectDetails?.letters.some((letter) => letter.id === viewingLetterId)) {
+			setViewingLetterId(null);
+		}
+	}, [projectDetails, viewingLetterId]);
 
 	const openAddNoteDialog = () => {
 		setNoteProjectId(selectedProjectId || filteredProjects[0]?.id || "");
@@ -447,6 +507,15 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			projectId: selectedProjectId || filteredProjects[0]?.id || "",
 		});
 		setReportDialogOpen(true);
+	};
+
+	const openCreateLetterDialog = () => {
+		setLetterForm({
+			...EMPTY_LETTER_FORM,
+			projectId: selectedProjectId || filteredProjects[0]?.id || "",
+			letterDate: new Date().toISOString().slice(0, 10),
+		});
+		setLetterDialogOpen(true);
 	};
 
 	const openEditReportDialog = (report: ProjectReport) => {
@@ -479,6 +548,23 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 	const openViewReportDialog = (report: ProjectReport) => {
 		setViewingReportId(report.id);
+	};
+
+	const openEditLetterDialog = (letter: ProjectLetter) => {
+		setLetterForm({
+			letterId: letter.id,
+			projectId: letter.projectId,
+			recipientName: letter.recipientName,
+			subject: letter.subject,
+			letterDate: letter.letterDate ? letter.letterDate.slice(0, 10) : "",
+			body: letter.body,
+			attachments: letter.attachments,
+		});
+		setLetterDialogOpen(true);
+	};
+
+	const openViewLetterDialog = (letter: ProjectLetter) => {
+		setViewingLetterId(letter.id);
 	};
 
 	const handleNoteSubmit = async () => {
@@ -531,6 +617,33 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			toast.error("تعذر رفع المرفقات.");
 		} finally {
 			setUploadingAttachments(false);
+			event.target.value = "";
+		}
+	};
+
+	const handleLetterAttachmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const files = event.target.files ? Array.from(event.target.files) : [];
+		if (!files.length) return;
+
+		setUploadingLetterAttachments(true);
+		try {
+			const uploaded = await uploadFiles("reportAttachmentUploader", { files });
+			const nextAttachments = uploaded.map((file) => ({
+				url: (file as { ufsUrl?: string; url?: string }).ufsUrl || (file as { url?: string }).url || "",
+				name: (file as { name?: string }).name || "",
+				type: (file as { type?: string }).type || "",
+			}));
+
+			setLetterForm((current) => ({
+				...current,
+				attachments: [...current.attachments, ...nextAttachments.filter((item) => item.url)],
+			}));
+			toast.success("تم رفع مرفقات الخطاب.");
+		} catch (error) {
+			console.error("Failed to upload letter attachments", error);
+			toast.error("تعذر رفع مرفقات الخطاب.");
+		} finally {
+			setUploadingLetterAttachments(false);
 			event.target.value = "";
 		}
 	};
@@ -610,6 +723,56 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}
 	};
 
+	const handleLetterSubmit = async () => {
+		if (
+			!letterForm.projectId ||
+			!letterForm.recipientName.trim() ||
+			!letterForm.subject.trim() ||
+			!letterForm.body.trim()
+		) {
+			toast.error("أكمل بيانات الخطاب الأساسية أولًا.");
+			return;
+		}
+
+		setSubmittingLetter(true);
+		try {
+			const payload = {
+				projectId: letterForm.projectId,
+				recipientName: letterForm.recipientName.trim(),
+				subject: letterForm.subject.trim(),
+				letterDate: letterForm.letterDate || null,
+				body: letterForm.body.trim(),
+				attachments: letterForm.attachments,
+			};
+
+			if (letterForm.letterId) {
+				const message = await upsertProjectDetails(
+					axios.patch<ActivityMutationResponse>(
+						`/api/activity/letters/${letterForm.letterId}`,
+						payload
+					)
+				);
+				toast.success(message || "تم تحديث الخطاب.");
+			} else {
+				const message = await upsertProjectDetails(
+					axios.post<ActivityMutationResponse>("/api/activity/letters", payload)
+				);
+				toast.success(message || "تم إنشاء الخطاب بنجاح.");
+			}
+
+			setLetterDialogOpen(false);
+			setLetterForm({
+				...EMPTY_LETTER_FORM,
+				projectId: selectedProjectId,
+			});
+		} catch (error) {
+			console.error("Failed to submit letter", error);
+			toast.error(extractApiErrorMessage(error, "تعذر حفظ الخطاب."));
+		} finally {
+			setSubmittingLetter(false);
+		}
+	};
+
 	const handleApprovalAction = async () => {
 		if (!approvalDialog) return;
 		if (approvalDialog.decision === "reject" && !approvalDialog.reason.trim()) {
@@ -655,6 +818,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 	const handleOpenReportPdf = (report: ProjectReport) => {
 		const printUrl = `/activity/reports/${report.id}/print`;
+		const printWindow = window.open(printUrl, "_blank", "noopener,noreferrer");
+
+		if (!printWindow) {
+			const link = document.createElement("a");
+			link.href = printUrl;
+			link.target = "_blank";
+			link.rel = "noopener noreferrer";
+			link.click();
+		}
+	};
+
+	const handleOpenLetterPrint = (letter: ProjectLetter) => {
+		const printUrl = `/activity/letters/${letter.id}/print`;
 		const printWindow = window.open(printUrl, "_blank", "noopener,noreferrer");
 
 		if (!printWindow) {
@@ -757,6 +933,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						<Button type="button" onClick={openCreateReportDialog}>
 							<FilePlus2 className="me-2 h-4 w-4" />
 							إنشاء تقرير
+						</Button>
+						<Button type="button" variant="outline" onClick={openCreateLetterDialog}>
+							<FilePlus2 className="me-2 h-4 w-4" />
+							إنشاء خطاب
 						</Button>
 					</div>
 				</CardHeader>
@@ -955,6 +1135,70 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 									<section className={cn("space-y-3", activityTextAlignClass)}>
 										<div className="flex items-center justify-between">
+											<h3 className="text-sm font-semibold">الخطابات</h3>
+											<Button type="button" size="sm" onClick={openCreateLetterDialog}>
+												<FilePlus2 className="me-2 h-4 w-4" />
+												إنشاء خطاب
+											</Button>
+										</div>
+										<div className="space-y-3">
+											{projectDetails.letters.length === 0 ? (
+												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+													لا توجد خطابات مرتبطة بهذا المشروع بعد.
+												</div>
+											) : (
+												projectDetails.letters.map((letter) => (
+													<div
+														key={letter.id}
+														className={cn(
+															"w-full rounded-2xl border border-border/60 bg-muted/10 px-4 py-4 transition hover:border-border/90 hover:bg-muted/15",
+															activityTextAlignClass
+														)}
+													>
+														<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+															<div className={cn("min-w-0 flex-1 space-y-3", activityTextAlignClass)}>
+																<div className="flex flex-wrap items-center gap-2">
+																	<h4 className="min-w-0 text-sm font-semibold text-foreground">{letter.subject}</h4>
+																	<Badge variant="outline">{letterStatusLabel[letter.status]}</Badge>
+																</div>
+																<div className={cn("grid gap-3 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4", activityTextAlignClass)}>
+																	<div className="space-y-1">
+																		<p>الجهة الموجه لها</p>
+																		<p className="text-sm text-foreground">{letter.recipientName}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>التاريخ</p>
+																		<p className="text-sm text-foreground">{formatDate(letter.letterDate || letter.createdAt)}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>الحالة</p>
+																		<p className="text-sm text-foreground">{letterStatusLabel[letter.status]}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>الكاتب</p>
+																		<p className="text-sm text-foreground">{letter.authorName}</p>
+																	</div>
+																</div>
+															</div>
+															<div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+																<Button type="button" variant="outline" size="sm" onClick={() => openViewLetterDialog(letter)}>
+																	عرض
+																</Button>
+																{letter.canEdit && (
+																	<Button type="button" size="sm" onClick={() => openEditLetterDialog(letter)}>
+																		تعديل
+																	</Button>
+																)}
+															</div>
+														</div>
+													</div>
+												))
+											)}
+										</div>
+									</section>
+
+									<section className={cn("space-y-3", activityTextAlignClass)}>
+										<div className="flex items-center justify-between">
 											<h3 className="text-sm font-semibold">التقارير</h3>
 											<Button type="button" size="sm" onClick={openCreateReportDialog}>
 												<FilePlus2 className="me-2 h-4 w-4" />
@@ -1029,6 +1273,111 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					</CardContent>
 				</Card>
 			</div>
+
+			<Dialog open={!!viewingLetterId} onOpenChange={(open) => !open && setViewingLetterId(null)}>
+				<DialogContent
+					overlayClassName={activityModalOverlayClassName}
+					className={cn(activityModalContentClassName, "sm:max-w-4xl")}
+				>
+					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
+						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+							<div>
+								<DialogTitle className="text-xl font-semibold text-white">
+									{viewedLetter?.subject || "عرض الخطاب"}
+								</DialogTitle>
+							</div>
+							<Button
+								type="button"
+								variant="ghost"
+								onClick={() => setViewingLetterId(null)}
+								className={activityModalCloseButtonClassName}
+							>
+								X
+							</Button>
+						</DialogHeader>
+
+						{viewedLetter ? (
+							<div className="space-y-5 px-6 py-6">
+								<div className={cn(activityModalCardClassName, "space-y-5")}>
+									<div className="flex flex-wrap gap-2">
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => handleOpenLetterPrint(viewedLetter)}
+											className={activityModalCancelButtonClassName}
+										>
+											<FileText className="me-2 h-4 w-4" />
+											طباعة / حفظ PDF
+										</Button>
+									</div>
+
+									<div className="grid gap-3 sm:grid-cols-2">
+										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+											<p className="text-xs text-[#8f8a7d]">اسم المشروع</p>
+											<p className="text-sm text-[#f5f1e8]">{projectDetails?.project.name || "غير متوفر"}</p>
+										</div>
+										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+											<p className="text-xs text-[#8f8a7d]">الجهة الموجه لها</p>
+											<p className="text-sm text-[#f5f1e8]">{viewedLetter.recipientName}</p>
+										</div>
+										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+											<p className="text-xs text-[#8f8a7d]">الموضوع</p>
+											<p className="text-sm text-[#f5f1e8]">{viewedLetter.subject}</p>
+										</div>
+										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+											<p className="text-xs text-[#8f8a7d]">التاريخ</p>
+											<p className="text-sm text-[#f5f1e8]">
+												{formatDate(viewedLetter.letterDate || viewedLetter.createdAt)}
+											</p>
+										</div>
+										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+											<p className="text-xs text-[#8f8a7d]">الحالة</p>
+											<p className="text-sm text-[#f5f1e8]">{letterStatusLabel[viewedLetter.status]}</p>
+										</div>
+										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+											<p className="text-xs text-[#8f8a7d]">الكاتب</p>
+											<p className="text-sm text-[#f5f1e8]">{viewedLetter.authorName}</p>
+										</div>
+									</div>
+
+									<div className="space-y-4 rounded-2xl border border-[#dac58f]/12 bg-black/20 px-5 py-5">
+										<p className="text-base text-[#f5f1e8]">تحية طيبة وبعد،</p>
+										<p className="whitespace-pre-line text-sm leading-8 text-[#d6d0c2]">
+											{viewedLetter.body || "لا يوجد نص مضاف لهذا الخطاب."}
+										</p>
+										<section className="space-y-1 pt-2">
+											<p className="text-sm text-[#f5f1e8]">وتفضلوا بقبول فائق التحية والتقدير،</p>
+											<p className="text-sm text-[#f5f1e8]">فريق شركة كرافت</p>
+										</section>
+									</div>
+
+									{viewedLetter.attachments.length > 0 && (
+										<div className={cn(activityModalCardClassName, "space-y-3")}>
+											<p className="text-sm font-medium text-[#e8dfc8]">المرفقات</p>
+											<div className="flex flex-wrap gap-2">
+												{viewedLetter.attachments.map((attachment, index) => (
+													<a
+														key={`${attachment.url}-${index}`}
+														href={attachment.url}
+														target="_blank"
+														rel="noreferrer"
+														className="rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-3 py-2 text-xs text-[#f5f1e8] transition hover:border-[#dac58f]/35"
+													>
+														{attachment.name || `مرفق ${index + 1}`}
+													</a>
+												))}
+											</div>
+										</div>
+									)}
+								</div>
+							</div>
+						) : (
+							<div className="px-6 py-8 text-sm text-[#b8b2a3]">تعذر تحميل بيانات الخطاب المحدد.</div>
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog open={!!viewingReportId} onOpenChange={(open) => !open && setViewingReportId(null)}>
 				<DialogContent
@@ -1329,6 +1678,195 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								className={activityModalPrimaryButtonClassName}
 							>
 								{submittingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ الملاحظة"}
+							</Button>
+						</DialogFooter>
+					</div>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={letterDialogOpen} onOpenChange={setLetterDialogOpen}>
+				<DialogContent
+					overlayClassName={activityModalOverlayClassName}
+					className={cn(activityModalContentClassName, "sm:max-w-3xl")}
+				>
+					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
+						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+							<div>
+								<DialogTitle className="text-xl font-semibold text-white">
+									{letterForm.letterId ? "تعديل خطاب" : "إنشاء خطاب"}
+								</DialogTitle>
+							</div>
+							<Button
+								type="button"
+								variant="ghost"
+								onClick={() => setLetterDialogOpen(false)}
+								className={activityModalCloseButtonClassName}
+							>
+								X
+							</Button>
+						</DialogHeader>
+
+						<div className="space-y-5 px-6 py-6">
+							<div className="grid gap-4 md:grid-cols-2">
+								<div className="space-y-2">
+									<label className={activityModalLabelClassName}>المشروع</label>
+									<Select
+										value={letterForm.projectId}
+										onValueChange={(value) =>
+											setLetterForm((current) => ({ ...current, projectId: value }))
+										}
+									>
+										<SelectTrigger className={activityModalFieldClassName}>
+											<SelectValue placeholder="اختر المشروع" />
+										</SelectTrigger>
+										<SelectContent className={activityModalSelectContentClassName}>
+											{projects.map((project) => (
+												<SelectItem key={project.id} value={project.id}>
+													{project.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+
+								<div className="space-y-2">
+									<label className={activityModalLabelClassName}>التاريخ</label>
+									<Input
+										type="date"
+										value={letterForm.letterDate}
+										onChange={(event) =>
+											setLetterForm((current) => ({
+												...current,
+												letterDate: event.target.value,
+											}))
+										}
+										className={activityModalFieldClassName}
+									/>
+								</div>
+
+								<div className="space-y-2">
+									<label className={activityModalLabelClassName}>الجهة / الشخص الموجه له الخطاب</label>
+									<Input
+										value={letterForm.recipientName}
+										onChange={(event) =>
+											setLetterForm((current) => ({
+												...current,
+												recipientName: event.target.value,
+											}))
+										}
+										placeholder="اسم الجهة أو الشخص"
+										className={activityModalFieldClassName}
+									/>
+								</div>
+
+								<div className="space-y-2">
+									<label className={activityModalLabelClassName}>عنوان الخطاب أو الموضوع</label>
+									<Input
+										value={letterForm.subject}
+										onChange={(event) =>
+											setLetterForm((current) => ({
+												...current,
+												subject: event.target.value,
+											}))
+										}
+										placeholder="مثال: خطاب طلب اعتماد"
+										className={activityModalFieldClassName}
+									/>
+								</div>
+
+								<div className="space-y-2 md:col-span-2">
+									<label className={activityModalLabelClassName}>نص الخطاب</label>
+									<Textarea
+										value={letterForm.body}
+										onChange={(event) =>
+											setLetterForm((current) => ({ ...current, body: event.target.value }))
+										}
+										rows={10}
+										placeholder="اكتب نص الخطاب الرسمي هنا..."
+										className={cn(activityModalFieldClassName, "min-h-[220px] resize-y")}
+									/>
+								</div>
+
+								<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
+									<div className="flex flex-wrap items-center justify-between gap-3">
+										<div>
+											<p className="text-sm font-medium text-[#e8dfc8]">المرفقات</p>
+										</div>
+										<label className="inline-flex cursor-pointer items-center rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-4 py-2 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15">
+											<UploadCloud className="me-2 h-4 w-4" />
+											{uploadingLetterAttachments ? "جاري الرفع..." : "رفع مرفقات"}
+											<input
+												type="file"
+												multiple
+												className="hidden"
+												onChange={handleLetterAttachmentUpload}
+											/>
+										</label>
+									</div>
+
+									<div className="space-y-2">
+										{letterForm.attachments.length === 0 ? (
+											<div className="rounded-xl border border-dashed border-[#dac58f]/15 bg-white/[0.03] px-4 py-4 text-sm text-[#8f8a7d]">
+												لا توجد مرفقات بعد.
+											</div>
+										) : (
+											letterForm.attachments.map((attachment, index) => (
+												<div
+													key={`${attachment.url}-${index}`}
+													className="flex items-center justify-between gap-3 rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-3 py-3 text-sm"
+												>
+													<div className="min-w-0">
+														<p className="truncate font-medium text-[#e8dfc8]">
+															{attachment.name || attachment.url}
+														</p>
+														<p className="truncate text-xs text-[#8f8a7d]">{attachment.url}</p>
+													</div>
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white"
+														onClick={() =>
+															setLetterForm((current) => ({
+																...current,
+																attachments: current.attachments.filter(
+																	(_, currentIndex) => currentIndex !== index
+																),
+															}))
+														}
+													>
+														حذف
+													</Button>
+												</div>
+											))
+										)}
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<DialogFooter className="sticky bottom-0 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setLetterDialogOpen(false)}
+								className={activityModalCancelButtonClassName}
+							>
+								إلغاء
+							</Button>
+							<Button
+								type="button"
+								onClick={handleLetterSubmit}
+								disabled={submittingLetter || uploadingLetterAttachments}
+								className={activityModalPrimaryButtonClassName}
+							>
+								{submittingLetter ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : letterForm.letterId ? (
+									"حفظ التعديلات"
+								) : (
+									"إنشاء الخطاب"
+								)}
 							</Button>
 						</DialogFooter>
 					</div>
