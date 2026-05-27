@@ -534,26 +534,34 @@ const loadRawReports = async (projectIds: string[]) => {
 const loadRawLetters = async (projectIds: string[]) => {
 	if (projectIds.length === 0) return [];
 
-	return db
-		.select({
-			id: projectLetters.id,
-			projectId: projectLetters.projectId,
-			recipientName: projectLetters.recipientName,
-			subject: projectLetters.subject,
-			body: projectLetters.body,
-			letterDate: projectLetters.letterDate,
-			attachments: projectLetters.attachments,
-			status: projectLetters.status,
-			authorId: projectLetters.authorId,
-			authorName: letterAuthor.name,
-			authorEmail: letterAuthor.email,
-			createdAt: projectLetters.createdAt,
-			updatedAt: projectLetters.updatedAt,
-		})
-		.from(projectLetters)
-		.leftJoin(letterAuthor, eq(projectLetters.authorId, letterAuthor.id))
-		.where(inArray(projectLetters.projectId, projectIds))
-		.orderBy(desc(projectLetters.createdAt));
+	try {
+		return await db
+			.select({
+				id: projectLetters.id,
+				projectId: projectLetters.projectId,
+				recipientName: projectLetters.recipientName,
+				subject: projectLetters.subject,
+				body: projectLetters.body,
+				letterDate: projectLetters.letterDate,
+				attachments: projectLetters.attachments,
+				status: projectLetters.status,
+				authorId: projectLetters.authorId,
+				authorName: letterAuthor.name,
+				authorEmail: letterAuthor.email,
+				createdAt: projectLetters.createdAt,
+				updatedAt: projectLetters.updatedAt,
+			})
+			.from(projectLetters)
+			.leftJoin(letterAuthor, eq(projectLetters.authorId, letterAuthor.id))
+			.where(inArray(projectLetters.projectId, projectIds))
+			.orderBy(desc(projectLetters.createdAt));
+	} catch (error) {
+		console.error(
+			"[activity] Failed to load project letters. Falling back to empty letters list.",
+			error
+		);
+		return [];
+	}
 };
 
 const loadReportPermissions = async (reportIds: string[]) => {
