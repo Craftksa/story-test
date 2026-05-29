@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import {
@@ -399,6 +399,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [uploadingAttachments, setUploadingAttachments] = useState(false);
 	const [uploadingLetterAttachments, setUploadingLetterAttachments] = useState(false);
 	const [actioningReportId, setActioningReportId] = useState<string | null>(null);
+	const lastPrintOpenRef = useRef<{ url: string; openedAt: number } | null>(null);
 
 	const formatDate = (value?: string | null) => {
 		if (!value) return "غير متوفر";
@@ -816,30 +817,28 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}
 	};
 
-	const handleOpenReportPdf = (report: ProjectReport) => {
-		const printUrl = `/activity/reports/${report.id}/print`;
-		const printWindow = window.open(printUrl, "_blank", "noopener,noreferrer");
+	const openPrintPage = (url: string) => {
+		if (!url) return;
 
-		if (!printWindow) {
-			const link = document.createElement("a");
-			link.href = printUrl;
-			link.target = "_blank";
-			link.rel = "noopener noreferrer";
-			link.click();
+		const now = Date.now();
+		if (
+			lastPrintOpenRef.current &&
+			lastPrintOpenRef.current.url === url &&
+			now - lastPrintOpenRef.current.openedAt < 1000
+		) {
+			return;
 		}
+
+		lastPrintOpenRef.current = { url, openedAt: now };
+		window.open(url, "_blank", "noopener,noreferrer");
+	};
+
+	const handleOpenReportPdf = (report: ProjectReport) => {
+		openPrintPage(`/activity/reports/${report.id}/print`);
 	};
 
 	const handleOpenLetterPrint = (letter: ProjectLetter) => {
-		const printUrl = `/activity/letters/${letter.id}/print`;
-		const printWindow = window.open(printUrl, "_blank", "noopener,noreferrer");
-
-		if (!printWindow) {
-			const link = document.createElement("a");
-			link.href = printUrl;
-			link.target = "_blank";
-			link.rel = "noopener noreferrer";
-			link.click();
-		}
+		openPrintPage(`/activity/letters/${letter.id}/print`);
 	};
 
 	const addRecipient = () => {
