@@ -2,14 +2,13 @@
 
 import * as React from "react"
 import {
-  ClipboardListIcon, FileTextIcon,
+  ActivityIcon,
+  ClipboardListIcon,
+  FileTextIcon,
   FolderOpenDotIcon,
-  Frame,
-  GalleryVerticalEnd,
   LayoutDashboardIcon,
   LogOutIcon,
-  Map,
-  PieChart,
+  SettingsIcon,
   SquareUserIcon,
   UsersIcon,
 } from "lucide-react"
@@ -47,6 +46,16 @@ export const getNavigationData = (
             url: "/projects",
             icon: FolderOpenDotIcon,
           },
+          {
+            title: t("activityCenterTitle"),
+            url: "/?tab=activity",
+            icon: ActivityIcon,
+          },
+          {
+            title: t("Tasks"),
+            url: "/?tab=tasks",
+            icon: ClipboardListIcon,
+          },
         ]
         : []),
 
@@ -80,6 +89,15 @@ export const getNavigationData = (
         url: "/profile",
         icon: SquareUserIcon,
       },
+      ...(["admin", "moderator", "employee"].includes(role)
+        ? [
+          {
+            title: t("Settings"),
+            url: "/profile",
+            icon: SettingsIcon,
+          },
+        ]
+        : []),
     ],
     navSecondary: [
       {

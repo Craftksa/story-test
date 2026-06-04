@@ -35,6 +35,7 @@ import Spinner from "@/components/Spinner";
 import {useTranslations} from "use-intl";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProjectStore } from "@/store/projectStore";
 import { useUserStore } from "@/store/userStore";
 import TaskTimelineView from "@/components/tasks/TaskTimelineView";
@@ -1114,6 +1115,9 @@ export default function AdminDashboard() {
 	const noteTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
 	const t = useTranslations();
 	const { data: session } = useSession();
+	const pathname = usePathname();
+	const router = useRouter();
+	const searchParams = useSearchParams();
 	const user = session?.user;
 	const currentActivityNoteAuthor = getActivityNoteAuthorName(user as SessionUserLike | undefined);
 	const { projects, fetchProjects } = useProjectStore();
@@ -1158,6 +1162,15 @@ export default function AdminDashboard() {
 			setActiveTab(nextAllowedTabs[0]);
 		}
 	}, [activeTab, userRole]);
+
+	useEffect(() => {
+		const tabParam = searchParams.get('tab');
+		if (!tabParam) return;
+
+		if (allowedTabs.includes(tabParam as DashboardTab) && activeTab !== tabParam) {
+			setActiveTab(tabParam as DashboardTab);
+		}
+	}, [activeTab, allowedTabs, searchParams]);
 
 	// Chart configurations
 	const projectStatusConfig = {
@@ -1666,7 +1679,18 @@ export default function AdminDashboard() {
 			: 0;
 	const handleActiveTabChange = (value: string) => {
 		if (allowedTabs.includes(value as DashboardTab)) {
-			setActiveTab(value as DashboardTab);
+			const nextTab = value as DashboardTab;
+			setActiveTab(nextTab);
+
+			const nextParams = new URLSearchParams(searchParams.toString());
+			if (nextTab === 'projects') {
+				nextParams.delete('tab');
+			} else {
+				nextParams.set('tab', nextTab);
+			}
+
+			const nextQuery = nextParams.toString();
+			router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
 		}
 	};
 
