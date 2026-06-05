@@ -5,15 +5,16 @@ import axios from "axios";
 import { toast } from "sonner";
 import {
 	AlertCircle,
-	CheckCircle2,
 	Clock3,
 	FilePlus2,
 	FileText,
 	Filter,
+	FolderKanban,
 	Loader2,
 	MessageSquarePlus,
 	RefreshCcw,
 	Send,
+	Sparkles,
 	UploadCloud,
 } from "lucide-react";
 import { useCheckedLocale } from "@/lib/client-utils";
@@ -46,7 +47,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-type ActivityFilter = "all" | "recent" | "waiting_client_action" | "overdue";
+type ActivityFilter =
+	| "all"
+	| "pending_approval"
+	| "overdue"
+	| "waiting_client_action"
+	| "no_recent_activity"
+	| "recent";
 
 type InternalUser = {
 	id: string;
@@ -303,6 +310,17 @@ const isRecentProject = (summary: ProjectSummary) => {
 	return diff <= 7 * 24 * 60 * 60 * 1000;
 };
 
+const matchesActivityFilter = (summary: ProjectSummary, filter: ActivityFilter) => {
+	if (filter === "pending_approval") return summary.pendingApprovalCount > 0;
+	if (filter === "overdue") return summary.overdueTaskCount > 0;
+	if (filter === "waiting_client_action") return summary.clientActionTaskCount > 0;
+	if (filter === "no_recent_activity") return !isRecentProject(summary);
+	if (filter === "recent") return isRecentProject(summary);
+	return true;
+};
+
+const getProjectCountLabel = (count: number) => (count === 1 ? "مشروع" : "مشاريع");
+
 const truncate = (value?: string | null, max = 110) => {
 	if (!value) return "";
 	if (value.length <= max) return value;
@@ -458,13 +476,50 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	}, [selectedProjectId]);
 
 	const filteredProjects = useMemo(() => {
-		return projects.filter((summary) => {
-			if (activityFilter === "recent") return isRecentProject(summary);
-			if (activityFilter === "waiting_client_action") return summary.clientActionTaskCount > 0;
-			if (activityFilter === "overdue") return summary.overdueTaskCount > 0;
-			return true;
-		});
+		return projects.filter((summary) => matchesActivityFilter(summary, activityFilter));
 	}, [activityFilter, projects]);
+
+	const summaryCards = useMemo(
+		() => [
+			{
+				filter: "all" as ActivityFilter,
+				label: "كل المشاريع",
+				count: projects.length,
+				icon: FolderKanban,
+			},
+			{
+				filter: "pending_approval" as ActivityFilter,
+				label: "تحتاج اعتماد",
+				count: projects.filter((summary) => matchesActivityFilter(summary, "pending_approval")).length,
+				icon: AlertCircle,
+			},
+			{
+				filter: "overdue" as ActivityFilter,
+				label: "متأخرة",
+				count: projects.filter((summary) => matchesActivityFilter(summary, "overdue")).length,
+				icon: Clock3,
+			},
+			{
+				filter: "waiting_client_action" as ActivityFilter,
+				label: "بانتظار العميل",
+				count: projects.filter((summary) => matchesActivityFilter(summary, "waiting_client_action")).length,
+				icon: MessageSquarePlus,
+			},
+			{
+				filter: "no_recent_activity" as ActivityFilter,
+				label: "بدون نشاط حديث",
+				count: projects.filter((summary) => matchesActivityFilter(summary, "no_recent_activity")).length,
+				icon: RefreshCcw,
+			},
+			{
+				filter: "recent" as ActivityFilter,
+				label: "محدثة اليوم",
+				count: projects.filter((summary) => matchesActivityFilter(summary, "recent")).length,
+				icon: Sparkles,
+			},
+		],
+		[projects]
+	);
 
 	useEffect(() => {
 		if (!filteredProjects.length) return;
@@ -908,9 +963,63 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	return (
 		<div dir={activityDirection} className={cn("space-y-4", activityTextAlignClass)}>
 			<Card className="border-border/70 shadow-sm">
-				<CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
+				<CardHeader className="gap-4">
 					<div className={cn("space-y-1", activityTextAlignClass)}>
 						<CardTitle>مركز النشاط</CardTitle>
+					</div>
+					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+						{summaryCards.map((card) => {
+							const isActive = activityFilter === card.filter;
+							const isApprovalCard = card.filter === "pending_approval";
+							const Icon = card.icon;
+
+							return (
+								<button
+									key={card.filter}
+									type="button"
+									onClick={() => setActivityFilter(card.filter)}
+									className={cn(
+										"rounded-2xl border px-4 py-3 text-right transition hover:border-primary/30 hover:bg-muted/30",
+										isActive
+											? isApprovalCard
+												? "border-destructive/35 bg-destructive/10 shadow-sm"
+												: "border-primary/35 bg-primary/5 shadow-sm"
+											: "border-border/60 bg-background"
+									)}
+								>
+									<div className="flex items-start justify-between gap-3">
+										<div className={cn("min-w-0 flex-1", activityTextAlignClass)}>
+											<p
+												className={cn(
+													"text-sm font-medium",
+													isActive && isApprovalCard ? "text-destructive" : "text-foreground"
+												)}
+											>
+												{card.label}
+											</p>
+											<div className="mt-3 flex items-end gap-2">
+												<span className="text-2xl font-semibold text-foreground">{card.count}</span>
+												<span className="pb-1 text-xs text-muted-foreground">
+													{getProjectCountLabel(card.count)}
+												</span>
+											</div>
+										</div>
+										<div
+											className={cn(
+												"flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
+												isActive
+													? isApprovalCard
+														? "border-destructive/25 bg-destructive/10 text-destructive"
+														: "border-primary/20 bg-primary/10 text-primary"
+													: "border-border/60 bg-muted/20 text-muted-foreground"
+											)}
+										>
+											<Icon className="h-4 w-4" />
+										</div>
+									</div>
+								</button>
+							);
+						})}
 					</div>
 					<div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
 						<Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as ActivityFilter)}>
@@ -920,9 +1029,11 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="all">كل المشاريع</SelectItem>
-								<SelectItem value="recent">محدث مؤخرًا</SelectItem>
-								<SelectItem value="waiting_client_action">بانتظار إجراء العميل</SelectItem>
-								<SelectItem value="overdue">متأخر</SelectItem>
+								<SelectItem value="pending_approval">تحتاج اعتماد</SelectItem>
+								<SelectItem value="overdue">متأخرة</SelectItem>
+								<SelectItem value="waiting_client_action">بانتظار العميل</SelectItem>
+								<SelectItem value="no_recent_activity">بدون نشاط حديث</SelectItem>
+								<SelectItem value="recent">محدثة اليوم</SelectItem>
 							</SelectContent>
 						</Select>
 						<Button type="button" variant="outline" onClick={openAddNoteDialog}>
