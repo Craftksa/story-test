@@ -962,64 +962,64 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 	return (
 		<div dir={activityDirection} className={cn("space-y-4", activityTextAlignClass)}>
-			<Card className="border-border/70 shadow-sm">
-				<CardHeader className="gap-4">
-					<div className={cn("space-y-1", activityTextAlignClass)}>
-						<CardTitle>مركز النشاط</CardTitle>
-					</div>
-					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-						{summaryCards.map((card) => {
-							const isActive = activityFilter === card.filter;
-							const isApprovalCard = card.filter === "pending_approval";
-							const Icon = card.icon;
+			<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+				{summaryCards.map((card) => {
+					const isActive = activityFilter === card.filter;
+					const isApprovalCard = card.filter === "pending_approval";
+					const Icon = card.icon;
 
-							return (
-								<button
-									key={card.filter}
-									type="button"
-									onClick={() => setActivityFilter(card.filter)}
+					return (
+						<button
+							key={card.filter}
+							type="button"
+							onClick={() => setActivityFilter(card.filter)}
+							className={cn(
+								"rounded-2xl border px-4 py-3 text-right transition hover:border-primary/30 hover:bg-muted/30",
+								isActive
+									? isApprovalCard
+										? "border-destructive/35 bg-destructive/10 shadow-sm"
+										: "border-primary/35 bg-primary/5 shadow-sm"
+									: "border-border/60 bg-background"
+							)}
+						>
+							<div className="flex items-start justify-between gap-3">
+								<div className={cn("min-w-0 flex-1", activityTextAlignClass)}>
+									<p
+										className={cn(
+											"text-sm font-medium",
+											isActive && isApprovalCard ? "text-destructive" : "text-foreground"
+										)}
+									>
+										{card.label}
+									</p>
+									<div className="mt-3 flex items-end gap-2">
+										<span className="text-2xl font-semibold text-foreground">{card.count}</span>
+										<span className="pb-1 text-xs text-muted-foreground">
+											{getProjectCountLabel(card.count)}
+										</span>
+									</div>
+								</div>
+								<div
 									className={cn(
-										"rounded-2xl border px-4 py-3 text-right transition hover:border-primary/30 hover:bg-muted/30",
+										"flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
 										isActive
 											? isApprovalCard
-												? "border-destructive/35 bg-destructive/10 shadow-sm"
-												: "border-primary/35 bg-primary/5 shadow-sm"
-											: "border-border/60 bg-background"
+												? "border-destructive/25 bg-destructive/10 text-destructive"
+												: "border-primary/20 bg-primary/10 text-primary"
+											: "border-border/60 bg-muted/20 text-muted-foreground"
 									)}
 								>
-									<div className="flex items-start justify-between gap-3">
-										<div className={cn("min-w-0 flex-1", activityTextAlignClass)}>
-											<p
-												className={cn(
-													"text-sm font-medium",
-													isActive && isApprovalCard ? "text-destructive" : "text-foreground"
-												)}
-											>
-												{card.label}
-											</p>
-											<div className="mt-3 flex items-end gap-2">
-												<span className="text-2xl font-semibold text-foreground">{card.count}</span>
-												<span className="pb-1 text-xs text-muted-foreground">
-													{getProjectCountLabel(card.count)}
-												</span>
-											</div>
-										</div>
-										<div
-											className={cn(
-												"flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-												isActive
-													? isApprovalCard
-														? "border-destructive/25 bg-destructive/10 text-destructive"
-														: "border-primary/20 bg-primary/10 text-primary"
-													: "border-border/60 bg-muted/20 text-muted-foreground"
-											)}
-										>
-											<Icon className="h-4 w-4" />
-										</div>
-									</div>
-								</button>
-							);
-						})}
+									<Icon className="h-4 w-4" />
+								</div>
+							</div>
+						</button>
+					);
+				})}
+			</div>
+			<Card className="border-border/70 shadow-sm">
+				<CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
+					<div className={cn("space-y-1", activityTextAlignClass)}>
+						<CardTitle>مركز النشاط</CardTitle>
 					</div>
 					<div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
 						<Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as ActivityFilter)}>

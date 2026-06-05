@@ -1773,36 +1773,38 @@ export default function AdminDashboard() {
 			{/*</div>*/}
 
 			{/* Key Metrics Cards */}
-			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-				<MetricCard
-					title="Total Projects"
-					value={dashboardData.overview.totalProjects}
-					subtitle={`${dashboardData.overview.activeProjects} ${t("active projects")}`}
-					icon={Building2}
-				/>
-				<MetricCard
-					title="Total Users"
-					value={dashboardData.overview.totalUsers}
-					subtitle={`${dashboardData.overview.clientUsers} ${t("clients")}, ${dashboardData.overview.employeeUsers} ${t("employees")}`}
-					icon={Users}
-				/>
-				<MetricCard
-					title="Completed Tasks"
-					value={dashboardData.taskMetrics.completedTasks}
-					subtitle={`${dashboardData.taskMetrics.pendingTasks} ${t("pending tasks")}`}
-					icon={CheckCircle}
-				/>
-				<Card className="hover:shadow-md/10 transition-all">
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">{t("Task Progress")}</CardTitle>
-						<TrendingUp className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">{totalTaskCompletionRate}%</div>
-						<Progress value={totalTaskCompletionRate} className="mt-2" />
-					</CardContent>
-				</Card>
-			</div>
+			{activeTab !== "activity" && (
+				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+					<MetricCard
+						title="Total Projects"
+						value={dashboardData.overview.totalProjects}
+						subtitle={`${dashboardData.overview.activeProjects} ${t("active projects")}`}
+						icon={Building2}
+					/>
+					<MetricCard
+						title="Total Users"
+						value={dashboardData.overview.totalUsers}
+						subtitle={`${dashboardData.overview.clientUsers} ${t("clients")}, ${dashboardData.overview.employeeUsers} ${t("employees")}`}
+						icon={Users}
+					/>
+					<MetricCard
+						title="Completed Tasks"
+						value={dashboardData.taskMetrics.completedTasks}
+						subtitle={`${dashboardData.taskMetrics.pendingTasks} ${t("pending tasks")}`}
+						icon={CheckCircle}
+					/>
+					<Card className="hover:shadow-md/10 transition-all">
+						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+							<CardTitle className="text-sm font-medium">{t("Task Progress")}</CardTitle>
+							<TrendingUp className="h-4 w-4 text-muted-foreground" />
+						</CardHeader>
+						<CardContent>
+							<div className="text-2xl font-bold">{totalTaskCompletionRate}%</div>
+							<Progress value={totalTaskCompletionRate} className="mt-2" />
+						</CardContent>
+					</Card>
+				</div>
+			)}
 
 			<Tabs value={activeTab} className="min-w-0 max-w-full gap-4 overflow-x-hidden" onValueChange={handleActiveTabChange}>
 				<TabsContent value="projects" className="space-y-4">
