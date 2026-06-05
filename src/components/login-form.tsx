@@ -85,9 +85,16 @@ export function LoginForm({
               )}
               required
             />
-            <button
-              type="button"
+            <span
+              role="button"
+              tabIndex={0}
               onClick={() => setShowPassword((current) => !current)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault()
+                  setShowPassword((current) => !current)
+                }
+              }}
               aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
               className={cn(
                 "absolute top-1/2 -translate-y-1/2 appearance-none border-0 bg-transparent p-0 shadow-none outline-none ring-0 text-[#111]/60 transition hover:text-[#111] focus:outline-none focus-visible:text-[#111] focus-visible:ring-0 h-auto w-auto leading-none",
@@ -95,7 +102,7 @@ export function LoginForm({
               )}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+            </span>
           </div>
         </div>
 
