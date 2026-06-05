@@ -1712,41 +1712,13 @@ export default function AdminDashboard() {
 
 			<Tabs value={activeTab} className="min-w-0 max-w-full gap-4 overflow-x-hidden" onValueChange={handleActiveTabChange}>
 				<TabsContent value="projects" className="space-y-4">
-					{/* Monthly Progress Bar Chart */}
-					{/*<Card>*/}
-					{/*	<CardHeader>*/}
-					{/*		<CardTitle>Monthly Project Progress</CardTitle>*/}
-					{/*		<CardDescription>Projects completed vs started each month</CardDescription>*/}
-					{/*	</CardHeader>*/}
-					{/*	<CardContent>*/}
-					{/*		<ChartContainer config={monthlyProgressConfig}>*/}
-					{/*			<BarChart accessibilityLayer data={dashboardData.monthlyProgress}>*/}
-					{/*				<CartesianGrid vertical={false} />*/}
-					{/*				<XAxis*/}
-					{/*					dataKey="month"*/}
-					{/*					tickLine={false}*/}
-					{/*					tickMargin={10}*/}
-					{/*					axisLine={false}*/}
-					{/*					tickFormatter={(value) => value.slice(0, 3)}*/}
-					{/*				/>*/}
-					{/*				<ChartTooltip*/}
-					{/*					cursor={false}*/}
-					{/*					content={<ChartTooltipContent indicator="dashed" />}*/}
-					{/*				/>*/}
-					{/*				<Bar dataKey="completed" fill="var(--color-completed)" radius={4} />*/}
-					{/*				<Bar dataKey="started" fill="var(--color-started)" radius={4} />*/}
-					{/*			</BarChart>*/}
-					{/*		</ChartContainer>*/}
-					{/*	</CardContent>*/}
-					{/*	<CardFooter className="flex-col items-start gap-2 text-sm">*/}
-					{/*		<div className="flex gap-2 leading-none font-medium">*/}
-					{/*			Steady project progress this year <TrendingUp className="h-4 w-4" />*/}
-					{/*		</div>*/}
-					{/*		<div className="text-muted-foreground leading-none">*/}
-					{/*			Showing project completion vs initiation trends*/}
-					{/*		</div>*/}
-					{/*	</CardFooter>*/}
-					{/*</Card>*/}
+					<Card className="border-border/70 shadow-sm">
+						<CardContent className="flex min-h-[240px] items-center justify-center px-6 py-12 text-center">
+							<p className="text-base text-muted-foreground">
+								سوف يتم تطوير هذه الصفحة بواسطة المطور لاحقًا
+							</p>
+						</CardContent>
+					</Card>
 				</TabsContent>
 
 				<TabsContent value="tasks" className="min-w-0 max-w-full space-y-4 overflow-hidden">
