@@ -1,13 +1,20 @@
 "use client";
 
+import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
+import { useTheme } from "next-themes";
 import {
 	Bell,
+	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
 	CircleHelp,
+	LogOut,
+	Moon,
 	Search,
+	SquareUser,
+	Sun,
 } from "lucide-react";
 
 import CustomBreadcrumb from "@/components/layout/CustomBreadCrumb";
@@ -18,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
@@ -137,16 +145,24 @@ export default function DashboardTopBar() {
 	const router = useRouter();
 	const { dir } = useCheckedLocale();
 	const { data: session } = useSession();
+	const { resolvedTheme, setTheme } = useTheme();
 	const t = useTranslations();
+	const [mounted, setMounted] = React.useState(false);
 
 	const activeTab = searchParams.get("tab");
 	const { title, subtitle } = getHeaderContent(pathname, activeTab);
 	const user = session?.user;
 	const userRole = typeof user?.role === "string" ? user.role : "";
+	const activeTheme = mounted ? resolvedTheme ?? "light" : "light";
+	const isDark = activeTheme === "dark";
 
 	// Placeholder foundation until a real notifications schema/read API exists.
 	const notifications: DashboardNotification[] = [];
 	const unreadCount = notifications.filter((notification) => notification.unread).length;
+
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	return (
 		<header className="app-shell-header fixed top-0 z-50 flex w-full shrink-0 border-b bg-background/85 backdrop-blur-xl md:relative">
@@ -283,22 +299,67 @@ export default function DashboardTopBar() {
 
 						<Separator orientation="vertical" className="hidden h-8 lg:block" />
 
-						<div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/80 px-3 py-2 shadow-sm">
-							<Avatar className="size-10 border border-border/60">
-								<AvatarImage src={user?.image ?? ""} alt={user?.name ?? "User"} />
-								<AvatarFallback className="bg-muted text-sm font-semibold text-foreground">
-									{getInitials(user?.name)}
-								</AvatarFallback>
-							</Avatar>
-							<div className="min-w-0 text-sm">
-								<p className="truncate font-medium text-foreground">
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									type="button"
+									variant="ghost"
+									className="h-auto rounded-2xl border border-border/70 bg-card/80 px-3 py-2 shadow-sm hover:bg-accent/50"
+									aria-label="قائمة المستخدم"
+								>
+									<div className="flex items-center gap-3">
+										<Avatar className="size-10 border border-border/60">
+											<AvatarImage src={user?.image ?? ""} alt={user?.name ?? "User"} />
+											<AvatarFallback className="bg-muted text-sm font-semibold text-foreground">
+												{getInitials(user?.name)}
+											</AvatarFallback>
+										</Avatar>
+										<div className="min-w-0 text-sm">
+											<p className="truncate font-medium text-foreground">
+												{user?.name || "مستخدم Craft"}
+											</p>
+											<p className="truncate text-xs text-muted-foreground">
+												{roleLabels[userRole] || "عضو الفريق"}
+											</p>
+										</div>
+										<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+									</div>
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent
+								align={dir === "rtl" ? "start" : "end"}
+								className="w-60 rounded-2xl border-border/70 bg-popover/95 p-1 backdrop-blur-xl"
+								sideOffset={10}
+							>
+								<DropdownMenuLabel className="px-3 py-2 text-sm font-semibold">
 									{user?.name || "مستخدم Craft"}
-								</p>
-								<p className="truncate text-xs text-muted-foreground">
-									{roleLabels[userRole] || "عضو الفريق"}
-								</p>
-							</div>
-						</div>
+								</DropdownMenuLabel>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem
+									onClick={() => router.push("/profile")}
+									className="cursor-pointer rounded-xl px-3 py-2"
+								>
+									<SquareUser className="size-4" />
+									<span>الملف الشخصي</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={() => setTheme(isDark ? "light" : "dark")}
+									className="cursor-pointer rounded-xl px-3 py-2"
+								>
+									{isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
+									<span>{isDark ? "الوضع الداكن" : "الوضع الفاتح"}</span>
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem
+									onClick={() => signOut()}
+									className="cursor-pointer rounded-xl px-3 py-2"
+									variant="destructive"
+								>
+									<LogOut className="size-4" />
+									<span>تسجيل الخروج</span>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					</div>
 				</div>
 
