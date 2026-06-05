@@ -17,7 +17,6 @@ import {
 	Sun,
 } from "lucide-react";
 
-import CustomBreadcrumb from "@/components/layout/CustomBreadCrumb";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { ModeToggle } from "@/components/ModeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -186,9 +185,6 @@ export default function DashboardTopBar() {
 						</Button>
 
 						<div className="min-w-0 flex-1 space-y-1">
-							<div className="hidden md:block">
-								<CustomBreadcrumb />
-							</div>
 							<div className="space-y-1">
 								<h1 className="truncate text-xl font-semibold text-foreground sm:text-2xl">
 									{title}
