@@ -15,6 +15,7 @@ import {
 
 import {NavMain} from "@/components/nav-main"
 import {NavUser} from "@/components/nav-user"
+import {SidebarThemeToggle} from "@/components/sidebar-theme-toggle"
 import {BrandDetails} from "@/components/team-switcher"
 import {Sidebar, SidebarContent, SidebarFooter, SidebarHeader,} from "@/components/ui/sidebar"
 import {ScrollArea} from "@/components/ui/scroll-area";
@@ -126,6 +127,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarFooter>
         <NavSecondary items={data.navSecondary} className="mt-auto p-0" />
+        <SidebarThemeToggle />
         <NavUser />
       </SidebarFooter>
       {/*<SidebarRail />*/}
