@@ -2,7 +2,7 @@
 
 import React, {useEffect, useState} from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1126,7 +1126,6 @@ export default function AdminDashboard() {
 	const userRole = typeof user?.role === 'string' ? user.role : null;
 	const isAdmin = userRole === 'admin';
 	const allowedTabs = getAllowedDashboardTabs(userRole);
-	const tabListColumnsClassName = isAdmin ? 'grid-cols-4' : 'grid-cols-3';
 
 	useEffect(() => {
 		const getDashboard = async () => {
@@ -1806,13 +1805,6 @@ export default function AdminDashboard() {
 			</div>
 
 			<Tabs value={activeTab} className="min-w-0 max-w-full gap-4 overflow-x-hidden" onValueChange={handleActiveTabChange}>
-				<TabsList className={`grid w-full ${tabListColumnsClassName}`}>
-					<TabsTrigger value="projects">{t("Projects")}</TabsTrigger>
-					<TabsTrigger value="tasks">{t("Tasks")}</TabsTrigger>
-					{isAdmin && <TabsTrigger value="analysis">التحليل</TabsTrigger>}
-					<TabsTrigger value="activity">{t("Activity")}</TabsTrigger>
-				</TabsList>
-
 				<TabsContent value="projects" className="space-y-4">
 					<div className="grid gap-4 md:grid-cols-2">
 						{/* Project Status Pie Chart */}
