@@ -18,17 +18,8 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import {
-	PieChart,
-	Pie,
-	LabelList
-} from 'recharts';
-import {
 	ChartConfig,
-	ChartContainer,
-	ChartTooltip,
-	ChartTooltipContent,
 } from "@/components/ui/chart";
-import { TrendingUp } from 'lucide-react';
 import StatusBadge from "@/components/StatusBadgeSystem";
 import axios from "axios";
 import Spinner from "@/components/Spinner";
@@ -1165,39 +1156,6 @@ export default function AdminDashboard() {
 	}, [activeTab, allowedTabs, searchParams]);
 
 	// Chart configurations
-	const projectStatusConfig = {
-		count: {
-			label: `${t("Projects")}`,
-		},
-		in_progress: {
-			label: "In Progress",
-			color: "var(--chart-1)",
-		},
-		not_started: {
-			label: "Not Started",
-			color: "var(--chart-2)",
-		},
-		completed: {
-			label: "Completed",
-			color: "var(--chart-3)",
-		},
-		on_hold: {
-			label: "On Hold",
-			color: "var(--chart-4)",
-		},
-	} satisfies ChartConfig;
-
-	const monthlyProgressConfig = {
-		completed: {
-			label: "Completed",
-			color: "var(--chart-1)",
-		},
-		started: {
-			label: "Started",
-			color: "var(--chart-2)",
-		},
-	} satisfies ChartConfig;
-
 	const cityDistributionConfig = {
 		projects: {
 			label: t("Projects"),
@@ -1754,71 +1712,6 @@ export default function AdminDashboard() {
 
 			<Tabs value={activeTab} className="min-w-0 max-w-full gap-4 overflow-x-hidden" onValueChange={handleActiveTabChange}>
 				<TabsContent value="projects" className="space-y-4">
-					<div className="grid gap-4 md:grid-cols-2">
-						{/* Project Status Pie Chart */}
-						<Card className="flex flex-col">
-							<CardHeader className="items-center pb-0">
-								<CardTitle>{t("Project Status Distribution")}</CardTitle>
-								<CardDescription>{t("Overview of all project statuses")}</CardDescription>
-							</CardHeader>
-							<CardContent className="flex-1 pb-0">
-								<ChartContainer
-									config={projectStatusConfig}
-									className="mx-auto aspect-square max-h-[300px]"
-								>
-									<PieChart>
-										<ChartTooltip
-											content={<ChartTooltipContent nameKey="count" hideLabel />}
-										/>
-										<Pie data={dashboardData.projectsByStatus} dataKey="count">
-											<LabelList
-												dataKey="status"
-												className="fill-background"
-												stroke="none"
-												fontSize={12}
-												formatter={(value: keyof typeof projectStatusConfig) =>
-													t(projectStatusConfig[value]?.label)
-												}
-											/>
-										</Pie>
-									</PieChart>
-								</ChartContainer>
-							</CardContent>
-							<CardFooter className="flex-col gap-2 text-sm">
-								<div className="flex items-center gap-2 leading-none font-medium">
-									{dashboardData.overview.activeProjects} {t("active projects")} <TrendingUp className="h-4 w-4" />
-								</div>
-								<div className="text-muted-foreground leading-none">
-									{t("Showing current project distribution")}
-								</div>
-							</CardFooter>
-						</Card>
-
-						{/* Project Types Progress */}
-						<Card>
-							<CardHeader>
-								<CardTitle>{t("Project Types")}</CardTitle>
-								<CardDescription>{t("Villa vs Palace distribution")}</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								{dashboardData.projectsByType.map((type) => (
-									<div key={type.name} className="space-y-2">
-										<div className="flex justify-between text-sm">
-											<span>{t(type.name)}</span>
-											<span>{type.count} {t("projects")} ({type.percentage}%)</span>
-										</div>
-										<Progress value={type.percentage} />
-									</div>
-								))}
-							</CardContent>
-							<CardFooter>
-								<div className="text-muted-foreground text-sm">
-									{t("Total of")} {dashboardData.overview.totalProjects} {t("projects")}
-								</div>
-							</CardFooter>
-						</Card>
-					</div>
-
 					{/* Monthly Progress Bar Chart */}
 					{/*<Card>*/}
 					{/*	<CardHeader>*/}

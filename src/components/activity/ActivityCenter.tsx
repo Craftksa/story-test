@@ -1031,7 +1031,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			<Card className="border-border/70 shadow-sm">
 				<CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
 					<div className={cn("space-y-1", activityTextAlignClass)}>
-						<CardTitle>مركز النشاط</CardTitle>
+						<CardTitle>لوحة التحكم</CardTitle>
 					</div>
 					<div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
 						<Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as ActivityFilter)}>

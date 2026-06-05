@@ -71,7 +71,7 @@ const getInitials = (name?: string | null) => {
 const getHeaderContent = (pathname: string, tab: string | null) => {
 	if (pathname === "/" && tab === "activity") {
 		return {
-			title: "مركز النشاط",
+			title: "لوحة التحكم",
 			subtitle: "متابعة المشاريع والاعتمادات والإجراءات اليومية",
 		};
 	}
@@ -85,7 +85,7 @@ const getHeaderContent = (pathname: string, tab: string | null) => {
 
 	if (pathname === "/") {
 		return {
-			title: "لوحة التحكم",
+			title: "مركز النشاط",
 			subtitle: "نظرة عامة على المشاريع والفرق وسير العمل اليومي",
 		};
 	}
