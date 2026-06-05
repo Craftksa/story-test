@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import Image from "next/image"
+import CraftLogo from "@/components/craft-logo"
 import {SidebarMenu, SidebarMenuButton, SidebarMenuItem} from "@/components/ui/sidebar"
 import {useRouter} from "next/navigation";
 
@@ -13,7 +13,7 @@ export function BrandDetails() {
 			<SidebarMenuItem className="pt-4">
 				<SidebarMenuButton className="hover:bg-transparent  justify-center items-center active:bg-transparent" onClick={() => router.push('/')} size="lg">
 					<div className="flex aspect-square size-24  items-center justify-center rounded-lg">
-						<Image src="/Craft_Logo.svg" alt={"Craft_Logo"} width={100} height={100}/>
+						<CraftLogo className="h-20 w-20" sizes="80px" />
 					</div>
 					{/*<div className="grid flex-1 text-left text-sm leading-tight">*/}
 					{/*  <span className="truncate font-bold">CRAFT</span>*/}

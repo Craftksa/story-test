@@ -27,7 +27,7 @@ export default function LoginPage() {
         <div className="flex z-20 flex-col gap-4 p-6 md:p-8">
           <div className="flex justify-start gap-2 z-20">
             <Link href="/" className="flex items-center size-28 gap-2 -mt-[22px] font-medium">
-              <CraftLogo />
+              <CraftLogo className="h-24 w-24" priority sizes="96px" />
             </Link>
           </div>
           <div className="flex flex-1 items-center mt-10 justify-center">
