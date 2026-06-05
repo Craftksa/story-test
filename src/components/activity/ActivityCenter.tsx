@@ -373,21 +373,33 @@ const activityPanelScrollContainerClass =
 	"overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-color:rgba(218,197,143,0.55)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.05] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9f8a58] hover:[&::-webkit-scrollbar-thumb]:bg-[#dac58f]";
 const activityModalOverlayClassName = "fixed inset-0 z-[9998] bg-black/75 backdrop-blur-sm";
 const activityModalContentClassName =
-	"fixed left-1/2 top-1/2 z-[9999] w-full max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[#dac58f]/20 bg-[#111315] p-0 text-white shadow-2xl shadow-black/60";
+	"fixed left-1/2 top-1/2 z-[9999] w-full max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-background p-0 text-foreground shadow-2xl shadow-black/20";
+const activityModalHeaderClassName =
+	"sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-background/95 px-6 py-5 backdrop-blur";
+const activityModalFooterClassName =
+	"sticky bottom-0 border-t border-border bg-background/95 px-6 py-4 backdrop-blur";
 const activityModalFieldClassName =
-	"w-full rounded-xl border border-[#dac58f]/15 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#8f8a7d] focus:border-[#dac58f]/45 focus:bg-white/[0.07] focus:ring-2 focus:ring-[#dac58f]/10";
+	"w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 const activityModalSelectContentClassName =
-	"z-[10001] border border-[#dac58f]/20 bg-[#111315] text-white shadow-2xl shadow-black/60";
-const activityModalLabelClassName = "mb-2 block text-sm font-medium text-[#e8dfc8]";
+	"z-[10001] border border-border bg-popover text-popover-foreground shadow-2xl shadow-black/20";
+const activityModalLabelClassName = "mb-2 block text-sm font-medium text-foreground";
 const activityModalPrimaryButtonClassName =
 	"rounded-xl bg-[#dac58f] px-5 py-2.5 text-sm font-semibold text-[#111315] transition hover:bg-[#e7d3a3] disabled:cursor-not-allowed disabled:opacity-50";
 const activityModalSecondaryButtonClassName =
 	"rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-5 py-2.5 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15 disabled:cursor-not-allowed disabled:opacity-50";
 const activityModalCancelButtonClassName =
-	"rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-medium text-[#b8b2a3] transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white";
+	"rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground";
 const activityModalCloseButtonClassName =
-	"rounded-full border border-white/10 bg-white/5 p-2 text-[#b8b2a3] transition hover:border-[#dac58f]/30 hover:bg-[#dac58f]/10 hover:text-white";
-const activityModalCardClassName = "rounded-2xl border border-[#dac58f]/12 bg-white/[0.03] p-4";
+	"rounded-full border border-border bg-background p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground";
+const activityModalCardClassName = "rounded-2xl border border-border bg-card p-4";
+const activityModalSurfaceClassName = "rounded-xl border border-border bg-card px-4 py-3";
+const activityModalEmptySurfaceClassName =
+	"rounded-xl border border-dashed border-border bg-muted/30 px-4 py-4 text-sm text-muted-foreground";
+const activityModalListItemClassName =
+	"flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3 text-sm";
+const activityModalUploadTriggerClassName =
+	"inline-flex cursor-pointer items-center rounded-xl border border-border bg-muted/40 px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-accent";
+const activityModalGhostActionClassName = "text-muted-foreground hover:bg-accent hover:text-foreground";
 
 export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const { lang, dir } = useCheckedLocale();
@@ -1390,9 +1402,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					className={cn(activityModalContentClassName, "sm:max-w-4xl")}
 				>
 					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
-						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+						<DialogHeader className={activityModalHeaderClassName}>
 							<div>
-								<DialogTitle className="text-xl font-semibold text-white">
+								<DialogTitle className="text-xl font-semibold text-foreground">
 									{viewedLetter?.subject || "عرض الخطاب"}
 								</DialogTitle>
 							</div>
@@ -1424,29 +1436,29 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 									<div className="grid gap-3 sm:grid-cols-2">
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-[#8f8a7d]">اسم المشروع</p>
+											<p className="text-xs text-muted-foreground">اسم المشروع</p>
 											<p className="text-sm text-[#f5f1e8]">{projectDetails?.project.name || "غير متوفر"}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-[#8f8a7d]">الجهة الموجه لها</p>
+											<p className="text-xs text-muted-foreground">الجهة الموجه لها</p>
 											<p className="text-sm text-[#f5f1e8]">{viewedLetter.recipientName}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-[#8f8a7d]">الموضوع</p>
+											<p className="text-xs text-muted-foreground">الموضوع</p>
 											<p className="text-sm text-[#f5f1e8]">{viewedLetter.subject}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-[#8f8a7d]">التاريخ</p>
+											<p className="text-xs text-muted-foreground">التاريخ</p>
 											<p className="text-sm text-[#f5f1e8]">
 												{formatDate(viewedLetter.letterDate || viewedLetter.createdAt)}
 											</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-[#8f8a7d]">الحالة</p>
+											<p className="text-xs text-muted-foreground">الحالة</p>
 											<p className="text-sm text-[#f5f1e8]">{letterStatusLabel[viewedLetter.status]}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-[#8f8a7d]">الكاتب</p>
+											<p className="text-xs text-muted-foreground">الكاتب</p>
 											<p className="text-sm text-[#f5f1e8]">{viewedLetter.authorName}</p>
 										</div>
 									</div>
@@ -1464,7 +1476,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 									{viewedLetter.attachments.length > 0 && (
 										<div className={cn(activityModalCardClassName, "space-y-3")}>
-											<p className="text-sm font-medium text-[#e8dfc8]">المرفقات</p>
+											<p className="text-sm font-medium text-foreground">المرفقات</p>
 											<div className="flex flex-wrap gap-2">
 												{viewedLetter.attachments.map((attachment, index) => (
 													<a
@@ -1495,9 +1507,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					className={cn(activityModalContentClassName, "sm:max-w-5xl")}
 				>
 					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
-						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+						<DialogHeader className={activityModalHeaderClassName}>
 							<div>
-								<DialogTitle className="text-xl font-semibold text-white">
+								<DialogTitle className="text-xl font-semibold text-foreground">
 									{viewedReport?.title || "عرض التقرير"}
 								</DialogTitle>
 							</div>
@@ -1521,19 +1533,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 										<div className="grid gap-3 sm:grid-cols-2">
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-												<p className="text-xs text-[#8f8a7d]">اسم المشروع</p>
+												<p className="text-xs text-muted-foreground">اسم المشروع</p>
 												<p className="text-sm text-[#f5f1e8]">{projectDetails?.project.name || "غير متوفر"}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-												<p className="text-xs text-[#8f8a7d]">نوع التقرير</p>
+												<p className="text-xs text-muted-foreground">نوع التقرير</p>
 												<p className="text-sm text-[#f5f1e8]">{reportTypeLabel[viewedReport.reportType]}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-												<p className="text-xs text-[#8f8a7d]">التاريخ</p>
+												<p className="text-xs text-muted-foreground">التاريخ</p>
 												<p className="text-sm text-[#f5f1e8]">{formatDate(viewedReport.createdAt)}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-												<p className="text-xs text-[#8f8a7d]">إعداد</p>
+												<p className="text-xs text-muted-foreground">إعداد</p>
 												<p className="text-sm text-[#f5f1e8]">{viewedReport.authorName}</p>
 											</div>
 										</div>
@@ -1642,19 +1654,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 											<div className="grid gap-3 sm:grid-cols-2">
 												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-													<p className="text-xs text-[#8f8a7d]">حالة التقرير</p>
+													<p className="text-xs text-muted-foreground">حالة التقرير</p>
 													<p className="mt-1 text-sm text-[#f5f1e8]">{reportStatusLabel[viewedReport.status]}</p>
 												</div>
 												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-													<p className="text-xs text-[#8f8a7d]">حالة PDF</p>
+													<p className="text-xs text-muted-foreground">حالة PDF</p>
 													<p className="mt-1 text-sm text-[#f5f1e8]">{pdfStatusLabel[viewedReport.pdfStatus]}</p>
 												</div>
 												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-													<p className="text-xs text-[#8f8a7d]">إرسال البريد</p>
+													<p className="text-xs text-muted-foreground">إرسال البريد</p>
 													<p className="mt-1 text-sm text-[#f5f1e8]">{deliveryStatusLabel[viewedReport.emailStatus]}</p>
 												</div>
 												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-													<p className="text-xs text-[#8f8a7d]">إرسال الواتساب</p>
+													<p className="text-xs text-muted-foreground">إرسال الواتساب</p>
 													<p className="mt-1 text-sm text-[#f5f1e8]">{deliveryStatusLabel[viewedReport.whatsappStatus]}</p>
 												</div>
 											</div>
@@ -1662,7 +1674,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 										<div className={cn(activityModalCardClassName, "space-y-4")}>
 											<div className="space-y-2">
-												<p className="text-sm font-medium text-[#e8dfc8]">معلومات الإرسال</p>
+												<p className="text-sm font-medium text-foreground">معلومات الإرسال</p>
 												<p className="text-sm text-[#c7c0af]">
 													{viewedReport.recipients.length > 0
 														? viewedReport.recipients
@@ -1674,7 +1686,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 											{viewedReport.permissions.length > 0 && (
 												<div className="space-y-2">
-													<p className="text-sm font-medium text-[#e8dfc8]">صلاحيات التقرير</p>
+													<p className="text-sm font-medium text-foreground">صلاحيات التقرير</p>
 													<p className="text-sm text-[#c7c0af]">
 														{viewedReport.permissions
 															.map((permission) => `${permission.userName} (${permission.accessLevel === "edit" ? "تعديل" : "مشاهدة"})`)
@@ -1685,7 +1697,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 											{viewedReport.attachments.length > 0 && (
 												<div className="space-y-2">
-													<p className="text-sm font-medium text-[#e8dfc8]">المرفقات</p>
+													<p className="text-sm font-medium text-foreground">المرفقات</p>
 													<div className="flex flex-wrap gap-2">
 														{viewedReport.attachments.map((attachment, index) => (
 															<a
@@ -1730,9 +1742,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					className={cn(activityModalContentClassName, "sm:max-w-xl")}
 				>
 					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
-						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+						<DialogHeader className={activityModalHeaderClassName}>
 							<div>
-								<DialogTitle className="text-xl font-semibold text-white">إضافة ملاحظة</DialogTitle>
+								<DialogTitle className="text-xl font-semibold text-foreground">إضافة ملاحظة</DialogTitle>
 							</div>
 							<Button
 								type="button"
@@ -1772,7 +1784,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								</div>
 							</div>
 						</div>
-						<DialogFooter className="sticky bottom-0 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur">
+						<DialogFooter className={activityModalFooterClassName}>
 							<Button
 								type="button"
 								variant="outline"
@@ -1800,9 +1812,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					className={cn(activityModalContentClassName, "sm:max-w-3xl")}
 				>
 					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
-						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+						<DialogHeader className={activityModalHeaderClassName}>
 							<div>
-								<DialogTitle className="text-xl font-semibold text-white">
+								<DialogTitle className="text-xl font-semibold text-foreground">
 									{letterForm.letterId ? "تعديل خطاب" : "إنشاء خطاب"}
 								</DialogTitle>
 							</div>
@@ -1900,9 +1912,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 									<div className="flex flex-wrap items-center justify-between gap-3">
 										<div>
-											<p className="text-sm font-medium text-[#e8dfc8]">المرفقات</p>
+											<p className="text-sm font-medium text-foreground">المرفقات</p>
 										</div>
-										<label className="inline-flex cursor-pointer items-center rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-4 py-2 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15">
+										<label className={activityModalUploadTriggerClassName}>
 											<UploadCloud className="me-2 h-4 w-4" />
 											{uploadingLetterAttachments ? "جاري الرفع..." : "رفع مرفقات"}
 											<input
@@ -1916,26 +1928,26 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 									<div className="space-y-2">
 										{letterForm.attachments.length === 0 ? (
-											<div className="rounded-xl border border-dashed border-[#dac58f]/15 bg-white/[0.03] px-4 py-4 text-sm text-[#8f8a7d]">
+											<div className={activityModalEmptySurfaceClassName}>
 												لا توجد مرفقات بعد.
 											</div>
 										) : (
 											letterForm.attachments.map((attachment, index) => (
 												<div
 													key={`${attachment.url}-${index}`}
-													className="flex items-center justify-between gap-3 rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-3 py-3 text-sm"
+													className={activityModalListItemClassName}
 												>
 													<div className="min-w-0">
-														<p className="truncate font-medium text-[#e8dfc8]">
+														<p className="truncate font-medium text-foreground">
 															{attachment.name || attachment.url}
 														</p>
-														<p className="truncate text-xs text-[#8f8a7d]">{attachment.url}</p>
+														<p className="truncate text-xs text-muted-foreground">{attachment.url}</p>
 													</div>
 													<Button
 														type="button"
 														variant="ghost"
 														size="sm"
-														className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white"
+														className={activityModalGhostActionClassName}
 														onClick={() =>
 															setLetterForm((current) => ({
 																...current,
@@ -1955,7 +1967,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 						</div>
 
-						<DialogFooter className="sticky bottom-0 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur">
+						<DialogFooter className={activityModalFooterClassName}>
 							<Button
 								type="button"
 								variant="outline"
@@ -1989,9 +2001,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					className={cn(activityModalContentClassName, "sm:max-w-4xl")}
 				>
 					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
-						<DialogHeader className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#dac58f]/10 bg-[#111315]/95 px-6 py-5 backdrop-blur">
+						<DialogHeader className={activityModalHeaderClassName}>
 							<div>
-								<DialogTitle className="text-xl font-semibold text-white">
+								<DialogTitle className="text-xl font-semibold text-foreground">
 									{reportForm.reportId ? "تعديل تقرير" : "إنشاء تقرير"}
 								</DialogTitle>
 							</div>
@@ -2049,7 +2061,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						<div className="space-y-2 md:col-span-2">
 							<div className={cn(activityModalCardClassName, "space-y-4")}>
 								<div>
-									<p className="text-sm font-medium text-[#e8dfc8]">خيارات الإرسال</p>
+									<p className="text-sm font-medium text-foreground">خيارات الإرسال</p>
 								</div>
 								<Select
 									value={reportForm.deliveryOption}
@@ -2124,9 +2136,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 							<div className="flex flex-wrap items-center justify-between gap-3">
 								<div>
-									<p className="text-sm font-medium text-[#e8dfc8]">الصور أو المرفقات</p>
+									<p className="text-sm font-medium text-foreground">الصور أو المرفقات</p>
 								</div>
-								<label className="inline-flex cursor-pointer items-center rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-4 py-2 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15">
+								<label className={activityModalUploadTriggerClassName}>
 									<UploadCloud className="me-2 h-4 w-4" />
 									{uploadingAttachments ? "جاري الرفع..." : "رفع مرفقات"}
 									<input
@@ -2139,21 +2151,21 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 							<div className="space-y-2">
 								{reportForm.attachments.length === 0 ? (
-									<div className="rounded-xl border border-dashed border-[#dac58f]/15 bg-white/[0.03] px-4 py-4 text-sm text-[#8f8a7d]">
+									<div className={activityModalEmptySurfaceClassName}>
 										لا توجد مرفقات بعد.
 									</div>
 								) : (
 									reportForm.attachments.map((attachment, index) => (
-										<div key={`${attachment.url}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-3 py-3 text-sm">
+										<div key={`${attachment.url}-${index}`} className={activityModalListItemClassName}>
 											<div className="min-w-0">
-												<p className="truncate font-medium text-[#e8dfc8]">{attachment.name || attachment.url}</p>
-												<p className="truncate text-xs text-[#8f8a7d]">{attachment.url}</p>
+												<p className="truncate font-medium text-foreground">{attachment.name || attachment.url}</p>
+												<p className="truncate text-xs text-muted-foreground">{attachment.url}</p>
 											</div>
 											<Button
 												type="button"
 												variant="ghost"
 												size="sm"
-												className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white"
+												className={activityModalGhostActionClassName}
 												onClick={() =>
 													setReportForm((current) => ({
 														...current,
@@ -2172,7 +2184,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 							<div className="flex items-center justify-between">
 								<div>
-									<p className="text-sm font-medium text-[#e8dfc8]">المستلمون</p>
+									<p className="text-sm font-medium text-foreground">المستلمون</p>
 								</div>
 								<Button type="button" variant="outline" size="sm" onClick={addRecipient} className={activityModalSecondaryButtonClassName}>
 									إضافة مستلم
@@ -2180,7 +2192,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 							<div className="space-y-3">
 								{reportForm.recipients.map((recipient, index) => (
-									<div key={`recipient-${index}`} className="grid gap-3 rounded-2xl border border-[#dac58f]/15 bg-white/[0.03] p-4 md:grid-cols-4">
+									<div key={`recipient-${index}`} className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-4">
 										<Input
 											value={recipient.name}
 											onChange={(event) => updateRecipient(index, "name", event.target.value)}
@@ -2215,7 +2227,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 													<SelectItem value="none">بدون إرسال مباشر</SelectItem>
 												</SelectContent>
 											</Select>
-											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)} className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white">
+											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)} className={activityModalGhostActionClassName}>
 												حذف
 											</Button>
 										</div>
@@ -2228,7 +2240,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 								<div className="flex items-center justify-between">
 									<div>
-										<p className="text-sm font-medium text-[#e8dfc8]">صلاحيات التقرير</p>
+										<p className="text-sm font-medium text-foreground">صلاحيات التقرير</p>
 									</div>
 									<Button type="button" variant="outline" size="sm" onClick={addPermission} className={activityModalSecondaryButtonClassName}>
 										إضافة صلاحية
@@ -2236,12 +2248,12 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								</div>
 								<div className="space-y-3">
 									{reportForm.permissions.length === 0 ? (
-										<div className="rounded-xl border border-dashed border-[#dac58f]/15 bg-white/[0.03] px-4 py-4 text-sm text-[#8f8a7d]">
+										<div className={activityModalEmptySurfaceClassName}>
 											لم يتم تعيين صلاحيات إضافية بعد.
 										</div>
 									) : (
 										reportForm.permissions.map((permission, index) => (
-											<div key={`permission-${index}`} className="grid gap-3 rounded-2xl border border-[#dac58f]/15 bg-white/[0.03] p-4 md:grid-cols-[minmax(0,1fr)_180px_80px]">
+											<div key={`permission-${index}`} className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_180px_80px]">
 												<Select
 													value={permission.userId}
 													onValueChange={(value) => updatePermission(index, "userId", value)}
@@ -2269,7 +2281,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 														<SelectItem value="edit">تعديل</SelectItem>
 													</SelectContent>
 												</Select>
-												<Button type="button" variant="ghost" onClick={() => removePermission(index)} className="text-[#b8b2a3] hover:bg-white/[0.06] hover:text-white">
+												<Button type="button" variant="ghost" onClick={() => removePermission(index)} className={activityModalGhostActionClassName}>
 													حذف
 												</Button>
 											</div>
@@ -2279,19 +2291,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 						)}
 
-						<div className="rounded-2xl border border-[#dac58f]/15 bg-white/[0.03] p-4 md:col-span-2">
+						<div className="rounded-2xl border border-border bg-card p-4 md:col-span-2">
 							<div className="grid gap-3 sm:grid-cols-3">
 								<div>
-									<p className="text-xs text-[#8f8a7d]">كاتب التقرير</p>
-									<p className="mt-1 text-sm font-medium text-[#e8dfc8]">{currentUser.name || currentUser.email || "غير محدد"}</p>
+									<p className="text-xs text-muted-foreground">كاتب التقرير</p>
+									<p className="mt-1 text-sm font-medium text-foreground">{currentUser.name || currentUser.email || "غير محدد"}</p>
 								</div>
 								<div>
-									<p className="text-xs text-[#8f8a7d]">تاريخ الإنشاء</p>
-									<p className="mt-1 text-sm font-medium text-[#e8dfc8]">{formatDate(new Date().toISOString())}</p>
+									<p className="text-xs text-muted-foreground">تاريخ الإنشاء</p>
+									<p className="mt-1 text-sm font-medium text-foreground">{formatDate(new Date().toISOString())}</p>
 								</div>
 								<div>
-									<p className="text-xs text-[#8f8a7d]">الحالة المتوقعة</p>
-									<p className="mt-1 text-sm font-medium text-[#e8dfc8]">
+									<p className="text-xs text-muted-foreground">الحالة المتوقعة</p>
+									<p className="mt-1 text-sm font-medium text-foreground">
 										{reportForm.deliveryOption === "draft"
 											? "مسودة"
 											: reportForm.reportType === "client" && !isAdmin
@@ -2309,7 +2321,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						</div>
 					</div>
 
-					<DialogFooter className="sticky bottom-0 border-t border-[#dac58f]/10 bg-[#111315]/95 px-6 py-4 backdrop-blur">
+					<DialogFooter className={activityModalFooterClassName}>
 						<Button type="button" variant="outline" onClick={() => setReportDialogOpen(false)} className={activityModalCancelButtonClassName}>
 							إلغاء
 						</Button>
