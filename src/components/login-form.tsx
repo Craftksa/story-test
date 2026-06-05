@@ -90,7 +90,7 @@ export function LoginForm({
               onClick={() => setShowPassword((current) => !current)}
               aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
               className={cn(
-                "absolute top-1/2 -translate-y-1/2 rounded-md p-2 text-[#111]/60 transition hover:text-[#111] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10",
+                "absolute top-1/2 -translate-y-1/2 p-0 text-[#111]/60 transition hover:text-[#111] focus:outline-none focus-visible:text-[#111]",
                 dir === "rtl" ? "left-2" : "right-2"
               )}
             >
