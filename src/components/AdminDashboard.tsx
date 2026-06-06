@@ -261,6 +261,8 @@ const getDateValue = (value?: string | Date | null) => {
 	return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const getSafeArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
+
 const getSafePercentage = (value: number, total: number) =>
 	total > 0 ? Math.round((value / total) * 100) : 0;
 
@@ -1512,12 +1514,23 @@ export default function AdminDashboard() {
 		dashboardData.taskMetrics.completedTasks,
 		dashboardData.taskMetrics.totalTasks
 	);
+	const safeSelectedTimelineProjectDetails = selectedTimelineProjectDetails
+		? {
+				...selectedTimelineProjectDetails,
+				tasks: getSafeArray<DetailedTask>(selectedTimelineProjectDetails.tasks).filter(
+					(task): task is DetailedTask => Boolean(task) && typeof task === "object"
+				),
+				employees: getSafeArray<NonNullable<DetailedProject["employees"]>[number]>(
+					selectedTimelineProjectDetails.employees
+				).filter((employee) => Boolean(employee) && typeof employee === "object"),
+			}
+		: null;
 	const selectedTimelineProjectName =
-		selectedTimelineProjectDetails?.name ||
+		safeSelectedTimelineProjectDetails?.name ||
 		timelineProjectOptions.find((project) => project.id === selectedTimelineProjectId)?.name ||
 		"";
-	const dashboardTimelineTasks = selectedTimelineProjectDetails
-		? buildDashboardTimelineTasks([selectedTimelineProjectDetails])
+	const dashboardTimelineTasks = safeSelectedTimelineProjectDetails
+		? buildDashboardTimelineTasks([safeSelectedTimelineProjectDetails])
 		: [];
 	const selectedProjectTasks = dashboardTimelineTasks;
 	const availableProjectTasks = selectedProjectTasks.filter(
@@ -1559,6 +1572,45 @@ export default function AdminDashboard() {
 		selectedApprovalTask?.taskName || t("Selected task");
 	const approvalPreviewDeadline =
 		approvalDeadline || t("Pending response date");
+	const getDashboardTaskStatusText = (status?: string | null) => {
+		if (typeof status !== "string" || !status.trim()) return "-";
+
+		switch (status.trim().toLowerCase()) {
+			case "completed":
+			case "in_progress":
+			case "not_started":
+			case "on_hold":
+			case "needs_review":
+			case "pending":
+			case "paused":
+			case "blocked":
+			case "working":
+			case "active":
+				return t(status.trim().toLowerCase());
+			default:
+				return formatStatus(status.trim());
+		}
+	};
+	const getDashboardTaskStatusClassName = (status?: string | null) => {
+		switch (status?.trim().toLowerCase()) {
+			case "completed":
+				return "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200";
+			case "on_hold":
+			case "blocked":
+			case "paused":
+				return "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200";
+			case "in_progress":
+			case "needs_review":
+			case "working":
+			case "active":
+				return "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200";
+			case "not_started":
+			case "pending":
+				return "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-500/30 dark:bg-slate-500/10 dark:text-slate-200";
+			default:
+				return "border-border/60 bg-muted/40 text-muted-foreground";
+		}
+	};
 	const dashboardTaskHrefById = new Map(
 		dashboardTimelineTasks.map((task) => [
 			task.taskId,
@@ -1836,7 +1888,7 @@ export default function AdminDashboard() {
 														: `${t("Project Timeline")}: ${selectedTimelineProjectName}`
 												}
 												tasks={dashboardTimelineTasks}
-												projectTeam={selectedTimelineProjectDetails?.employees ?? []}
+												projectTeam={safeSelectedTimelineProjectDetails?.employees ?? []}
 												getTaskHref={(taskId) => dashboardTaskHrefById.get(taskId) ?? null}
 												showWeeklyTable={false}
 												compact
@@ -1874,6 +1926,10 @@ export default function AdminDashboard() {
 																const taskStartDate = getDateValue(task.startDate);
 																const taskEndDate = getDateValue(task.endDate);
 																const taskUpdatedAt = getDateValue(task.updatedAt);
+																const taskTypeText =
+																	typeof task.taskType === "string" && task.taskType.trim()
+																		? task.taskType.trim()
+																		: "-";
 
 																return (
 																	<tr key={task.taskId} className="bg-background/40 transition-colors hover:bg-muted/20">
@@ -1883,10 +1939,17 @@ export default function AdminDashboard() {
 																			</div>
 																		</td>
 																		<td className="px-4 py-4">
-																			<StatusBadge status={formatStatus(task.taskStatus ?? "-")} />
+																			<span
+																				className={cn(
+																					"inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+																					getDashboardTaskStatusClassName(task.taskStatus)
+																				)}
+																			>
+																				{getDashboardTaskStatusText(task.taskStatus)}
+																			</span>
 																		</td>
 																		<td className="px-4 py-4">
-																			<span className="text-sm text-foreground">{task.taskType?.trim() || "-"}</span>
+																			<span className="text-sm text-foreground">{taskTypeText}</span>
 																		</td>
 																		<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
 																			{taskStartDate ? taskStartDate.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
