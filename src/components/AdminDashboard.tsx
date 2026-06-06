@@ -1166,10 +1166,10 @@ export default function AdminDashboard() {
 
 	useEffect(() => {
 		const tabParam = searchParams.get('tab');
-		if (!tabParam) return;
+		const nextTab = resolveDashboardTab(tabParam, allowedTabs);
 
-		if (allowedTabs.includes(tabParam as DashboardTab) && activeTab !== tabParam) {
-			setActiveTab(tabParam as DashboardTab);
+		if (activeTab !== nextTab) {
+			setActiveTab(nextTab);
 		}
 	}, [activeTab, allowedTabs, searchParams]);
 
