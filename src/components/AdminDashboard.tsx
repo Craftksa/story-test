@@ -2,7 +2,7 @@
 
 import React, {useEffect, useState} from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import {
 } from "@/lib/project-visibility";
 import { cn } from "@/lib/utils";
 import { ActivityCenter } from "@/components/activity/ActivityCenter";
+import { CalendarDays, List } from "lucide-react";
 
 type ProjectStatus = 'in_progress' | 'not_started' | 'completed' | 'on_hold';
 type RecentActivityStatus = ProjectStatus | 'needs_review';
@@ -1722,108 +1723,209 @@ export default function AdminDashboard() {
 				</TabsContent>
 
 				<TabsContent value="tasks" className="min-w-0 max-w-full space-y-4 overflow-hidden">
-					<Card className="relative z-10 rounded-2xl border border-border/60 bg-card shadow-sm">
-						<CardHeader className="space-y-4">
-							<div
-								dir={dir}
-								className={cn(
-									"flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between",
-									dir === "rtl" ? "text-right" : "text-left"
-								)}
-							>
-								<div className="space-y-1">
-									<CardTitle>{t("Tasks Operations Center")}</CardTitle>
-									<CardDescription>
-										{t("Select a project to manage tasks and timeline")}
-									</CardDescription>
+					<Tabs defaultValue="timeline" className="space-y-4">
+						<Card className="relative z-10 rounded-2xl border border-border/60 bg-card shadow-sm">
+							<CardHeader className="space-y-4">
+								<div
+									dir={dir}
+									className={cn(
+										"flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between",
+										dir === "rtl" ? "text-right" : "text-left"
+									)}
+								>
+									<div className="space-y-1">
+										<CardTitle>{t("Tasks Operations Center")}</CardTitle>
+										<CardDescription>
+											{t("Select a project to manage tasks and timeline")}
+										</CardDescription>
+									</div>
+									<div className="w-full max-w-sm">
+										<Select value={selectedTimelineProjectId} onValueChange={setSelectedTimelineProjectId}>
+											<SelectTrigger className="w-full rounded-xl border-border/60 bg-background/80 text-foreground">
+												<SelectValue placeholder={t("Select a project")} />
+											</SelectTrigger>
+											<SelectContent>
+												{timelineProjectOptions.map((project) => (
+													<SelectItem key={project.id} value={project.id}>
+														{project.name}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
 								</div>
-								<div className="w-full max-w-sm">
-									<Select value={selectedTimelineProjectId} onValueChange={setSelectedTimelineProjectId}>
-										<SelectTrigger className="w-full rounded-xl border-border/60 bg-background/80 text-foreground">
-											<SelectValue placeholder={t("Select a project")} />
-										</SelectTrigger>
-										<SelectContent>
-											{timelineProjectOptions.map((project) => (
-												<SelectItem key={project.id} value={project.id}>
-													{project.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+								<div
+									dir={dir}
+									className={cn(
+										"flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between",
+										dir === "rtl" ? "xl:flex-row-reverse" : ""
+									)}
+								>
+									<div
+										className={cn(
+											"relative z-10 flex flex-wrap gap-3 pointer-events-auto",
+											dir === "rtl" ? "justify-end" : "justify-start"
+										)}
+									>
+										<Button
+											type="button"
+											onClick={openAddTaskModal}
+											className={taskModalPrimaryButtonClassName}
+										>
+											{t("Add Task")}
+										</Button>
+										<Button
+											type="button"
+											onClick={openApprovalModal}
+											className={taskModalSecondaryButtonClassName}
+										>
+											{t("Request Client Approval")}
+										</Button>
+										<Button
+											type="button"
+											onClick={openDelayModal}
+											className={taskModalWarningButtonClassName}
+										>
+											{t("Log Delay")}
+										</Button>
+									</div>
+									<TabsList className="h-auto w-fit rounded-full border border-border/60 bg-muted/30 p-1">
+										<TabsTrigger value="timeline" className="rounded-full px-4 py-2">
+											<CalendarDays className="me-2 h-4 w-4" />
+											الجدول الزمني
+										</TabsTrigger>
+										<TabsTrigger value="table" className="rounded-full px-4 py-2">
+											<List className="me-2 h-4 w-4" />
+											الجدول
+										</TabsTrigger>
+									</TabsList>
 								</div>
-							</div>
-							<div
-								dir={dir}
-								className={cn(
-									"relative z-10 flex flex-wrap gap-3 pointer-events-auto",
-									dir === "rtl" ? "justify-end" : "justify-start"
-								)}
-							>
-								<Button
-									type="button"
-									onClick={openAddTaskModal}
-									className={taskModalPrimaryButtonClassName}
-								>
-									{t("Add Task")}
-								</Button>
-								<Button
-									type="button"
-									onClick={openApprovalModal}
-									className={taskModalSecondaryButtonClassName}
-								>
-									{t("Request Client Approval")}
-								</Button>
-								<Button
-									type="button"
-									onClick={openDelayModal}
-									className={taskModalWarningButtonClassName}
-								>
-									{t("Log Delay")}
-								</Button>
-							</div>
-						</CardHeader>
-					</Card>
+							</CardHeader>
+						</Card>
 
-					{!selectedTimelineProjectId ? (
-						<Card className="rounded-2xl border border-dashed border-border/60 bg-card shadow-sm">
-							<CardContent className="px-6 py-12 text-center text-sm text-muted-foreground">
-								{t("Select a project to view tasks and timeline")}
-							</CardContent>
-						</Card>
-					) : isSelectedTimelineProjectLoading ? (
-						<Card className="rounded-2xl border border-dashed border-border/60 bg-card shadow-sm">
-							<CardContent className="flex items-center gap-2 px-6 py-6 text-sm text-muted-foreground">
-								<Spinner className="h-4 w-4 text-muted-foreground" />
-								<span>{t("Loading dashboard please wait")}...</span>
-							</CardContent>
-						</Card>
-					) : selectedTimelineProjectLoadError ? (
-						<Card className="rounded-2xl border border-dashed border-border/60 bg-card shadow-sm">
-							<CardContent className="px-6 py-6 text-sm text-muted-foreground">
-								{t("There are no tasks at this stage")}
-							</CardContent>
-						</Card>
-					) : (
-						<Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
-							<CardContent className="min-w-0 max-w-full p-4 sm:p-5 lg:p-6">
-								<div className="min-w-0 max-w-full overflow-hidden">
-								<TaskTimelineView
-									projectId={selectedTimelineProjectId}
-									title={
-										lang === "ar"
-											? `\u062E\u0627\u0631\u0637\u0629 \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0645\u0634\u0631\u0648\u0639: ${selectedTimelineProjectName}`
-											: `${t("Project Timeline")}: ${selectedTimelineProjectName}`
-									}
-									tasks={dashboardTimelineTasks}
-									projectTeam={selectedTimelineProjectDetails?.employees ?? []}
-									getTaskHref={(taskId) => dashboardTaskHrefById.get(taskId) ?? null}
-									showWeeklyTable={false}
-									compact
-								/>
-								</div>
-							</CardContent>
-						</Card>
-					)}
+						{!selectedTimelineProjectId ? (
+							<Card className="rounded-2xl border border-dashed border-border/60 bg-card shadow-sm">
+								<CardContent className="px-6 py-12 text-center text-sm text-muted-foreground">
+									{t("Select a project to view tasks and timeline")}
+								</CardContent>
+							</Card>
+						) : isSelectedTimelineProjectLoading ? (
+							<Card className="rounded-2xl border border-dashed border-border/60 bg-card shadow-sm">
+								<CardContent className="flex items-center gap-2 px-6 py-6 text-sm text-muted-foreground">
+									<Spinner className="h-4 w-4 text-muted-foreground" />
+									<span>{t("Loading dashboard please wait")}...</span>
+								</CardContent>
+							</Card>
+						) : selectedTimelineProjectLoadError ? (
+							<Card className="rounded-2xl border border-dashed border-border/60 bg-card shadow-sm">
+								<CardContent className="px-6 py-6 text-sm text-muted-foreground">
+									{t("There are no tasks at this stage")}
+								</CardContent>
+							</Card>
+						) : (
+							<>
+								<TabsContent value="timeline" className="mt-0">
+									<Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
+										<CardContent className="min-w-0 max-w-full p-4 sm:p-5 lg:p-6">
+											<div className="min-w-0 max-w-full overflow-hidden">
+											<TaskTimelineView
+												projectId={selectedTimelineProjectId}
+												title={
+													lang === "ar"
+														? `\u062E\u0627\u0631\u0637\u0629 \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0645\u0634\u0631\u0648\u0639: ${selectedTimelineProjectName}`
+														: `${t("Project Timeline")}: ${selectedTimelineProjectName}`
+												}
+												tasks={dashboardTimelineTasks}
+												projectTeam={selectedTimelineProjectDetails?.employees ?? []}
+												getTaskHref={(taskId) => dashboardTaskHrefById.get(taskId) ?? null}
+												showWeeklyTable={false}
+												compact
+											/>
+											</div>
+										</CardContent>
+									</Card>
+								</TabsContent>
+								<TabsContent value="table" className="mt-0">
+									<Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
+										<CardContent className="min-w-0 max-w-full p-0">
+											<div className="overflow-x-auto">
+												<table className="min-w-full divide-y divide-border/60">
+													<thead className="bg-muted/30">
+														<tr className={cn("text-sm", dir === "rtl" ? "text-right" : "text-left")}>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">اسم المهمة</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">الحالة</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">النوع</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">تاريخ البداية</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">تاريخ النهاية / الاستحقاق</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">آخر تحديث</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">إجراء</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y divide-border/60">
+														{availableProjectTasks.length === 0 ? (
+															<tr>
+																<td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+																	{t("There are no tasks at this stage")}
+																</td>
+															</tr>
+														) : (
+															availableProjectTasks.map((task) => {
+																const taskHref = dashboardTaskHrefById.get(task.taskId) ?? null;
+																const taskStartDate = getDateValue(task.startDate);
+																const taskEndDate = getDateValue(task.endDate);
+																const taskUpdatedAt = getDateValue(task.updatedAt);
+
+																return (
+																	<tr key={task.taskId} className="bg-background/40 transition-colors hover:bg-muted/20">
+																		<td className="px-4 py-4 text-sm font-medium text-foreground">
+																			<div className={cn("max-w-[20rem] truncate", dir === "rtl" ? "text-right" : "text-left")}>
+																				{task.taskName}
+																			</div>
+																		</td>
+																		<td className="px-4 py-4">
+																			<StatusBadge status={formatStatus(task.taskStatus ?? "-")} />
+																		</td>
+																		<td className="px-4 py-4">
+																			<span className="text-sm text-foreground">{task.taskType?.trim() || "-"}</span>
+																		</td>
+																		<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
+																			{taskStartDate ? taskStartDate.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
+																		</td>
+																		<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
+																			{taskEndDate ? taskEndDate.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
+																		</td>
+																		<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
+																			{taskUpdatedAt ? taskUpdatedAt.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
+																		</td>
+																		<td className="px-4 py-4">
+																			<Button
+																				type="button"
+																				variant="outline"
+																				size="sm"
+																				onClick={() => {
+																					if (taskHref) {
+																						router.push(taskHref);
+																					}
+																				}}
+																				disabled={!taskHref}
+																				className="rounded-full"
+																			>
+																				فتح
+																			</Button>
+																		</td>
+																	</tr>
+																);
+															})
+														)}
+													</tbody>
+												</table>
+											</div>
+										</CardContent>
+									</Card>
+								</TabsContent>
+							</>
+						)}
+					</Tabs>
 				</TabsContent>
 
 				{isAdmin && (
