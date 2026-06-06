@@ -254,6 +254,17 @@ const getAllowedDashboardTabs = (role?: string | null): DashboardTab[] =>
 		? ['projects', 'tasks', 'analysis', 'activity']
 		: ['projects', 'tasks', 'activity'];
 
+const DEFAULT_DASHBOARD_TAB: DashboardTab = 'projects';
+
+const resolveDashboardTab = (
+	tabParam: string | null | undefined,
+	allowedTabs: DashboardTab[],
+	fallback: DashboardTab = DEFAULT_DASHBOARD_TAB
+): DashboardTab =>
+	tabParam && allowedTabs.includes(tabParam as DashboardTab)
+		? (tabParam as DashboardTab)
+		: fallback;
+
 const getDateValue = (value?: string | Date | null) => {
 	if (!value) return null;
 
@@ -1062,7 +1073,16 @@ const parseActivityNotes = (notes?: string | null) =>
 
 
 export default function AdminDashboard() {
-	const [activeTab, setActiveTab] = useState<DashboardTab>('projects');
+	const t = useTranslations();
+	const { data: session } = useSession();
+	const pathname = usePathname();
+	const router = useRouter();
+	const searchParams = useSearchParams();
+	const initialDashboardTab = resolveDashboardTab(
+		searchParams.get('tab'),
+		getAllowedDashboardTabs(null)
+	);
+	const [activeTab, setActiveTab] = useState<DashboardTab>(initialDashboardTab);
 	const [selectedEmployeePanel, setSelectedEmployeePanel] = useState<{
 		employeeId: string;
 		section: EmployeeAnalysisSection;
@@ -1100,11 +1120,6 @@ export default function AdminDashboard() {
 	const [loadedAnalysisProjectIdsKey, setLoadedAnalysisProjectIdsKey] = useState('');
 	const [projectVisibilityScope, setProjectVisibilityScope] = useState<ProjectVisibilityScope>('all');
 	const noteTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
-	const t = useTranslations();
-	const { data: session } = useSession();
-	const pathname = usePathname();
-	const router = useRouter();
-	const searchParams = useSearchParams();
 	const user = session?.user;
 	const currentActivityNoteAuthor = getActivityNoteAuthorName(user as SessionUserLike | undefined);
 	const { projects, fetchProjects } = useProjectStore();
