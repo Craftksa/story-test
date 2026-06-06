@@ -1,4 +1,3 @@
-import ProjectsPage from "@/app/projects/page";
 import {hasRole} from "@/lib/utils";
 import {auth} from "@/auth";
 import AdminDashboard from "@/components/AdminDashboard";
@@ -13,9 +12,6 @@ export default async function Home() {
 					<AdminDashboard />
 
       </div>}
-			<div className="">
-				<ProjectsPage/>
-			</div>
 		</div>
 	);
 }
