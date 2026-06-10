@@ -7,6 +7,9 @@ import { db } from "@/drizzle/db";
 import { projectReports } from "@/drizzle/schema";
 import { hasRole, isValidId } from "@/lib/utils";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 export async function POST(
 	req: NextRequest,
 	{ params }: { params: { reportId: string } }
@@ -40,26 +43,32 @@ export async function POST(
 			project,
 			report,
 			approvedByName: report.approvedByName || user?.name || null,
-		});
+		}, { option: "email" });
 
-		const emailCompleted =
-			delivery.emailStatus === "sent" ||
-			delivery.emailStatus === "not_applicable" ||
-			delivery.emailStatus === "not_configured";
-		const whatsappCompleted =
-			delivery.whatsappStatus === "sent" ||
-			delivery.whatsappStatus === "not_applicable" ||
-			delivery.whatsappStatus === "not_configured";
+		const emailSentSuccessfully =
+			delivery.pdfStatus === "generated" && delivery.emailOutcome === "success";
+
+		if (!emailSentSuccessfully) {
+			return NextResponse.json(
+				{ error: delivery.userMessage },
+				{
+					status:
+						delivery.emailOutcome === "not_configured" || delivery.emailOutcome === "skipped"
+							? 400
+							: 502,
+				}
+			);
+		}
 
 		await db
 			.update(projectReports)
 			.set({
-				status: delivery.pdfStatus === "generated" && emailCompleted && whatsappCompleted ? "sent" : "approved",
+				status: "sent",
 				pdfStatus: delivery.pdfStatus,
 				emailStatus: delivery.emailStatus,
 				whatsappStatus: delivery.whatsappStatus,
 				lastDeliveryError: delivery.lastDeliveryError,
-				sentAt: delivery.pdfStatus === "generated" && emailCompleted && whatsappCompleted ? new Date() : null,
+				sentAt: new Date(),
 				updatedAt: new Date(),
 			})
 			.where(eq(projectReports.id, params.reportId));

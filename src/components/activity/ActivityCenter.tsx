@@ -195,7 +195,20 @@ type ActivityProjectsResponse = {
 type ActivityMutationResponse = {
 	details: ProjectDetails | null;
 	message?: string | null;
+	reportId?: string | null;
 };
+
+type ApiValidationIssue = {
+	code?: string;
+	message?: string;
+	path?: Array<string | number>;
+	minimum?: number;
+	maximum?: number;
+	validation?: string;
+	received?: string;
+};
+
+type ReportSubmitAction = "draft" | "save" | "send";
 
 type ReportFormState = {
 	reportId: string | null;
@@ -243,7 +256,7 @@ const EMPTY_REPORT_FORM: ReportFormState = {
 	reportId: null,
 	projectId: "",
 	reportType: "client",
-	deliveryOption: "draft",
+	deliveryOption: "pdf_only",
 	title: "",
 	summary: "",
 	details: "",
@@ -341,9 +354,17 @@ const inferDeliveryOption = (report: ProjectReport): ReportDeliveryOption => {
 
 const extractApiErrorMessage = (error: unknown, fallbackMessage: string) => {
 	if (axios.isAxiosError(error)) {
-		const apiMessage = error.response?.data?.error;
+		const responseData = error.response?.data as
+			| { error?: string; issues?: ApiValidationIssue[] }
+			| undefined;
+		const apiIssues = Array.isArray(responseData?.issues) ? responseData.issues : [];
+		if (apiIssues.length > 0) {
+			return formatValidationIssues(apiIssues);
+		}
+
+		const apiMessage = responseData?.error;
 		if (typeof apiMessage === "string" && apiMessage.trim()) {
-			return apiMessage;
+			return translateApiErrorMessage(apiMessage);
 		}
 	}
 
@@ -352,6 +373,249 @@ const extractApiErrorMessage = (error: unknown, fallbackMessage: string) => {
 	}
 
 	return fallbackMessage;
+};
+
+const isValidAbsoluteUrl = (value: string) => {
+	try {
+		const url = new URL(value);
+		return url.protocol === "http:" || url.protocol === "https:";
+	} catch {
+		return false;
+	}
+};
+
+const normalizeAttachmentList = <T extends ReportAttachment>(attachments: T[]) =>
+	attachments
+		.map((attachment) => ({
+			...attachment,
+			url: attachment.url.trim(),
+			name: attachment.name?.trim() || null,
+			type: attachment.type?.trim() || null,
+		}))
+		.filter((attachment) => attachment.url && isValidAbsoluteUrl(attachment.url));
+
+const normalizeReportPermissions = (
+	permissions: Array<{ userId: string; accessLevel: "view" | "edit" }>
+) => {
+	const uniquePermissions = new Map<string, { userId: string; accessLevel: "view" | "edit" }>();
+
+	permissions.forEach((permission) => {
+		const userId = permission.userId.trim();
+		if (!userId) return;
+
+		uniquePermissions.set(userId, {
+			userId,
+			accessLevel: permission.accessLevel,
+		});
+	});
+
+	return Array.from(uniquePermissions.values());
+};
+
+const validationFieldLabels: Record<string, string> = {
+	projectId: "المشروع",
+	reportType: "نوع التقرير",
+	title: "عنوان التقرير",
+	summary: "ملخص التقرير",
+	details: "تفاصيل التقرير",
+	workDetails: "التفاصيل الإضافية",
+	attachments: "المرفقات",
+	recipients: "المستلمون",
+	permissions: "الصلاحيات",
+	deliveryOption: "خيار الإرسال",
+	recipientName: "الجهة المرسل إليها",
+	subject: "عنوان الخطاب",
+	letterDate: "تاريخ الخطاب",
+	body: "نص الخطاب",
+	email: "البريد الإلكتروني",
+	phone: "رقم الواتساب",
+	url: "رابط المرفق",
+	userId: "المستخدم",
+	accessLevel: "مستوى الصلاحية",
+};
+
+const getIssueFieldLabel = (issue: ApiValidationIssue) => {
+	const issuePath = Array.isArray(issue.path) ? issue.path : [];
+	const [root, index, leaf] = issuePath;
+
+	if (root === "recipients" && typeof index === "number") {
+		const leafLabel = typeof leaf === "string" ? validationFieldLabels[leaf] : null;
+		return leafLabel
+			? `المستلم ${index + 1} - ${leafLabel}`
+			: `المستلم ${index + 1}`;
+	}
+
+	if (root === "permissions" && typeof index === "number") {
+		const leafLabel = typeof leaf === "string" ? validationFieldLabels[leaf] : null;
+		return leafLabel
+			? `الصلاحية ${index + 1} - ${leafLabel}`
+			: `الصلاحية ${index + 1}`;
+	}
+
+	if (root === "attachments" && typeof index === "number") {
+		const leafLabel = typeof leaf === "string" ? validationFieldLabels[leaf] : null;
+		return leafLabel
+			? `المرفق ${index + 1} - ${leafLabel}`
+			: `المرفق ${index + 1}`;
+	}
+
+	if (typeof leaf === "string" && validationFieldLabels[leaf]) {
+		return validationFieldLabels[leaf];
+	}
+
+	if (typeof root === "string" && validationFieldLabels[root]) {
+		return validationFieldLabels[root];
+	}
+
+	return "البيانات المدخلة";
+};
+
+const translateValidationIssue = (issue: ApiValidationIssue) => {
+	if (issue.code === "too_small" && typeof issue.minimum === "number") {
+		return `يجب ألا يقل عن ${issue.minimum} أحرف.`;
+	}
+
+	if (issue.code === "too_big" && typeof issue.maximum === "number") {
+		return `يجب ألا يزيد عن ${issue.maximum} حرفًا.`;
+	}
+
+	if (issue.code === "invalid_string" && issue.validation === "email") {
+		return "صيغة البريد الإلكتروني غير صحيحة.";
+	}
+
+	if (issue.code === "invalid_string" && issue.validation === "url") {
+		return "رابط الملف غير صالح.";
+	}
+
+	if (issue.code === "invalid_type") {
+		return issue.received === "undefined" ? "هذا الحقل مطلوب." : "قيمة هذا الحقل غير صحيحة.";
+	}
+
+	if (issue.message === "Invalid email") {
+		return "صيغة البريد الإلكتروني غير صحيحة.";
+	}
+
+	if (issue.message === "Required") {
+		return "هذا الحقل مطلوب.";
+	}
+
+	return "القيمة المدخلة غير صحيحة.";
+};
+
+const formatValidationIssues = (issues: ApiValidationIssue[]) => {
+	const messages = issues
+		.slice(0, 3)
+		.map((issue) => `${getIssueFieldLabel(issue)}: ${translateValidationIssue(issue)}`);
+
+	return messages.join(" ");
+};
+
+const translateApiErrorMessage = (message: string) => {
+	const trimmedMessage = message.trim();
+
+	const knownMessages: Record<string, string> = {
+		Forbidden: "لا تملك الصلاحية لتنفيذ هذا الإجراء.",
+		"Project not found": "المشروع غير موجود أو لا تملك صلاحية الوصول إليه.",
+		"Report not found": "التقرير غير موجود.",
+		"Letter not found": "الخطاب غير موجود.",
+		"Invalid report data": "بيانات التقرير غير مكتملة أو لا تطابق المتطلبات المطلوبة.",
+		"Invalid letter data": "بيانات الخطاب غير مكتملة أو لا تطابق المتطلبات المطلوبة.",
+		"One or more report permissions are invalid.": "يوجد مستخدم غير صالح ضمن صلاحيات التقرير.",
+		"You do not have permission to edit this report.": "لا تملك صلاحية تعديل هذا التقرير.",
+		"You do not have permission to edit this letter.": "لا تملك صلاحية تعديل هذا الخطاب.",
+		"Only client reports can be sent.": "يمكن إرسال تقارير العميل فقط.",
+		"Report must be approved before sending.": "يجب اعتماد التقرير قبل إرساله.",
+		"Failed to create report": "تعذر إنشاء التقرير.",
+		"Failed to update report": "تعذر تحديث التقرير.",
+		"Failed to send report": "تعذر إرسال التقرير.",
+		"Failed to create letter": "تعذر إنشاء الخطاب.",
+		"Failed to update letter": "تعذر تحديث الخطاب.",
+	};
+
+	return knownMessages[trimmedMessage] ?? trimmedMessage;
+};
+
+const validateReportForm = ({
+	projectId,
+	title,
+	details,
+	reportType,
+	permissions,
+	isAdmin,
+}: {
+	projectId: string;
+	title: string;
+	details: string;
+	reportType: ReportFormState["reportType"];
+	permissions: Array<{ userId: string; accessLevel: "view" | "edit" }>;
+	isAdmin: boolean;
+}) => {
+	if (!projectId) {
+		return "اختر المشروع أولًا.";
+	}
+
+	if (title.trim().length < 3) {
+		return "عنوان التقرير يجب أن يكون 3 أحرف على الأقل.";
+	}
+
+	if (details.trim().length < 5) {
+		return "تفاصيل التقرير يجب أن تكون 5 أحرف على الأقل.";
+	}
+
+	if (
+		isAdmin &&
+		reportType !== "client" &&
+		permissions.some((permission) => !permission.userId.trim())
+	) {
+		return "اختر مستخدمًا لكل صلاحية أو احذف الصف الفارغ.";
+	}
+
+	return null;
+};
+
+const validateLetterForm = ({
+	projectId,
+	recipientName,
+	subject,
+	body,
+}: {
+	projectId: string;
+	recipientName: string;
+	subject: string;
+	body: string;
+}) => {
+	if (!projectId) {
+		return "اختر المشروع أولًا.";
+	}
+
+	if (recipientName.trim().length < 2) {
+		return "اسم الجهة أو الشخص يجب أن يكون حرفين على الأقل.";
+	}
+
+	if (subject.trim().length < 2) {
+		return "عنوان الخطاب يجب أن يكون حرفين على الأقل.";
+	}
+
+	if (body.trim().length < 5) {
+		return "نص الخطاب يجب أن يكون 5 أحرف على الأقل.";
+	}
+
+	return null;
+};
+
+const getReportDeliveryOptionForAction = (
+	action: ReportSubmitAction,
+	currentOption: ReportDeliveryOption
+): ReportDeliveryOption => {
+	if (action === "draft") {
+		return "draft";
+	}
+
+	if (action === "send") {
+		return "email";
+	}
+
+	return currentOption === "draft" ? "pdf_only" : currentOption;
 };
 
 const priorityClasses: Record<"high" | "medium" | "low", string> = {
@@ -424,7 +688,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [reportForm, setReportForm] = useState<ReportFormState>(EMPTY_REPORT_FORM);
 	const [letterForm, setLetterForm] = useState<LetterFormState>(EMPTY_LETTER_FORM);
 	const [submittingNote, setSubmittingNote] = useState(false);
-	const [submittingReport, setSubmittingReport] = useState(false);
+	const [reportSubmitAction, setReportSubmitAction] = useState<ReportSubmitAction | null>(null);
 	const [submittingLetter, setSubmittingLetter] = useState(false);
 	const [uploadingAttachments, setUploadingAttachments] = useState(false);
 	const [uploadingLetterAttachments, setUploadingLetterAttachments] = useState(false);
@@ -726,6 +990,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				: {
 						details: response.data as ProjectDetails | null,
 						message: null,
+						reportId: null,
 					};
 
 		if (payload.details) {
@@ -733,16 +998,23 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			setSelectedProjectId(payload.details.project.id);
 		}
 		await loadProjects();
-		return payload.message || null;
+		return payload;
 	};
 
 	const handleReportSubmit = async () => {
-		if (!reportForm.projectId || !reportForm.title.trim() || !reportForm.details.trim()) {
-			toast.error("أكمل بيانات التقرير الأساسية أولًا.");
-			return;
-		}
+		void handleReportAction("save");
+	};
 
-		const cleanedRecipients = reportForm.recipients
+	const closeReportDialog = () => {
+		setReportDialogOpen(false);
+		setReportForm({
+			...EMPTY_REPORT_FORM,
+			projectId: selectedProjectId,
+		});
+	};
+
+	const getCleanedReportRecipients = () =>
+		reportForm.recipients
 			.map((recipient) => ({
 				name: recipient.name.trim(),
 				email: recipient.email?.trim() || null,
@@ -751,56 +1023,129 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			}))
 			.filter((recipient) => recipient.name);
 
-		setSubmittingReport(true);
-		try {
-			const payload = {
-				projectId: reportForm.projectId,
-				reportType: reportForm.reportType,
-				deliveryOption: reportForm.deliveryOption,
-				title: reportForm.title.trim(),
-				summary: reportForm.summary.trim() || null,
-				details: reportForm.details.trim(),
-				workDetails: reportForm.workDetails.trim() || null,
-				attachments: reportForm.attachments,
-				recipients: cleanedRecipients,
-				permissions: reportForm.permissions,
-			};
+	const buildReportPayload = (action: ReportSubmitAction) => {
+		const deliveryOption = getReportDeliveryOptionForAction(action, reportForm.deliveryOption);
 
-			if (reportForm.reportId) {
-				const message = await upsertProjectDetails(
-					axios.patch<ActivityMutationResponse>(`/api/activity/reports/${reportForm.reportId}`, payload)
-				);
-				toast.success(message || "تم تحديث التقرير.");
-			} else {
-				const message = await upsertProjectDetails(
-					axios.post<ActivityMutationResponse>("/api/activity/reports", payload)
-				);
-				toast.success(message || "تم إنشاء التقرير بنجاح.");
+		return {
+			projectId: reportForm.projectId,
+			reportType: reportForm.reportType,
+			deliveryOption,
+			submitAction: action,
+			title: reportForm.title.trim(),
+			summary: reportForm.summary.trim() || null,
+			details: reportForm.details.trim(),
+			workDetails: reportForm.workDetails.trim() || null,
+			attachments: normalizeAttachmentList(reportForm.attachments),
+			recipients: getCleanedReportRecipients(),
+			permissions: normalizeReportPermissions(reportForm.permissions),
+		};
+	};
+
+	const validateReportAction = (action: ReportSubmitAction) => {
+		const validationError = validateReportForm({
+			projectId: reportForm.projectId,
+			title: reportForm.title,
+			details: reportForm.details,
+			reportType: reportForm.reportType,
+			permissions: reportForm.permissions,
+			isAdmin,
+		});
+
+		if (validationError) {
+			return validationError;
+		}
+
+		if (action === "send") {
+			if (!isAdmin) {
+				return "لا تملك صلاحية إرسال التقرير.";
 			}
 
-			setReportDialogOpen(false);
-			setReportForm({
-				...EMPTY_REPORT_FORM,
-				projectId: selectedProjectId,
-			});
+			if (reportForm.reportType !== "client") {
+				return "يمكن إرسال تقارير العميل فقط.";
+			}
+
+			const hasEmailRecipient = getCleanedReportRecipients().some((recipient) => !!recipient.email);
+			if (!hasEmailRecipient) {
+				return "يجب إضافة مستلم بريد إلكتروني صالح قبل إرسال التقرير.";
+			}
+		}
+
+		return null;
+	};
+
+	const handleReportAction = async (action: ReportSubmitAction) => {
+		const validationError = validateReportAction(action);
+		if (validationError) {
+			toast.error(validationError);
+			return;
+		}
+
+		setReportSubmitAction(action);
+		try {
+			const payload = buildReportPayload(action);
+			const saveResponse = await upsertProjectDetails(
+				reportForm.reportId
+					? axios.patch<ActivityMutationResponse>(
+							`/api/activity/reports/${reportForm.reportId}`,
+							payload
+						)
+					: axios.post<ActivityMutationResponse>("/api/activity/reports", payload)
+			);
+
+			const savedReportId = saveResponse.reportId || reportForm.reportId;
+			if (savedReportId && savedReportId !== reportForm.reportId) {
+				setReportForm((current) => ({
+					...current,
+					reportId: savedReportId,
+					deliveryOption: payload.deliveryOption,
+				}));
+			}
+
+			if (action === "send") {
+				if (!savedReportId) {
+					throw new Error("تعذر حفظ التقرير قبل الإرسال.");
+				}
+
+				const sendResponse = await upsertProjectDetails(
+					axios.post<ActivityMutationResponse>(`/api/activity/reports/${savedReportId}/send`, {})
+				);
+				toast.success(sendResponse.message || "تم إرسال التقرير بنجاح");
+				closeReportDialog();
+				return;
+			}
+
+			toast.success(
+				saveResponse.message ||
+					(action === "draft" ? "تم حفظ التقرير كمسودة" : "تم حفظ التعديلات بنجاح.")
+			);
+			closeReportDialog();
 		} catch (error) {
-			console.error("Failed to submit report", error);
-			toast.error(extractApiErrorMessage(error, "تعذر حفظ التقرير."));
+			console.error(`Failed to ${action} report`, error);
+			toast.error(
+				extractApiErrorMessage(
+					error,
+					action === "send" ? "تعذر إرسال التقرير." : "تعذر حفظ التقرير."
+				)
+			);
 		} finally {
-			setSubmittingReport(false);
+			setReportSubmitAction(null);
 		}
 	};
 
 	const handleLetterSubmit = async () => {
-		if (
-			!letterForm.projectId ||
-			!letterForm.recipientName.trim() ||
-			!letterForm.subject.trim() ||
-			!letterForm.body.trim()
-		) {
-			toast.error("أكمل بيانات الخطاب الأساسية أولًا.");
+		const validationError = validateLetterForm({
+			projectId: letterForm.projectId,
+			recipientName: letterForm.recipientName,
+			subject: letterForm.subject,
+			body: letterForm.body,
+		});
+
+		if (validationError) {
+			toast.error(validationError);
 			return;
 		}
+
+		const cleanedAttachments = normalizeAttachmentList(letterForm.attachments);
 
 		setSubmittingLetter(true);
 		try {
@@ -810,22 +1155,22 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				subject: letterForm.subject.trim(),
 				letterDate: letterForm.letterDate || null,
 				body: letterForm.body.trim(),
-				attachments: letterForm.attachments,
+				attachments: cleanedAttachments,
 			};
 
 			if (letterForm.letterId) {
-				const message = await upsertProjectDetails(
+				const responsePayload = await upsertProjectDetails(
 					axios.patch<ActivityMutationResponse>(
 						`/api/activity/letters/${letterForm.letterId}`,
 						payload
 					)
 				);
-				toast.success(message || "تم تحديث الخطاب.");
+				toast.success(responsePayload.message || "تم تحديث الخطاب.");
 			} else {
-				const message = await upsertProjectDetails(
+				const responsePayload = await upsertProjectDetails(
 					axios.post<ActivityMutationResponse>("/api/activity/letters", payload)
 				);
-				toast.success(message || "تم إنشاء الخطاب بنجاح.");
+				toast.success(responsePayload.message || "تم إنشاء الخطاب بنجاح.");
 			}
 
 			setLetterDialogOpen(false);
@@ -850,14 +1195,14 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 		setActioningReportId(approvalDialog.reportId);
 		try {
-			const message = await upsertProjectDetails(
+			const responsePayload = await upsertProjectDetails(
 				axios.patch<ActivityMutationResponse>(`/api/activity/reports/${approvalDialog.reportId}/approval`, {
 					decision: approvalDialog.decision,
 					reason: approvalDialog.reason.trim() || null,
 				})
 			);
 			toast.success(
-				message ||
+				responsePayload.message ||
 					(approvalDialog.decision === "approve" ? "تم اعتماد التقرير." : "تم رفض التقرير.")
 			);
 			setApprovalDialog(null);
@@ -872,10 +1217,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const handleSendReport = async (report: ProjectReport) => {
 		setActioningReportId(report.id);
 		try {
-			const message = await upsertProjectDetails(
+			const responsePayload = await upsertProjectDetails(
 				axios.post<ActivityMutationResponse>(`/api/activity/reports/${report.id}/send`, {})
 			);
-			toast.success(message || "تم إرسال التقرير للعميل.");
+			toast.success(responsePayload.message || "تم إرسال التقرير للعميل.");
 		} catch (error) {
 			console.error("Failed to send report", error);
 			toast.error(extractApiErrorMessage(error, "تعذر إرسال التقرير."));
@@ -2321,18 +2666,62 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						</div>
 					</div>
 
-					<DialogFooter className={activityModalFooterClassName}>
-						<Button type="button" variant="outline" onClick={() => setReportDialogOpen(false)} className={activityModalCancelButtonClassName}>
-							إلغاء
-						</Button>
-						<Button type="button" onClick={handleReportSubmit} disabled={submittingReport || uploadingAttachments} className={activityModalPrimaryButtonClassName}>
-							{submittingReport ? (
-								<Loader2 className="h-4 w-4 animate-spin" />
-							) : reportForm.reportId ? (
-								"حفظ التعديلات"
+					<DialogFooter className={cn(activityModalFooterClassName, "flex flex-wrap justify-end gap-2")}>
+						<Button
+							type="button"
+							onClick={() => void handleReportAction("draft")}
+							disabled={!!reportSubmitAction || uploadingAttachments}
+							className={activityModalSecondaryButtonClassName}
+						>
+							{reportSubmitAction === "draft" ? (
+								<>
+									<Loader2 className="me-2 h-4 w-4 animate-spin" />
+									جارٍ الحفظ...
+								</>
 							) : (
-								deliveryOptionLabel[reportForm.deliveryOption]
+								"حفظ كمسودة"
 							)}
+						</Button>
+						<Button
+							type="button"
+							onClick={() => void handleReportAction("save")}
+							disabled={!!reportSubmitAction || uploadingAttachments}
+							className={activityModalPrimaryButtonClassName}
+						>
+							{reportSubmitAction === "save" ? (
+								<>
+									<Loader2 className="me-2 h-4 w-4 animate-spin" />
+									جارٍ الحفظ...
+								</>
+							) : (
+								"حفظ التعديلات"
+							)}
+						</Button>
+						{isAdmin && reportForm.reportType === "client" && (
+							<Button
+								type="button"
+								onClick={() => void handleReportAction("send")}
+								disabled={!!reportSubmitAction || uploadingAttachments}
+								className={activityModalPrimaryButtonClassName}
+							>
+								{reportSubmitAction === "send" ? (
+									<>
+										<Loader2 className="me-2 h-4 w-4 animate-spin" />
+										جارٍ الإرسال...
+									</>
+								) : (
+									"إرسال التقرير"
+								)}
+							</Button>
+						)}
+						<Button
+							type="button"
+							variant="outline"
+							onClick={closeReportDialog}
+							disabled={!!reportSubmitAction}
+							className={activityModalCancelButtonClassName}
+						>
+							إلغاء
 						</Button>
 					</DialogFooter>
 					</div>

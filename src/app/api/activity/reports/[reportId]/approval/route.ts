@@ -77,7 +77,7 @@ export async function PATCH(
 				project,
 				report,
 				approvedByName: user?.name ?? null,
-			});
+			}, { option: "email" });
 
 			pdfStatus = delivery.pdfStatus;
 			emailStatus = delivery.emailStatus;
@@ -85,17 +85,20 @@ export async function PATCH(
 			lastDeliveryError = delivery.lastDeliveryError;
 			message = delivery.userMessage;
 
-			const emailCompleted =
-				emailStatus === "sent" || emailStatus === "not_applicable" || emailStatus === "not_configured";
-			const whatsappCompleted =
-				whatsappStatus === "sent" ||
-				whatsappStatus === "not_applicable" ||
-				whatsappStatus === "not_configured";
-
-			if (pdfStatus === "generated" && emailCompleted && whatsappCompleted) {
-				nextStatus = "sent";
-				sentAt = new Date();
+			if (!(pdfStatus === "generated" && delivery.emailOutcome === "success")) {
+				return NextResponse.json(
+					{ error: message },
+					{
+						status:
+							delivery.emailOutcome === "not_configured" || delivery.emailOutcome === "skipped"
+								? 400
+								: 502,
+					}
+				);
 			}
+
+			nextStatus = "sent";
+			sentAt = new Date();
 		}
 
 		await db

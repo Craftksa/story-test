@@ -32,6 +32,24 @@ const reportPermissionSchema = z.object({
 	accessLevel: z.enum(["view", "edit"]),
 });
 
+const reportSubmitActionSchema = z.enum(["draft", "save", "send"]);
+
+const dedupePermissions = (permissions: Array<z.infer<typeof reportPermissionSchema>>) => {
+	const uniquePermissions = new Map<string, z.infer<typeof reportPermissionSchema>>();
+
+	permissions.forEach((permission) => {
+		const userId = permission.userId.trim();
+		if (!userId) return;
+
+		uniquePermissions.set(userId, {
+			userId,
+			accessLevel: permission.accessLevel,
+		});
+	});
+
+	return Array.from(uniquePermissions.values());
+};
+
 const updateReportSchema = z.object({
 	title: z.string().min(3).max(180),
 	summary: z.string().max(4000).optional().nullable(),
@@ -44,6 +62,7 @@ const updateReportSchema = z.object({
 		.enum(["draft", "pdf_only", "email", "whatsapp", "email_whatsapp"])
 		.optional()
 		.default("draft"),
+	submitAction: reportSubmitActionSchema.optional(),
 });
 
 const normalizeRecipientChannel = (
@@ -63,6 +82,36 @@ const normalizeRecipientChannel = (
 		default:
 			return recipient.channel ?? "both";
 	}
+};
+
+const getStatusForSubmitAction = ({
+	existingStatus,
+	reportType,
+	isAdmin,
+	submitAction,
+}: {
+	existingStatus: "draft" | "pending_admin_approval" | "approved" | "rejected" | "sent";
+	reportType: "client" | "internal" | "shared";
+	isAdmin: boolean;
+	submitAction?: z.infer<typeof reportSubmitActionSchema>;
+}) => {
+	if (submitAction === "draft") {
+		return "draft" as const;
+	}
+
+	if (submitAction === "send") {
+		if (existingStatus === "sent") {
+			return "sent" as const;
+		}
+
+		if (reportType === "client") {
+			return isAdmin ? ("approved" as const) : ("pending_admin_approval" as const);
+		}
+
+		return "approved" as const;
+	}
+
+	return existingStatus;
 };
 
 export async function GET(
@@ -116,7 +165,12 @@ export async function PATCH(
 		}
 
 		const isAdmin = hasRole(user, ["admin", "moderator"]);
-		const requestedPermissions = isAdmin ? parsed.data.permissions : existingReport.permissions;
+		const requestedPermissions = isAdmin
+			? dedupePermissions(parsed.data.permissions)
+			: existingReport.permissions.map((permission) => ({
+					userId: permission.userId.trim(),
+					accessLevel: permission.accessLevel,
+				}));
 		const uniquePermissionUserIds = [...new Set(requestedPermissions.map((permission) => permission.userId))];
 
 		if (uniquePermissionUserIds.length > 0) {
@@ -145,6 +199,13 @@ export async function PATCH(
 			phone: recipient.phone?.trim() || null,
 			channel: normalizeRecipientChannel(parsed.data.deliveryOption, recipient),
 		}));
+		const nextStatus = getStatusForSubmitAction({
+			existingStatus: existingReport.status,
+			reportType: existingReport.reportType,
+			isAdmin,
+			submitAction: parsed.data.submitAction,
+		});
+		const shouldResetToDraft = parsed.data.submitAction === "draft";
 
 		await db
 			.update(projectReports)
@@ -155,6 +216,16 @@ export async function PATCH(
 				workDetails: parsed.data.workDetails?.trim() || null,
 				attachments: serializeJsonList(parsed.data.attachments),
 				recipients: serializeJsonList(normalizedRecipients),
+				status: nextStatus,
+				approvedBy: shouldResetToDraft ? null : existingReport.approvedBy,
+				approvedAt: shouldResetToDraft ? null : existingReport.approvedAt ? new Date(existingReport.approvedAt) : null,
+				rejectionReason: shouldResetToDraft ? null : existingReport.rejectionReason,
+				adminDecisionNote: shouldResetToDraft ? null : existingReport.adminDecisionNote,
+				pdfStatus: shouldResetToDraft ? "not_generated" : existingReport.pdfStatus,
+				emailStatus: shouldResetToDraft ? "not_applicable" : existingReport.emailStatus,
+				whatsappStatus: shouldResetToDraft ? "not_applicable" : existingReport.whatsappStatus,
+				lastDeliveryError: shouldResetToDraft ? null : existingReport.lastDeliveryError,
+				sentAt: shouldResetToDraft ? null : existingReport.sentAt ? new Date(existingReport.sentAt) : null,
 				updatedAt: new Date(),
 			})
 			.where(eq(projectReports.id, params.reportId));
@@ -177,7 +248,11 @@ export async function PATCH(
 		const details = await getActivityProjectDetails(existingReport.projectId, user ?? {});
 		return NextResponse.json({
 			details,
-			message: "تم تحديث التقرير بنجاح.",
+			message:
+				parsed.data.submitAction === "draft"
+					? "تم حفظ التقرير كمسودة"
+					: "تم تحديث التقرير بنجاح.",
+			reportId: existingReport.id,
 		});
 	} catch (error) {
 		console.error("PATCH /api/activity/reports/[reportId] error:", error);

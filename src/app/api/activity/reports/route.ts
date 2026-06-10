@@ -33,6 +33,24 @@ const reportPermissionSchema = z.object({
 	accessLevel: z.enum(["view", "edit"]),
 });
 
+const reportSubmitActionSchema = z.enum(["draft", "save", "send"]);
+
+const dedupePermissions = (permissions: Array<z.infer<typeof reportPermissionSchema>>) => {
+	const uniquePermissions = new Map<string, z.infer<typeof reportPermissionSchema>>();
+
+	permissions.forEach((permission) => {
+		const userId = permission.userId.trim();
+		if (!userId) return;
+
+		uniquePermissions.set(userId, {
+			userId,
+			accessLevel: permission.accessLevel,
+		});
+	});
+
+	return Array.from(uniquePermissions.values());
+};
+
 const createReportSchema = z.object({
 	projectId: z.string().min(1),
 	reportType: z.enum(["client", "internal", "shared"]),
@@ -47,6 +65,7 @@ const createReportSchema = z.object({
 		.enum(["draft", "pdf_only", "email", "whatsapp", "email_whatsapp"])
 		.optional()
 		.default("draft"),
+	submitAction: reportSubmitActionSchema.optional(),
 });
 
 const normalizeRecipientChannel = (
@@ -98,6 +117,54 @@ const getInitialChannelStatuses = (option: ReportDeliveryOption) => ({
 			: ("not_applicable" as const),
 });
 
+const getStatusForSubmitAction = ({
+	reportType,
+	deliveryOption,
+	isAdmin,
+	submitAction,
+}: {
+	reportType: "client" | "internal" | "shared";
+	deliveryOption: ReportDeliveryOption;
+	isAdmin: boolean;
+	submitAction?: z.infer<typeof reportSubmitActionSchema>;
+}) => {
+	if (submitAction === "draft") {
+		return "draft" as const;
+	}
+
+	if (submitAction === "save" || submitAction === "send") {
+		if (reportType === "client") {
+			return isAdmin ? ("approved" as const) : ("pending_admin_approval" as const);
+		}
+
+		return "approved" as const;
+	}
+
+	return getInitialStatus({
+		reportType,
+		deliveryOption,
+		isAdmin,
+	});
+};
+
+const getChannelStatusesForSubmitAction = ({
+	deliveryOption,
+	submitAction,
+}: {
+	deliveryOption: ReportDeliveryOption;
+	submitAction?: z.infer<typeof reportSubmitActionSchema>;
+}) => {
+	if (submitAction) {
+		return {
+			pdfStatus: "not_generated" as const,
+			emailStatus: "not_applicable" as const,
+			whatsappStatus: "not_applicable" as const,
+		};
+	}
+
+	return getInitialChannelStatuses(deliveryOption);
+};
+
 export async function POST(req: NextRequest) {
 	const { user } = await authenticate(req);
 
@@ -119,7 +186,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		const isAdmin = hasRole(user, ["admin", "moderator"]);
-		const requestedPermissions = isAdmin ? parsed.data.permissions : [];
+		const requestedPermissions = isAdmin ? dedupePermissions(parsed.data.permissions) : [];
 		const uniquePermissionUserIds = [...new Set(requestedPermissions.map((permission) => permission.userId))];
 
 		if (uniquePermissionUserIds.length > 0) {
@@ -149,12 +216,16 @@ export async function POST(req: NextRequest) {
 			channel: normalizeRecipientChannel(parsed.data.deliveryOption, recipient),
 		}));
 
-		const initialStatus = getInitialStatus({
+		const initialStatus = getStatusForSubmitAction({
 			reportType: parsed.data.reportType,
 			deliveryOption: parsed.data.deliveryOption,
 			isAdmin,
+			submitAction: parsed.data.submitAction,
 		});
-		const initialChannelStatuses = getInitialChannelStatuses(parsed.data.deliveryOption);
+		const initialChannelStatuses = getChannelStatusesForSubmitAction({
+			deliveryOption: parsed.data.deliveryOption,
+			submitAction: parsed.data.submitAction,
+		});
 
 		const insertedReports = await db
 			.insert(projectReports)
@@ -193,8 +264,12 @@ export async function POST(req: NextRequest) {
 
 		let message: string;
 		const shouldProcessImmediately =
+			!parsed.data.submitAction &&
 			parsed.data.deliveryOption !== "draft" &&
 			(parsed.data.reportType !== "client" || isAdmin);
+		const requestedImmediateClientEmailSend =
+			parsed.data.reportType === "client" &&
+			["email", "whatsapp", "email_whatsapp"].includes(parsed.data.deliveryOption);
 
 		if (shouldProcessImmediately) {
 			const report = await getReportById(createdReport.id, user ?? {});
@@ -207,28 +282,18 @@ export async function POST(req: NextRequest) {
 						report,
 						approvedByName: report.approvedByName || user?.name || null,
 					},
-					{ option: parsed.data.deliveryOption }
+					{
+						option: requestedImmediateClientEmailSend ? "email" : parsed.data.deliveryOption,
+					}
 				);
 
-				const emailCompleted =
-					delivery.emailStatus === "sent" ||
-					delivery.emailStatus === "not_applicable" ||
-					delivery.emailStatus === "not_configured";
-				const whatsappCompleted =
-					delivery.whatsappStatus === "sent" ||
-					delivery.whatsappStatus === "not_applicable" ||
-					delivery.whatsappStatus === "not_configured";
-				const deliveredToClientChannels =
-					parsed.data.deliveryOption === "email" ||
-					parsed.data.deliveryOption === "whatsapp" ||
-					parsed.data.deliveryOption === "email_whatsapp";
+				const emailSentSuccessfully =
+					delivery.pdfStatus === "generated" && delivery.emailOutcome === "success";
 
 				const nextStatus =
 					parsed.data.reportType === "client" &&
-					deliveredToClientChannels &&
-					delivery.pdfStatus === "generated" &&
-					emailCompleted &&
-					whatsappCompleted
+					requestedImmediateClientEmailSend &&
+					emailSentSuccessfully
 						? ("sent" as const)
 						: initialStatus === "draft"
 							? ("draft" as const)
@@ -242,8 +307,7 @@ export async function POST(req: NextRequest) {
 						emailStatus: delivery.emailStatus,
 						whatsappStatus: delivery.whatsappStatus,
 						lastDeliveryError: delivery.lastDeliveryError,
-						sentAt:
-							nextStatus === "sent" && delivery.pdfStatus === "generated" ? new Date() : null,
+						sentAt: nextStatus === "sent" ? new Date() : null,
 						updatedAt: new Date(),
 					})
 					.where(eq(projectReports.id, createdReport.id));
@@ -267,6 +331,7 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({
 			details,
 			message,
+			reportId: createdReport.id,
 		});
 	} catch (error) {
 		console.error("POST /api/activity/reports error:", error);

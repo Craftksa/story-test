@@ -15,11 +15,14 @@ export type ReportDeliveryOption =
 	| "email_whatsapp";
 
 type DeliveryStatus = "not_applicable" | "pending" | "sent" | "failed" | "not_configured";
+export type DeliveryExecutionStatus = "success" | "failed" | "not_configured" | "skipped";
 
 type DeliveryResult = {
 	pdfStatus: "generated" | "failed";
 	emailStatus: DeliveryStatus;
 	whatsappStatus: DeliveryStatus;
+	emailOutcome: DeliveryExecutionStatus;
+	whatsappOutcome: DeliveryExecutionStatus;
 	lastDeliveryError: string | null;
 	pdfBuffer: Buffer | null;
 	userMessage: string;
@@ -47,13 +50,13 @@ const getDeliveryChannelsForOption = (option: ReportDeliveryOption) => {
 const buildDeliveryMessage = ({
 	option,
 	pdfStatus,
-	emailStatus,
-	whatsappStatus,
+	emailOutcome,
+	whatsappOutcome,
 }: {
 	option: ReportDeliveryOption;
 	pdfStatus: "generated" | "failed";
-	emailStatus: DeliveryStatus;
-	whatsappStatus: DeliveryStatus;
+	emailOutcome: DeliveryExecutionStatus;
+	whatsappOutcome: DeliveryExecutionStatus;
 }) => {
 	if (pdfStatus === "failed") {
 		return PDF_DELIVERY_FAILURE_MESSAGE;
@@ -67,55 +70,51 @@ const buildDeliveryMessage = ({
 		return "تم إنشاء ملف PDF للتقرير بنجاح.";
 	}
 
-	if (option === "email" && emailStatus === "not_applicable") {
-		return "تم إنشاء التقرير وملف PDF، لكن لا يوجد مستلمون صالحون للبريد الإلكتروني.";
+	if (option === "email" || option === "email_whatsapp") {
+		if (emailOutcome === "not_configured") {
+			return "إعدادات البريد الإلكتروني غير مكتملة، لم يتم إرسال التقرير";
+		}
+
+		if (emailOutcome === "failed") {
+			return "فشل إرسال التقرير عبر البريد الإلكتروني";
+		}
+
+		if (emailOutcome === "skipped") {
+			return "لا يوجد مستلمون صالحون للبريد الإلكتروني، لم يتم إرسال التقرير";
+		}
+
+		return option === "email_whatsapp" && whatsappOutcome === "success"
+			? "تم إرسال التقرير عبر البريد الإلكتروني والواتساب."
+			: "تم إرسال التقرير عبر البريد الإلكتروني بنجاح.";
 	}
 
-	if (option === "whatsapp" && whatsappStatus === "not_applicable") {
-		return "تم إنشاء التقرير وملف PDF، لكن لا يوجد مستلمون صالحون للواتساب.";
+	if (whatsappOutcome === "not_configured") {
+		return "إرسال الواتساب غير مهيأ حاليًا، لم يتم إرسال التقرير.";
 	}
 
-	if (
-		option === "email_whatsapp" &&
-		emailStatus === "not_applicable" &&
-		whatsappStatus === "not_applicable"
-	) {
-		return "تم إنشاء التقرير وملف PDF، لكن لا يوجد مستلمون صالحون للإرسال.";
+	if (whatsappOutcome === "failed") {
+		return "فشل إرسال التقرير عبر الواتساب.";
 	}
 
-	if (emailStatus === "not_configured" && whatsappStatus === "not_configured") {
-		return "تم إنشاء التقرير لكن البريد الإلكتروني والواتساب غير مهيأين.";
+	if (whatsappOutcome === "skipped") {
+		return "لا يوجد مستلمون صالحون للواتساب، لم يتم إرسال التقرير.";
 	}
 
-	if (emailStatus === "not_configured") {
-		return "تم إنشاء التقرير لكن البريد الإلكتروني غير مهيأ.";
-	}
+	return "تم إرسال التقرير عبر الواتساب بنجاح.";
+};
 
-	if (whatsappStatus === "not_configured") {
-		return "تم إنشاء التقرير لكن الواتساب غير مهيأ.";
+const mapExecutionOutcomeToStatus = (outcome: DeliveryExecutionStatus): DeliveryStatus => {
+	switch (outcome) {
+		case "success":
+			return "sent";
+		case "failed":
+			return "failed";
+		case "not_configured":
+			return "not_configured";
+		case "skipped":
+		default:
+			return "not_applicable";
 	}
-
-	if (emailStatus === "failed" && whatsappStatus === "failed") {
-		return "تم إنشاء التقرير وملف PDF، لكن فشل الإرسال عبر البريد الإلكتروني والواتساب.";
-	}
-
-	if (emailStatus === "failed") {
-		return "تم إنشاء التقرير وملف PDF، لكن فشل الإرسال عبر البريد الإلكتروني.";
-	}
-
-	if (whatsappStatus === "failed") {
-		return "تم إنشاء التقرير وملف PDF، لكن فشل الإرسال عبر الواتساب.";
-	}
-
-	if (option === "email_whatsapp") {
-		return "تم إنشاء التقرير وملف PDF وإرساله عبر البريد الإلكتروني والواتساب.";
-	}
-
-	if (option === "email") {
-		return "تم إنشاء التقرير وملف PDF وإرساله عبر البريد الإلكتروني.";
-	}
-
-	return "تم إنشاء التقرير وملف PDF وإرساله عبر الواتساب.";
 };
 
 const inferDeliveryOptionFromRecipients = (recipients: ActivityReportRecipient[]): ReportDeliveryOption => {
@@ -211,13 +210,13 @@ export const deliverClientReport = async (
 		const whatsappRecipients = enabledChannels.whatsapp
 			? normalizeRecipientsByChannel(payload.report.recipients, "whatsapp")
 			: [];
-		let emailStatus: DeliveryStatus = enabledChannels.email ? "pending" : "not_applicable";
-		let whatsappStatus: DeliveryStatus = enabledChannels.whatsapp ? "pending" : "not_applicable";
+		let emailOutcome: DeliveryExecutionStatus = enabledChannels.email ? "failed" : "skipped";
+		let whatsappOutcome: DeliveryExecutionStatus = enabledChannels.whatsapp ? "failed" : "skipped";
 
 		try {
 			if (enabledChannels.email && emailRecipients.length > 0) {
 				if (!isSmtpConfigured()) {
-					emailStatus = "not_configured";
+					emailOutcome = "not_configured";
 				} else {
 					await sendProjectReportEmail({
 						projectName: payload.project.name,
@@ -225,34 +224,53 @@ export const deliverClientReport = async (
 						recipients: emailRecipients,
 						pdfBuffer,
 					});
-					emailStatus = "sent";
+					emailOutcome = "success";
 				}
 			} else if (enabledChannels.email) {
-				emailStatus = "not_applicable";
+				emailOutcome = "skipped";
 			}
 		} catch {
-			emailStatus = "failed";
+			emailOutcome = "failed";
 		}
 
 		try {
 			if (enabledChannels.whatsapp) {
-				whatsappStatus = await sendWhatsAppReport({
-					project: payload.project,
-					report: payload.report,
-					recipients: whatsappRecipients,
-					pdfBuffer,
-				});
+				if (whatsappRecipients.length === 0) {
+					whatsappOutcome = "skipped";
+				} else if (!process.env.WHATSAPP_WEBHOOK_URL) {
+					whatsappOutcome = "not_configured";
+				} else {
+					const whatsappStatus = await sendWhatsAppReport({
+						project: payload.project,
+						report: payload.report,
+						recipients: whatsappRecipients,
+						pdfBuffer,
+					});
+					whatsappOutcome = whatsappStatus === "sent" ? "success" : "failed";
+				}
 			}
 		} catch {
-			whatsappStatus = "failed";
+			whatsappOutcome = "failed";
 		}
 
+		const emailStatus = mapExecutionOutcomeToStatus(emailOutcome);
+		const whatsappStatus = mapExecutionOutcomeToStatus(whatsappOutcome);
 		const lastDeliveryError =
 			[
-				emailStatus === "failed" ? "فشل إرسال البريد الإلكتروني." : null,
-				whatsappStatus === "failed" ? "فشل إرسال الواتساب." : null,
-				emailStatus === "not_configured" ? "البريد الإلكتروني غير مهيأ." : null,
-				whatsappStatus === "not_configured" ? "الواتساب غير مهيأ." : null,
+				emailOutcome === "failed" ? "فشل إرسال التقرير عبر البريد الإلكتروني" : null,
+				emailOutcome === "not_configured"
+					? "إعدادات البريد الإلكتروني غير مكتملة، لم يتم إرسال التقرير"
+					: null,
+				emailOutcome === "skipped" && enabledChannels.email
+					? "لا يوجد مستلمون صالحون للبريد الإلكتروني، لم يتم إرسال التقرير"
+					: null,
+				whatsappOutcome === "failed" ? "فشل إرسال التقرير عبر الواتساب" : null,
+				whatsappOutcome === "not_configured"
+					? "إرسال الواتساب غير مهيأ حاليًا، لم يتم إرسال التقرير."
+					: null,
+				whatsappOutcome === "skipped" && enabledChannels.whatsapp
+					? "لا يوجد مستلمون صالحون للواتساب، لم يتم إرسال التقرير."
+					: null,
 			]
 				.filter(Boolean)
 				.join(" ") || null;
@@ -261,13 +279,15 @@ export const deliverClientReport = async (
 			pdfStatus: "generated",
 			emailStatus,
 			whatsappStatus,
+			emailOutcome,
+			whatsappOutcome,
 			lastDeliveryError,
 			pdfBuffer,
 			userMessage: buildDeliveryMessage({
 				option,
 				pdfStatus: "generated",
-				emailStatus,
-				whatsappStatus,
+				emailOutcome,
+				whatsappOutcome,
 			}),
 		};
 	} catch (error) {
@@ -280,6 +300,8 @@ export const deliverClientReport = async (
 			pdfStatus: "failed",
 			emailStatus: "not_applicable",
 			whatsappStatus: "not_applicable",
+			emailOutcome: enabledChannels.email ? "failed" : "skipped",
+			whatsappOutcome: enabledChannels.whatsapp ? "failed" : "skipped",
 			lastDeliveryError: PDF_DELIVERY_FAILURE_MESSAGE,
 			pdfBuffer: null,
 			userMessage: PDF_DELIVERY_FAILURE_MESSAGE,

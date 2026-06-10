@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { authenticate } from "@/lib/authenticate";
 import {
 	canAccessActivity,
@@ -34,7 +33,17 @@ export async function POST(req: NextRequest) {
 	}
 
 	try {
+		console.log("[letters] create started");
 		const body = await req.json();
+		console.log("[letters] payload=", {
+			projectId: body?.projectId ?? null,
+			recipientName: body?.recipientName ?? null,
+			subject: body?.subject ?? null,
+			letterDate: body?.letterDate ?? null,
+			attachmentsCount: Array.isArray(body?.attachments) ? body.attachments.length : 0,
+			bodyLength: typeof body?.body === "string" ? body.body.length : 0,
+			userId: user?.id ?? null,
+		});
 		const parsed = createLetterSchema.safeParse(body);
 
 		if (!parsed.success) {
@@ -45,6 +54,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		const hasAccess = await userCanAccessProjectActivity(parsed.data.projectId, user ?? {});
+		console.log(`[letters] project access ok=${hasAccess}`);
 		if (!hasAccess) {
 			return NextResponse.json({ error: "Project not found" }, { status: 404 });
 		}
@@ -68,7 +78,23 @@ export async function POST(req: NextRequest) {
 			message: "تم إنشاء الخطاب بنجاح.",
 		});
 	} catch (error) {
-		console.error("POST /api/activity/letters error:", error);
+		const errorCode =
+			error && typeof error === "object" && "code" in error ? String(error.code) : "unknown";
+		const errorMessage =
+			error instanceof Error ? error.message : typeof error === "string" ? error : "unknown";
+
+		if (errorCode === "42P01") {
+			console.error(
+				"[letters] create failed error=project_letter table is missing. Run the letters migration first.",
+				{ code: errorCode, message: errorMessage }
+			);
+		} else {
+			console.error("[letters] create failed error=", {
+				code: errorCode,
+				message: errorMessage,
+				error,
+			});
+		}
 		return NextResponse.json({ error: "Failed to create letter" }, { status: 500 });
 	}
 }
