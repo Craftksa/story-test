@@ -24,6 +24,10 @@ export type ReportDocumentPayload = {
 
 export const PDF_VIEW_FAILURE_MESSAGE = "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا.";
 export const PDF_DELIVERY_FAILURE_MESSAGE = "تعذر توليد ملف PDF، لم يتم إرسال التقرير.";
+export const PDF_EMPTY_CONTENT_MESSAGE = "لا يمكن إنشاء PDF لأن بيانات التقرير فارغة";
+export const PDF_INVALID_OUTPUT_MESSAGE = "تعذر إنشاء ملف PDF صالح للتقرير";
+
+const PDF_MIN_BUFFER_SIZE = 1024;
 
 type PdfGenerationDiagnostics = {
 	stage:
@@ -155,29 +159,64 @@ const escapeHtml = (value: string) =>
 		.replaceAll('"', "&quot;")
 		.replaceAll("'", "&#39;");
 
+const normalizeText = (value?: string | null) => value?.trim() ?? "";
+
+const hasMeaningfulText = (value?: string | null) => normalizeText(value).length > 0;
+
+const ensureReportHasVisibleContent = ({
+	project,
+	report,
+}: ReportDocumentPayload) => {
+	const contentCandidates = [
+		project.name,
+		report.title,
+		report.summary,
+		report.workDetails,
+		report.details,
+	];
+
+	if (!contentCandidates.some((value) => hasMeaningfulText(value))) {
+		throw new Error(PDF_EMPTY_CONTENT_MESSAGE);
+	}
+};
+
+const validateGeneratedPdfBuffer = (pdfBuffer: Buffer) => {
+	if (pdfBuffer.length <= PDF_MIN_BUFFER_SIZE) {
+		throw new Error(PDF_INVALID_OUTPUT_MESSAGE);
+	}
+
+	if (pdfBuffer.subarray(0, 4).toString("utf8") !== "%PDF") {
+		throw new Error(PDF_INVALID_OUTPUT_MESSAGE);
+	}
+};
+
 export const buildReportHtml = async ({
 	project,
 	report,
 	approvedByName,
 }: ReportDocumentPayload) => {
+	ensureReportHasVisibleContent({ project, report, approvedByName });
+
+	const rawProjectName = normalizeText(project.name);
+	const rawReportTitle = normalizeText(report.title);
+	const rawAuthorName = normalizeText(report.authorName) || normalizeText(approvedByName);
+	const rawSummary = normalizeText(report.summary);
+	const rawWorkDetails = normalizeText(report.workDetails);
+	const rawDetails = normalizeText(report.details);
+
 	const reportDate = report.createdAt
 		? new Date(report.createdAt).toLocaleDateString("ar-SA")
 		: "غير محدد";
-	const projectName = project.name?.trim() || "غير محدد";
-	const reportTitle = report.title?.trim() || "غير محدد";
+	const projectName = rawProjectName || "غير محدد";
+	const reportTitle = rawReportTitle || "غير محدد";
 	const reportType = reportTypeLabel[report.reportType] || "غير محدد";
-	const authorName = report.authorName?.trim() || approvedByName?.trim() || "غير محدد";
-	const hasSummary = Boolean(report.summary?.trim());
-	const hasWorkDetails = Boolean(report.workDetails?.trim());
-	const hasDetails = Boolean(report.details?.trim());
-	const summaryText = hasSummary
-		? report.summary!.trim()
-		: "لا يوجد ملخص مضاف لهذا التقرير.";
-	const workText = hasWorkDetails
-		? report.workDetails!.trim()
-		: hasDetails
-			? report.details!.trim()
-			: "لا توجد أعمال منجزة مضافة لهذا التقرير.";
+	const authorName = rawAuthorName || "غير محدد";
+	const summaryText = rawSummary || "لا يوجد ملخص مضاف لهذا التقرير.";
+	const workText =
+		rawWorkDetails || rawDetails || "لا توجد أعمال منجزة مضافة لهذا التقرير.";
+
+	const introText =
+		"نقدم لكم هذا التقرير الذي يوضح الأعمال التي تم إنجازها في الموقع خلال الفترة المحددة، مع توضيح أبرز التحديثات والتحسينات التي تم تنفيذها، وذلك بهدف توثيق سير العمل ومتابعة تقدم المشروع بشكل واضح ومنظم.";
 
 	const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -200,9 +239,18 @@ export const buildReportHtml = async ({
       min-height: 297mm;
       direction: rtl;
       text-align: right;
+      unicode-bidi: plaintext;
       background: #fff;
       color: #000;
-      font-family: "Tahoma", "Arial", sans-serif;
+      font-family: Arial, Tahoma, "Noto Sans Arabic", "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
     }
 
     main {
@@ -215,6 +263,7 @@ export const buildReportHtml = async ({
       text-align: center;
       font-size: 26px;
       font-weight: 700;
+      unicode-bidi: plaintext;
     }
 
     .meta {
@@ -225,6 +274,7 @@ export const buildReportHtml = async ({
 
     .meta p {
       margin: 0 0 3mm;
+      unicode-bidi: plaintext;
     }
 
     section {
@@ -235,6 +285,7 @@ export const buildReportHtml = async ({
       margin: 0 0 5mm;
       font-size: 17px;
       font-weight: 700;
+      unicode-bidi: plaintext;
     }
 
     p {
@@ -242,6 +293,8 @@ export const buildReportHtml = async ({
       font-size: 15px;
       line-height: 2;
       white-space: pre-line;
+      unicode-bidi: plaintext;
+      word-break: break-word;
     }
   </style>
 </head>
@@ -266,9 +319,7 @@ export const buildReportHtml = async ({
     </section>
 
     <section>
-      <p>${escapeHtml(
-			"نقدم لكم هذا التقرير الذي يوضح الأعمال التي تم إنجازها في الموقع خلال الفترة المحددة، مع توضيح أبرز التحديثات والتحسينات التي تم تنفيذها، وذلك بهدف توثيق سير العمل ومتابعة تقدم المشروع بشكل واضح ومنظم."
-		)}</p>
+      <p>${escapeHtml(introText)}</p>
     </section>
 
     <section>
@@ -384,6 +435,18 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		diagnostics.stage = "building_html";
 		logPdfTrace("stage=build-html");
 		const html = await buildReportHtml(payload);
+
+		if (!html.includes("<html lang=\"ar\" dir=\"rtl\">")) {
+			throw new Error(PDF_INVALID_OUTPUT_MESSAGE);
+		}
+
+		if (
+			!html.includes(escapeHtml(normalizeText(payload.report.title) || "غير محدد")) &&
+			!html.includes(escapeHtml(normalizeText(payload.project.name) || "غير محدد"))
+		) {
+			throw new Error(PDF_EMPTY_CONTENT_MESSAGE);
+		}
+
 		diagnostics.stage = "resolving_browser";
 		const launchConfig = await resolveBrowserLaunchConfig(diagnostics);
 		const launchArgs = Array.isArray(launchConfig.args) ? launchConfig.args : [];
@@ -413,6 +476,22 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		diagnostics.setContentSucceeded = true;
 		logPdfTrace("stage=set-content success=true");
 		await page.emulateMediaType("screen");
+		logPdfTrace("stage=wait-for-fonts");
+		await page.evaluate(async () => {
+			const documentWithFonts = document as Document & {
+				fonts?: {
+					ready?: Promise<unknown>;
+				};
+			};
+
+			if (documentWithFonts.fonts?.ready) {
+				await documentWithFonts.fonts.ready;
+			}
+		});
+		await page.waitForFunction(
+			() => Boolean(document.body?.innerText?.trim().length),
+			{ timeout: 3000 }
+		);
 
 		diagnostics.stage = "generating_pdf";
 		diagnostics.pdfStarted = true;
@@ -428,12 +507,15 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 				left: "10mm",
 			},
 		});
+		const normalizedPdfBuffer = Buffer.from(pdfBuffer);
+		validateGeneratedPdfBuffer(normalizedPdfBuffer);
 		diagnostics.pdfSucceeded = true;
 		diagnostics.stage = "completed";
 		logPdfTrace("stage=page-pdf success=true");
+		logPdfTrace(`pdf.size=${normalizedPdfBuffer.length}`);
 		logPdfTrace("stage=completed");
 
-		return Buffer.from(pdfBuffer);
+		return normalizedPdfBuffer;
 	} catch (error) {
 		console.error(`[pdf] failed stage=${diagnostics.stage}`);
 		console.error(`[pdf] launchStarted=${String(diagnostics.launchStarted)}`);
