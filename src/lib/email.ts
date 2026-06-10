@@ -43,15 +43,19 @@ export async function sendPasswordResetEmail(email: string, otp: string) {
 }
 
 export async function sendProjectReportEmail({
+	reportId,
 	projectName,
 	reportTitle,
 	recipients,
 	pdfBuffer,
+	attachmentFileName,
 }: {
+	reportId: string;
 	projectName: string;
 	reportTitle: string;
 	recipients: Array<{ name: string; email?: string | null }>;
 	pdfBuffer: Buffer;
+	attachmentFileName?: string;
 }) {
 	const recipientEmails = recipients
 		.map((recipient) => recipient.email?.trim())
@@ -78,9 +82,10 @@ export async function sendProjectReportEmail({
     `,
 		attachments: [
 			{
-				filename: `${reportTitle}.pdf`,
+				filename: attachmentFileName || `report-${reportId}.pdf`,
 				content: pdfBuffer,
 				contentType: "application/pdf",
+				contentDisposition: "attachment",
 			},
 		],
 	});

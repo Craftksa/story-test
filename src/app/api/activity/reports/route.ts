@@ -5,8 +5,6 @@ import { authenticate } from "@/lib/authenticate";
 import {
 	canAccessActivity,
 	getActivityProjectDetails,
-	getProjectAndClientById,
-	getReportById,
 	serializeJsonList,
 	userCanAccessProjectActivity,
 } from "@/lib/activity";
@@ -14,6 +12,7 @@ import { db } from "@/drizzle/db";
 import { projectReportPermissions, projectReports, users } from "@/drizzle/schema";
 import { hasRole } from "@/lib/utils";
 import { deliverClientReport, type ReportDeliveryOption } from "@/lib/report-delivery";
+import { getReportPdfPayload } from "@/lib/report-pdf";
 
 const recipientSchema = z.object({
 	name: z.string().min(1),
@@ -272,20 +271,17 @@ export async function POST(req: NextRequest) {
 			["email", "whatsapp", "email_whatsapp"].includes(parsed.data.deliveryOption);
 
 		if (shouldProcessImmediately) {
-			const report = await getReportById(createdReport.id, user ?? {});
-			const project = report ? await getProjectAndClientById(report.projectId) : null;
+			const result = await getReportPdfPayload({
+				reportId: createdReport.id,
+				user: user ?? {},
+				approvedByName: user?.name || null,
+			});
 
-			if (report && project) {
-				const delivery = await deliverClientReport(
-					{
-						project,
-						report,
-						approvedByName: report.approvedByName || user?.name || null,
-					},
-					{
-						option: requestedImmediateClientEmailSend ? "email" : parsed.data.deliveryOption,
-					}
-				);
+			if ("payload" in result) {
+				const { payload } = result;
+				const delivery = await deliverClientReport(payload, {
+					option: requestedImmediateClientEmailSend ? "email" : parsed.data.deliveryOption,
+				});
 
 				const emailSentSuccessfully =
 					delivery.pdfStatus === "generated" && delivery.emailOutcome === "success";

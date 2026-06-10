@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { authenticate } from "@/lib/authenticate";
-import { getActivityProjectDetails, getProjectAndClientById, getReportById } from "@/lib/activity";
+import { getActivityProjectDetails } from "@/lib/activity";
 import { deliverClientReport } from "@/lib/report-delivery";
+import { getReportPdfPayload, getReportPdfUserMessage } from "@/lib/report-pdf";
 import { db } from "@/drizzle/db";
 import { projectReports } from "@/drizzle/schema";
 import { hasRole, isValidId } from "@/lib/utils";
@@ -21,10 +22,20 @@ export async function POST(
 	}
 
 	try {
-		const report = await getReportById(params.reportId, user ?? {});
-		if (!report) {
+		const result = await getReportPdfPayload({
+			reportId: params.reportId,
+			user: user ?? {},
+			approvedByName: user?.name || null,
+		});
+		if ("error" in result && result.error === "report_not_found") {
 			return NextResponse.json({ error: "Report not found" }, { status: 404 });
 		}
+		if ("error" in result && result.error === "project_not_found") {
+			return NextResponse.json({ error: "Project not found" }, { status: 404 });
+		}
+
+		const { payload } = result;
+		const { report } = payload;
 
 		if (report.reportType !== "client") {
 			return NextResponse.json({ error: "Only client reports can be sent." }, { status: 400 });
@@ -34,16 +45,7 @@ export async function POST(
 			return NextResponse.json({ error: "Report must be approved before sending." }, { status: 400 });
 		}
 
-		const project = await getProjectAndClientById(report.projectId);
-		if (!project) {
-			return NextResponse.json({ error: "Project not found" }, { status: 404 });
-		}
-
-		const delivery = await deliverClientReport({
-			project,
-			report,
-			approvedByName: report.approvedByName || user?.name || null,
-		}, { option: "email" });
+		const delivery = await deliverClientReport(payload, { option: "email" });
 
 		const emailSentSuccessfully =
 			delivery.pdfStatus === "generated" && delivery.emailOutcome === "success";
@@ -80,6 +82,10 @@ export async function POST(
 		});
 	} catch (error) {
 		console.error("POST /api/activity/reports/[reportId]/send error:", error);
-		return NextResponse.json({ error: "Failed to send report" }, { status: 500 });
+		const userMessage = getReportPdfUserMessage(error, "فشل إرسال التقرير عبر البريد الإلكتروني");
+		return NextResponse.json(
+			{ error: userMessage },
+			{ status: userMessage === "فشل إرسال التقرير عبر البريد الإلكتروني" ? 500 : 400 }
+		);
 	}
 }

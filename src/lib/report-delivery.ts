@@ -2,9 +2,13 @@ import type { ActivityReport, ActivityReportRecipient } from "@/lib/activity";
 import { isSmtpConfigured, sendProjectReportEmail } from "@/lib/email";
 import {
 	generateReportPdfBuffer,
+	getReportPdfFileName,
+	getReportPdfUserMessage,
 	logPdfErrorDetails,
 	type ReportDocumentPayload,
 	PDF_DELIVERY_FAILURE_MESSAGE,
+	validateGeneratedPdfBuffer,
+	validateReportDocumentPayload,
 } from "@/lib/report-pdf";
 
 export type ReportDeliveryOption =
@@ -203,7 +207,9 @@ export const deliverClientReport = async (
 	const enabledChannels = getDeliveryChannelsForOption(option);
 
 	try {
+		validateReportDocumentPayload(payload);
 		const pdfBuffer = await generateReportPdfBuffer(payload);
+		validateGeneratedPdfBuffer(pdfBuffer);
 		const emailRecipients = enabledChannels.email
 			? normalizeRecipientsByChannel(payload.report.recipients, "email")
 			: [];
@@ -219,10 +225,12 @@ export const deliverClientReport = async (
 					emailOutcome = "not_configured";
 				} else {
 					await sendProjectReportEmail({
+						reportId: payload.report.id,
 						projectName: payload.project.name,
 						reportTitle: payload.report.title,
 						recipients: emailRecipients,
 						pdfBuffer,
+						attachmentFileName: getReportPdfFileName(payload.report.id),
 					});
 					emailOutcome = "success";
 				}
@@ -291,6 +299,7 @@ export const deliverClientReport = async (
 			}),
 		};
 	} catch (error) {
+		const userMessage = getReportPdfUserMessage(error, PDF_DELIVERY_FAILURE_MESSAGE);
 		logPdfErrorDetails("deliverClientReport", error, {
 			projectId: payload.project.id,
 			reportId: payload.report.id,
@@ -302,9 +311,9 @@ export const deliverClientReport = async (
 			whatsappStatus: "not_applicable",
 			emailOutcome: enabledChannels.email ? "failed" : "skipped",
 			whatsappOutcome: enabledChannels.whatsapp ? "failed" : "skipped",
-			lastDeliveryError: PDF_DELIVERY_FAILURE_MESSAGE,
+			lastDeliveryError: userMessage,
 			pdfBuffer: null,
-			userMessage: PDF_DELIVERY_FAILURE_MESSAGE,
+			userMessage,
 		};
 	}
 };

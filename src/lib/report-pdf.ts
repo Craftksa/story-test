@@ -4,7 +4,13 @@ import os from "os";
 import path from "path";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
-import type { ActivityReport } from "@/lib/activity";
+import {
+	getProjectAndClientById,
+	getReportById,
+	type ActivityReport,
+} from "@/lib/activity";
+
+type ReportLookupUser = Parameters<typeof getReportById>[1];
 
 export type ReportProjectPayload = {
 	id: string;
@@ -22,16 +28,47 @@ export type ReportDocumentPayload = {
 	approvedByName?: string | null;
 };
 
+type ReportPdfLoadSuccess = {
+	payload: ReportDocumentPayload;
+};
+
+type ReportPdfLoadFailure = {
+	error: "report_not_found" | "project_not_found";
+};
+
+type ReportPdfDocumentContent = {
+	projectName: string;
+	clientName: string | null;
+	reportTitle: string;
+	reportType: string;
+	reportDate: string;
+	authorName: string;
+	summaryText: string;
+	workText: string;
+	introText: string;
+	followUpText: string;
+};
+
 export const PDF_VIEW_FAILURE_MESSAGE = "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا.";
 export const PDF_DELIVERY_FAILURE_MESSAGE = "تعذر توليد ملف PDF، لم يتم إرسال التقرير.";
 export const PDF_EMPTY_CONTENT_MESSAGE = "لا يمكن إنشاء PDF لأن بيانات التقرير فارغة";
 export const PDF_INVALID_OUTPUT_MESSAGE = "تعذر إنشاء ملف PDF صالح للتقرير";
+export const PDF_INCOMPLETE_DATA_MESSAGE = "تعذر إنشاء التقرير لأن بياناته غير مكتملة";
 
 const PDF_MIN_BUFFER_SIZE = 1024;
+const shouldLogNonProductionDiagnostics = process.env.NODE_ENV !== "production";
+const PDF_USER_FACING_MESSAGES = new Set([
+	PDF_VIEW_FAILURE_MESSAGE,
+	PDF_DELIVERY_FAILURE_MESSAGE,
+	PDF_EMPTY_CONTENT_MESSAGE,
+	PDF_INVALID_OUTPUT_MESSAGE,
+	PDF_INCOMPLETE_DATA_MESSAGE,
+]);
 
 type PdfGenerationDiagnostics = {
 	stage:
 		| "initializing"
+		| "loading_payload"
 		| "building_html"
 		| "resolving_browser"
 		| "launching_browser"
@@ -163,24 +200,76 @@ const normalizeText = (value?: string | null) => value?.trim() ?? "";
 
 const hasMeaningfulText = (value?: string | null) => normalizeText(value).length > 0;
 
-const ensureReportHasVisibleContent = ({
+export const getReportPdfFileName = (reportId: string) => `report-${reportId}.pdf`;
+
+const buildReportDocumentContent = ({
 	project,
 	report,
-}: ReportDocumentPayload) => {
-	const contentCandidates = [
-		project.name,
-		report.title,
-		report.summary,
-		report.workDetails,
-		report.details,
-	];
+	approvedByName,
+}: ReportDocumentPayload): ReportPdfDocumentContent => {
+	const rawProjectName = normalizeText(project.name);
+	const rawClientName = normalizeText(project.clientName);
+	const rawReportTitle = normalizeText(report.title);
+	const rawAuthorName = normalizeText(report.authorName) || normalizeText(approvedByName);
+	const rawSummary = normalizeText(report.summary);
+	const rawWorkDetails = normalizeText(report.workDetails);
+	const rawDetails = normalizeText(report.details);
+	const reportType = reportTypeLabel[report.reportType];
 
-	if (!contentCandidates.some((value) => hasMeaningfulText(value))) {
+	if (!rawProjectName || !rawReportTitle || !reportType) {
+		throw new Error(PDF_INCOMPLETE_DATA_MESSAGE);
+	}
+
+	if (!rawSummary && !rawWorkDetails && !rawDetails) {
 		throw new Error(PDF_EMPTY_CONTENT_MESSAGE);
 	}
+
+	const reportDate = report.createdAt
+		? new Date(report.createdAt).toLocaleDateString("ar-SA")
+		: "غير محدد";
+
+	if (!reportDate) {
+		throw new Error(PDF_INCOMPLETE_DATA_MESSAGE);
+	}
+
+	return {
+		projectName: rawProjectName,
+		clientName: rawClientName || null,
+		reportTitle: rawReportTitle,
+		reportType,
+		reportDate,
+		authorName: rawAuthorName || "غير محدد",
+		summaryText: rawSummary || "لا يوجد ملخص مضاف لهذا التقرير.",
+		workText: rawWorkDetails || rawDetails || "لا توجد أعمال منجزة مضافة لهذا التقرير.",
+		introText:
+			"نقدم لكم هذا التقرير الذي يوضح الأعمال التي تم إنجازها في الموقع خلال الفترة المحددة، مع توضيح أبرز التحديثات والتحسينات التي تم تنفيذها، وذلك بهدف توثيق سير العمل ومتابعة تقدم المشروع بشكل واضح ومنظم.",
+		followUpText:
+			"نؤكد أن الأعمال المذكورة أعلاه تم تنفيذها ضمن خطة تطوير الموقع، وسيتم استكمال بقية التحسينات والاختبارات لضمان استقرار النظام ورفع جودة تجربة المستخدم.",
+	};
 };
 
-const validateGeneratedPdfBuffer = (pdfBuffer: Buffer) => {
+export const validateReportDocumentPayload = (payload: ReportDocumentPayload) => {
+	const content = buildReportDocumentContent(payload);
+
+	if (shouldLogNonProductionDiagnostics) {
+		logPdfTrace(
+			[
+				`payload.reportId=${payload.report.id}`,
+				`hasProjectName=${String(content.projectName.length > 0)}`,
+				`hasClientName=${String(Boolean(content.clientName))}`,
+				`hasTitle=${String(content.reportTitle.length > 0)}`,
+				`hasSummary=${String(hasMeaningfulText(payload.report.summary))}`,
+				`hasDetails=${String(hasMeaningfulText(payload.report.details))}`,
+				`hasWorkDetails=${String(hasMeaningfulText(payload.report.workDetails))}`,
+				`hasAuthor=${String(content.authorName.length > 0)}`,
+			].join(" ")
+		);
+	}
+
+	return content;
+};
+
+export const validateGeneratedPdfBuffer = (pdfBuffer: Buffer) => {
 	if (pdfBuffer.length <= PDF_MIN_BUFFER_SIZE) {
 		throw new Error(PDF_INVALID_OUTPUT_MESSAGE);
 	}
@@ -190,33 +279,46 @@ const validateGeneratedPdfBuffer = (pdfBuffer: Buffer) => {
 	}
 };
 
-export const buildReportHtml = async ({
-	project,
-	report,
+export const getReportPdfUserMessage = (error: unknown, fallbackMessage: string) => {
+	if (error instanceof Error && PDF_USER_FACING_MESSAGES.has(error.message)) {
+		return error.message;
+	}
+
+	return fallbackMessage;
+};
+
+export const getReportPdfPayload = async ({
+	reportId,
+	user,
 	approvedByName,
-}: ReportDocumentPayload) => {
-	ensureReportHasVisibleContent({ project, report, approvedByName });
+}: {
+	reportId: string;
+	user: ReportLookupUser;
+	approvedByName?: string | null;
+}): Promise<ReportPdfLoadSuccess | ReportPdfLoadFailure> => {
+	const report = await getReportById(reportId, user);
+	if (!report) {
+		return { error: "report_not_found" };
+	}
 
-	const rawProjectName = normalizeText(project.name);
-	const rawReportTitle = normalizeText(report.title);
-	const rawAuthorName = normalizeText(report.authorName) || normalizeText(approvedByName);
-	const rawSummary = normalizeText(report.summary);
-	const rawWorkDetails = normalizeText(report.workDetails);
-	const rawDetails = normalizeText(report.details);
+	const project = await getProjectAndClientById(report.projectId);
+	if (!project) {
+		return { error: "project_not_found" };
+	}
 
-	const reportDate = report.createdAt
-		? new Date(report.createdAt).toLocaleDateString("ar-SA")
-		: "غير محدد";
-	const projectName = rawProjectName || "غير محدد";
-	const reportTitle = rawReportTitle || "غير محدد";
-	const reportType = reportTypeLabel[report.reportType] || "غير محدد";
-	const authorName = rawAuthorName || "غير محدد";
-	const summaryText = rawSummary || "لا يوجد ملخص مضاف لهذا التقرير.";
-	const workText =
-		rawWorkDetails || rawDetails || "لا توجد أعمال منجزة مضافة لهذا التقرير.";
+	const payload: ReportDocumentPayload = {
+		project,
+		report,
+		approvedByName: report.approvedByName || approvedByName || null,
+	};
 
-	const introText =
-		"نقدم لكم هذا التقرير الذي يوضح الأعمال التي تم إنجازها في الموقع خلال الفترة المحددة، مع توضيح أبرز التحديثات والتحسينات التي تم تنفيذها، وذلك بهدف توثيق سير العمل ومتابعة تقدم المشروع بشكل واضح ومنظم.";
+	validateReportDocumentPayload(payload);
+
+	return { payload };
+};
+
+export const buildReportHtml = async (payload: ReportDocumentPayload) => {
+	const content = validateReportDocumentPayload(payload);
 
 	const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -224,24 +326,22 @@ export const buildReportHtml = async ({
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(reportTitle)}</title>
+  <title>${escapeHtml(content.reportTitle)}</title>
   <style>
     @page {
       size: A4;
-      margin: 0;
+      margin: 24mm 22mm;
     }
 
     html,
     body {
       margin: 0;
       padding: 0;
-      width: 210mm;
-      min-height: 297mm;
       direction: rtl;
       text-align: right;
       unicode-bidi: plaintext;
-      background: #fff;
-      color: #000;
+      background: #ffffff;
+      color: #000000;
       font-family: Arial, Tahoma, "Noto Sans Arabic", "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
       text-rendering: geometricPrecision;
@@ -253,27 +353,33 @@ export const buildReportHtml = async ({
       box-sizing: border-box;
     }
 
+    body {
+      width: 210mm;
+      min-height: 297mm;
+    }
+
     main {
       padding: 24mm 22mm;
       box-sizing: border-box;
+      background: #ffffff;
     }
 
     h1 {
-      margin: 0 0 12mm;
       text-align: center;
       font-size: 26px;
+      margin: 0 0 18mm;
       font-weight: 700;
       unicode-bidi: plaintext;
     }
 
     .meta {
-      margin-bottom: 10mm;
-      font-size: 14px;
+      margin-bottom: 14mm;
       line-height: 1.9;
     }
 
-    .meta p {
-      margin: 0 0 3mm;
+    .meta p,
+    h2,
+    p {
       unicode-bidi: plaintext;
     }
 
@@ -282,18 +388,16 @@ export const buildReportHtml = async ({
     }
 
     h2 {
+      font-size: 18px;
       margin: 0 0 5mm;
-      font-size: 17px;
       font-weight: 700;
-      unicode-bidi: plaintext;
     }
 
     p {
-      margin: 0 0 5mm;
       font-size: 15px;
       line-height: 2;
+      margin: 0 0 5mm;
       white-space: pre-line;
-      unicode-bidi: plaintext;
       word-break: break-word;
     }
   </style>
@@ -302,16 +406,12 @@ export const buildReportHtml = async ({
   <main>
     <h1>تقرير أعمال الموقع</h1>
 
-    <section>
-      <p>اختبار اللغة العربية داخل التقرير</p>
-    </section>
-
     <section class="meta">
-      <p>اسم المشروع: ${escapeHtml(projectName)}</p>
-      <p>عنوان التقرير: ${escapeHtml(reportTitle)}</p>
-      <p>نوع التقرير: ${escapeHtml(reportType)}</p>
-      <p>التاريخ: ${escapeHtml(reportDate)}</p>
-      <p>إعداد: ${escapeHtml(authorName)}</p>
+      <p>اسم المشروع: ${escapeHtml(content.projectName)}</p>
+      <p>عنوان التقرير: ${escapeHtml(content.reportTitle)}</p>
+      <p>نوع التقرير: ${escapeHtml(content.reportType)}</p>
+      <p>التاريخ: ${escapeHtml(content.reportDate)}</p>
+      <p>إعداد: ${escapeHtml(content.authorName)}</p>
     </section>
 
     <section>
@@ -319,17 +419,21 @@ export const buildReportHtml = async ({
     </section>
 
     <section>
-      <p>${escapeHtml(introText)}</p>
+      <p>${escapeHtml(content.introText)}</p>
     </section>
 
     <section>
       <h2>ملخص التقرير</h2>
-      <p>${escapeHtml(summaryText)}</p>
+      <p>${escapeHtml(content.summaryText)}</p>
     </section>
 
     <section>
       <h2>الأعمال المنجزة</h2>
-      <p>${escapeHtml(workText)}</p>
+      <p>${escapeHtml(content.workText)}</p>
+    </section>
+
+    <section>
+      <p>${escapeHtml(content.followUpText)}</p>
     </section>
 
     <section>
@@ -340,10 +444,17 @@ export const buildReportHtml = async ({
 </body>
 </html>`;
 
-	console.log("[pdf-template] utf8 test rendered");
-	console.log(`[pdf-template] title included=${html.includes("تقرير أعمال الموقع")}`);
-	console.log(`[pdf-template] summary included=${html.includes(escapeHtml(summaryText))}`);
-	console.log(`[pdf-template] work included=${html.includes(escapeHtml(workText))}`);
+	if (shouldLogNonProductionDiagnostics) {
+		logPdfTrace(
+			[
+				`html.reportId=${payload.report.id}`,
+				`hasTitle=${String(html.includes(escapeHtml(content.reportTitle)))}`,
+				`hasProject=${String(html.includes(escapeHtml(content.projectName)))}`,
+				`hasSummary=${String(html.includes(escapeHtml(content.summaryText)))}`,
+				`hasBody=${String(html.includes(escapeHtml(content.workText)))}`,
+			].join(" ")
+		);
+	}
 
 	return html;
 };
@@ -436,15 +547,15 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		logPdfTrace("stage=build-html");
 		const html = await buildReportHtml(payload);
 
-		if (!html.includes("<html lang=\"ar\" dir=\"rtl\">")) {
+		if (!html.includes('<html lang="ar" dir="rtl">')) {
 			throw new Error(PDF_INVALID_OUTPUT_MESSAGE);
 		}
 
 		if (
-			!html.includes(escapeHtml(normalizeText(payload.report.title) || "غير محدد")) &&
-			!html.includes(escapeHtml(normalizeText(payload.project.name) || "غير محدد"))
+			!html.includes(escapeHtml(normalizeText(payload.report.title))) ||
+			!html.includes(escapeHtml(normalizeText(payload.project.name)))
 		) {
-			throw new Error(PDF_EMPTY_CONTENT_MESSAGE);
+			throw new Error(PDF_INCOMPLETE_DATA_MESSAGE);
 		}
 
 		diagnostics.stage = "resolving_browser";
@@ -500,12 +611,6 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 			format: "A4",
 			printBackground: true,
 			preferCSSPageSize: true,
-			margin: {
-				top: "12mm",
-				right: "10mm",
-				bottom: "12mm",
-				left: "10mm",
-			},
 		});
 		const normalizedPdfBuffer = Buffer.from(pdfBuffer);
 		validateGeneratedPdfBuffer(normalizedPdfBuffer);
@@ -537,7 +642,7 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 			}`
 		);
 		logPdfErrorDetails("generateReportPdfBuffer", error, { diagnostics });
-		throw new Error(PDF_DELIVERY_FAILURE_MESSAGE, {
+		throw new Error(getReportPdfUserMessage(error, PDF_INVALID_OUTPUT_MESSAGE), {
 			cause: {
 				...formatUnknownError(error),
 				diagnostics,
