@@ -43,8 +43,9 @@ type ReportPdfDocumentContent = {
 	reportType: string;
 	reportDate: string;
 	authorName: string;
-	summaryText: string;
-	workText: string;
+	summaryText: string | null;
+	workText: string | null;
+	detailsText: string | null;
 	introText: string;
 	followUpText: string;
 };
@@ -54,6 +55,9 @@ export const PDF_DELIVERY_FAILURE_MESSAGE = "تعذر توليد ملف PDF، ل
 export const PDF_EMPTY_CONTENT_MESSAGE = "لا يمكن إنشاء PDF لأن بيانات التقرير فارغة";
 export const PDF_INVALID_OUTPUT_MESSAGE = "تعذر إنشاء ملف PDF صالح للتقرير";
 export const PDF_INCOMPLETE_DATA_MESSAGE = "تعذر إنشاء التقرير لأن بياناته غير مكتملة";
+export const PDF_ARABIC_FONT_MISSING_MESSAGE = "تعذر إنشاء PDF لأن ملف الخط العربي غير موجود";
+export const PDF_ARABIC_FONT_NOT_LOADED_MESSAGE = "تعذر إنشاء PDF لأن الخط العربي لم يتم تحميله";
+export const PDF_BRAND_LOGO_MISSING_MESSAGE = "تعذر إنشاء PDF لأن شعار كرافت غير موجود";
 
 const PDF_MIN_BUFFER_SIZE = 1024;
 const shouldLogNonProductionDiagnostics = process.env.NODE_ENV !== "production";
@@ -63,6 +67,9 @@ const PDF_USER_FACING_MESSAGES = new Set([
 	PDF_EMPTY_CONTENT_MESSAGE,
 	PDF_INVALID_OUTPUT_MESSAGE,
 	PDF_INCOMPLETE_DATA_MESSAGE,
+	PDF_ARABIC_FONT_MISSING_MESSAGE,
+	PDF_ARABIC_FONT_NOT_LOADED_MESSAGE,
+	PDF_BRAND_LOGO_MISSING_MESSAGE,
 ]);
 
 type PdfGenerationDiagnostics = {
@@ -187,6 +194,82 @@ const bundledChromiumBinPath = path.join(
 	"chromium",
 	"bin"
 );
+const embeddedArabicFontFamily = "CraftArabic";
+const embeddedArabicFontRegularPath = path.join(
+	process.cwd(),
+	"public",
+	"fonts",
+	"Tajawal-Regular.ttf"
+);
+const embeddedArabicFontBoldPath = path.join(
+	process.cwd(),
+	"public",
+	"fonts",
+	"Tajawal-Bold.ttf"
+);
+const embeddedBrandLogoPath = path.join(
+	process.cwd(),
+	"public",
+	"brand",
+	"craft-logo-black.png"
+);
+
+const createEmbeddedAssetLoader = ({
+	assetPath,
+	missingMessage,
+	allowMissing = false,
+}: {
+	assetPath: string;
+	missingMessage: string;
+	allowMissing?: boolean;
+}) => {
+	let assetBase64Promise: Promise<string | null> | null = null;
+
+	return async () => {
+		if (!assetBase64Promise) {
+			assetBase64Promise = (async () => {
+				try {
+					const assetBuffer = await fs.readFile(assetPath);
+
+					if (assetBuffer.length === 0) {
+						if (allowMissing) {
+							return null;
+						}
+
+						throw new Error(missingMessage);
+					}
+
+					return assetBuffer.toString("base64");
+				} catch (error) {
+					const code =
+						typeof error === "object" &&
+						error !== null &&
+						"code" in error &&
+						typeof (error as { code?: unknown }).code === "string"
+							? (error as { code: string }).code
+							: null;
+
+					if (allowMissing && code === "ENOENT") {
+						return null;
+					}
+
+					if (error instanceof Error && error.message === missingMessage) {
+						throw error;
+					}
+
+					throw new Error(missingMessage, { cause: error });
+				}
+			})();
+		}
+
+		try {
+			return await assetBase64Promise;
+		} catch (error) {
+			assetBase64Promise = null;
+			throw error;
+		}
+	};
+};
 
 const escapeHtml = (value: string) =>
 	value
@@ -199,6 +282,22 @@ const escapeHtml = (value: string) =>
 const normalizeText = (value?: string | null) => value?.trim() ?? "";
 
 const hasMeaningfulText = (value?: string | null) => normalizeText(value).length > 0;
+
+const loadEmbeddedArabicFontRegularBase64 = createEmbeddedAssetLoader({
+	assetPath: embeddedArabicFontRegularPath,
+	missingMessage: PDF_ARABIC_FONT_MISSING_MESSAGE,
+});
+
+const loadEmbeddedArabicFontBoldBase64 = createEmbeddedAssetLoader({
+	assetPath: embeddedArabicFontBoldPath,
+	missingMessage: PDF_ARABIC_FONT_MISSING_MESSAGE,
+	allowMissing: true,
+});
+
+const loadEmbeddedBrandLogoBase64 = createEmbeddedAssetLoader({
+	assetPath: embeddedBrandLogoPath,
+	missingMessage: PDF_BRAND_LOGO_MISSING_MESSAGE,
+});
 
 export const getReportPdfFileName = (reportId: string) => `report-${reportId}.pdf`;
 
@@ -239,8 +338,9 @@ const buildReportDocumentContent = ({
 		reportType,
 		reportDate,
 		authorName: rawAuthorName || "غير محدد",
-		summaryText: rawSummary || "لا يوجد ملخص مضاف لهذا التقرير.",
-		workText: rawWorkDetails || rawDetails || "لا توجد أعمال منجزة مضافة لهذا التقرير.",
+		summaryText: rawSummary || null,
+		workText: rawWorkDetails || null,
+		detailsText: rawDetails || null,
 		introText:
 			"نقدم لكم هذا التقرير الذي يوضح الأعمال التي تم إنجازها في الموقع خلال الفترة المحددة، مع توضيح أبرز التحديثات والتحسينات التي تم تنفيذها، وذلك بهدف توثيق سير العمل ومتابعة تقدم المشروع بشكل واضح ومنظم.",
 		followUpText:
@@ -319,6 +419,34 @@ export const getReportPdfPayload = async ({
 
 export const buildReportHtml = async (payload: ReportDocumentPayload) => {
 	const content = validateReportDocumentPayload(payload);
+	const embeddedArabicFontRegularBase64 = await loadEmbeddedArabicFontRegularBase64();
+	const embeddedArabicFontBoldBase64 =
+		(await loadEmbeddedArabicFontBoldBase64()) ?? embeddedArabicFontRegularBase64;
+	const embeddedBrandLogoBase64 = await loadEmbeddedBrandLogoBase64();
+	const recipientBlock = content.clientName
+		? `<section class="recipient-block">
+      <p class="recipient-label">الجهة</p>
+      <p class="recipient-name">${escapeHtml(content.clientName)}</p>
+    </section>`
+		: "";
+	const summarySection = hasMeaningfulText(content.summaryText)
+		? `<section class="content-section">
+      <h2>ملخص التقرير</h2>
+      <p>${escapeHtml(content.summaryText!)}</p>
+    </section>`
+		: "";
+	const workSection = hasMeaningfulText(content.workText)
+		? `<section class="content-section">
+      <h2>الأعمال المنجزة</h2>
+      <p>${escapeHtml(content.workText!)}</p>
+    </section>`
+		: "";
+	const detailsSection = hasMeaningfulText(content.detailsText)
+		? `<section class="content-section">
+      <h2>${hasMeaningfulText(content.workText) ? "تفاصيل التقرير" : "محتوى التقرير"}</h2>
+      <p>${escapeHtml(content.detailsText!)}</p>
+    </section>`
+		: "";
 
 	const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -328,9 +456,25 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(content.reportTitle)}</title>
   <style>
+    @font-face {
+      font-family: "${embeddedArabicFontFamily}";
+      src: url("data:font/ttf;base64,${embeddedArabicFontRegularBase64}") format("truetype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "${embeddedArabicFontFamily}";
+      src: url("data:font/ttf;base64,${embeddedArabicFontBoldBase64}") format("truetype");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
     @page {
       size: A4;
-      margin: 24mm 22mm;
+      margin: 24mm 18mm 34mm;
     }
 
     html,
@@ -342,105 +486,291 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
       unicode-bidi: plaintext;
       background: #ffffff;
       color: #000000;
-      font-family: Arial, Tahoma, "Noto Sans Arabic", "Segoe UI", sans-serif;
+      font-family: "${embeddedArabicFontFamily}", Arial, Tahoma, sans-serif;
       -webkit-font-smoothing: antialiased;
       text-rendering: geometricPrecision;
+      font-synthesis: none;
     }
 
     *,
     *::before,
     *::after {
       box-sizing: border-box;
+      font-family: "${embeddedArabicFontFamily}", Arial, Tahoma, sans-serif;
     }
 
     body {
-      width: 210mm;
+      width: 100%;
       min-height: 297mm;
     }
 
     main {
-      padding: 24mm 22mm;
+      position: relative;
+      padding: 0 0 28mm;
       box-sizing: border-box;
       background: #ffffff;
     }
 
-    h1 {
+    .page-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 12mm;
+      padding-top: 2mm;
+    }
+
+    .page-header img {
+      width: 150px;
+      height: auto;
+      display: block;
+    }
+
+    .document-card {
+      border: 1px solid #d7d2c8;
+      border-radius: 18px;
+      padding: 14mm 12mm 16mm;
+      background: #ffffff;
+    }
+
+    .document-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10mm;
+      margin-bottom: 10mm;
+      border-bottom: 1px solid #e7e1d5;
+      padding-bottom: 6mm;
+    }
+
+    .document-date,
+    .document-type {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #403a32;
+    }
+
+    .document-type {
+      text-align: left;
+    }
+
+    .document-title {
+      margin: 0 0 8mm;
       text-align: center;
-      font-size: 26px;
-      margin: 0 0 18mm;
+      font-size: 24px;
       font-weight: 700;
+      color: #111111;
       unicode-bidi: plaintext;
     }
 
-    .meta {
-      margin-bottom: 14mm;
-      line-height: 1.9;
+    .recipient-block {
+      margin-bottom: 8mm;
     }
 
-    .meta p,
+    .recipient-label {
+      margin: 0 0 2mm;
+      font-size: 13px;
+      color: #6f675b;
+    }
+
+    .recipient-name {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #131313;
+    }
+
+    .subject-block {
+      margin-bottom: 8mm;
+      padding: 4mm 5mm;
+      background: #f7f4ee;
+      border-radius: 12px;
+    }
+
+    .subject-label {
+      margin: 0 0 1.5mm;
+      font-size: 13px;
+      color: #6f675b;
+    }
+
+    .subject-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: #111111;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4mm 8mm;
+      margin-bottom: 9mm;
+      padding: 4mm 5mm;
+      border: 1px solid #ece6dc;
+      border-radius: 12px;
+    }
+
+    .meta-item {
+      margin: 0;
+    }
+
+    .meta-label {
+      display: block;
+      margin-bottom: 1mm;
+      font-size: 12px;
+      color: #7a7368;
+    }
+
+    .meta-value {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: #141414;
+    }
+
+    .document-date,
+    .document-type,
+    .recipient-label,
+    .recipient-name,
+    .subject-label,
+    .subject-title,
+    .meta-label,
+    .meta-value,
     h2,
     p {
       unicode-bidi: plaintext;
     }
 
-    section {
-      margin-bottom: 10mm;
+    .salutation,
+    .closing-note {
+      margin-bottom: 7mm;
+    }
+
+    .content-section {
+      margin-bottom: 7mm;
+      page-break-inside: avoid;
     }
 
     h2 {
-      font-size: 18px;
-      margin: 0 0 5mm;
+      font-size: 17px;
+      margin: 0 0 3mm;
       font-weight: 700;
+      color: #151515;
     }
 
     p {
       font-size: 15px;
-      line-height: 2;
-      margin: 0 0 5mm;
+      line-height: 2.05;
+      margin: 0 0 3mm;
       white-space: pre-line;
       word-break: break-word;
+      color: #1f1f1f;
+    }
+
+    .signoff {
+      margin-top: 10mm;
+    }
+
+    .signoff p {
+      margin-bottom: 1mm;
+    }
+
+    .signoff .signoff-name {
+      font-weight: 700;
+    }
+
+    .page-footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0 18mm 10mm;
+      text-align: center;
+      background: #ffffff;
+    }
+
+    .page-footer::before {
+      content: "";
+      display: block;
+      width: 100%;
+      border-top: 1px solid #d9d2c6;
+      margin-bottom: 3mm;
+    }
+
+    .page-footer p {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.75;
+      color: #49443d;
+    }
+
+    @media print {
+      body {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
     }
   </style>
 </head>
 <body>
   <main>
-    <h1>تقرير أعمال الموقع</h1>
+    <header class="page-header">
+      <img src="data:image/png;base64,${embeddedBrandLogoBase64}" alt="Craft Logo" />
+    </header>
 
-    <section class="meta">
-      <p>اسم المشروع: ${escapeHtml(content.projectName)}</p>
-      <p>عنوان التقرير: ${escapeHtml(content.reportTitle)}</p>
-      <p>نوع التقرير: ${escapeHtml(content.reportType)}</p>
-      <p>التاريخ: ${escapeHtml(content.reportDate)}</p>
-      <p>إعداد: ${escapeHtml(content.authorName)}</p>
-    </section>
+    <section class="document-card">
+      <div class="document-topline">
+        <p class="document-date">التاريخ: ${escapeHtml(content.reportDate)}</p>
+        <p class="document-type">${escapeHtml(content.reportType)}</p>
+      </div>
 
-    <section>
-      <p>السلام عليكم ورحمة الله وبركاته،</p>
-    </section>
+      <h1 class="document-title">تقرير أعمال الموقع</h1>
 
-    <section>
-      <p>${escapeHtml(content.introText)}</p>
-    </section>
+      ${recipientBlock}
 
-    <section>
-      <h2>ملخص التقرير</h2>
-      <p>${escapeHtml(content.summaryText)}</p>
-    </section>
+      <section class="subject-block">
+        <p class="subject-label">عنوان التقرير</p>
+        <p class="subject-title">${escapeHtml(content.reportTitle)}</p>
+      </section>
 
-    <section>
-      <h2>الأعمال المنجزة</h2>
-      <p>${escapeHtml(content.workText)}</p>
-    </section>
+      <section class="meta-grid">
+        <p class="meta-item">
+          <span class="meta-label">اسم المشروع</span>
+          <span class="meta-value">${escapeHtml(content.projectName)}</span>
+        </p>
+        <p class="meta-item">
+          <span class="meta-label">إعداد</span>
+          <span class="meta-value">${escapeHtml(content.authorName)}</span>
+        </p>
+      </section>
 
-    <section>
-      <p>${escapeHtml(content.followUpText)}</p>
-    </section>
+      <section class="salutation">
+        <p>السلام عليكم ورحمة الله وبركاته،</p>
+      </section>
 
-    <section>
-      <p>أطيب التحيات،</p>
-      <p>فريق شركة كرافت</p>
+      <section class="content-section">
+        <p>${escapeHtml(content.introText)}</p>
+      </section>
+
+      ${summarySection}
+      ${workSection}
+      ${detailsSection}
+
+      <section class="closing-note">
+        <p>${escapeHtml(content.followUpText)}</p>
+      </section>
+
+      <section class="signoff">
+        <p>وتفضلوا بقبول فائق الاحترام،</p>
+        <p class="signoff-name">شركة كرافت</p>
+      </section>
     </section>
   </main>
+  <footer class="page-footer">
+    <p>+966 55 536 4848</p>
+    <p>info@craftksa.com | www.craftksa.com</p>
+    <p>RIYADH | SAUDI ARABIA</p>
+  </footer>
 </body>
 </html>`;
 
@@ -448,10 +778,26 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
 		logPdfTrace(
 			[
 				`html.reportId=${payload.report.id}`,
+				`fontRegularEmbedded=${String(embeddedArabicFontRegularBase64.length > 0)}`,
+				`fontBoldEmbedded=${String(embeddedArabicFontBoldBase64.length > 0)}`,
+				`logoEmbedded=${String(embeddedBrandLogoBase64.length > 0)}`,
 				`hasTitle=${String(html.includes(escapeHtml(content.reportTitle)))}`,
 				`hasProject=${String(html.includes(escapeHtml(content.projectName)))}`,
-				`hasSummary=${String(html.includes(escapeHtml(content.summaryText)))}`,
-				`hasBody=${String(html.includes(escapeHtml(content.workText)))}`,
+				`hasSummary=${String(
+					hasMeaningfulText(content.summaryText)
+						? html.includes(escapeHtml(content.summaryText!))
+						: true
+				)}`,
+				`hasWork=${String(
+					hasMeaningfulText(content.workText)
+						? html.includes(escapeHtml(content.workText!))
+						: true
+				)}`,
+				`hasDetails=${String(
+					hasMeaningfulText(content.detailsText)
+						? html.includes(escapeHtml(content.detailsText!))
+						: true
+				)}`,
 			].join(" ")
 		);
 	}
@@ -543,6 +889,9 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		logPdfTrace(`isVercel=${String(diagnostics.isVercel)}`);
 		logPdfTrace(`nodeEnv=${diagnostics.nodeEnv || "null"}`);
 		logPdfTrace(`userDataDir=${userDataDir}`);
+		logPdfTrace(`embeddedArabicFontRegularPath=${embeddedArabicFontRegularPath}`);
+		logPdfTrace(`embeddedArabicFontBoldPath=${embeddedArabicFontBoldPath}`);
+		logPdfTrace(`embeddedBrandLogoPath=${embeddedBrandLogoPath}`);
 		diagnostics.stage = "building_html";
 		logPdfTrace("stage=build-html");
 		const html = await buildReportHtml(payload);
@@ -556,6 +905,13 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 			!html.includes(escapeHtml(normalizeText(payload.project.name)))
 		) {
 			throw new Error(PDF_INCOMPLETE_DATA_MESSAGE);
+		}
+
+		if (
+			!html.includes("data:image/png;base64,") ||
+			!html.includes(`font-family: "${embeddedArabicFontFamily}"`)
+		) {
+			throw new Error(PDF_INVALID_OUTPUT_MESSAGE);
 		}
 
 		diagnostics.stage = "resolving_browser";
@@ -599,6 +955,33 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 				await documentWithFonts.fonts.ready;
 			}
 		});
+		const arabicFontLoaded = await page.evaluate(
+			async (fontFamily) => {
+				const documentWithFonts = document as Document & {
+					fonts?: {
+						ready?: Promise<unknown>;
+						check?: (font: string) => boolean;
+					};
+				};
+
+				if (!documentWithFonts.fonts?.ready) {
+					return false;
+				}
+
+				await documentWithFonts.fonts.ready;
+
+				if (typeof documentWithFonts.fonts.check !== "function") {
+					return false;
+				}
+
+				return documentWithFonts.fonts.check(`12px ${fontFamily}`);
+			},
+			embeddedArabicFontFamily
+		);
+		logPdfTrace(`font.${embeddedArabicFontFamily}.loaded=${String(arabicFontLoaded)}`);
+		if (!arabicFontLoaded) {
+			throw new Error(PDF_ARABIC_FONT_NOT_LOADED_MESSAGE);
+		}
 		await page.waitForFunction(
 			() => Boolean(document.body?.innerText?.trim().length),
 			{ timeout: 3000 }
