@@ -77,7 +77,7 @@ export async function PATCH(
 				project,
 				report,
 				approvedByName: user?.name ?? null,
-			}, { option: "email" });
+			});
 
 			pdfStatus = delivery.pdfStatus;
 			emailStatus = delivery.emailStatus;

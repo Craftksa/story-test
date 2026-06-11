@@ -36,12 +36,25 @@ type DeliveryPreference = {
 	option?: ReportDeliveryOption;
 };
 
+const getWhatsAppWarningMessage = (whatsappOutcome: DeliveryExecutionStatus) => {
+	switch (whatsappOutcome) {
+		case "failed":
+			return "تم إرسال التقرير عبر البريد الإلكتروني، لكن فشل الإرسال عبر واتساب";
+		case "not_configured":
+			return "تم إرسال التقرير عبر البريد الإلكتروني، لكن إعدادات واتساب غير مكتملة";
+		case "skipped":
+			return "تم إرسال التقرير عبر البريد الإلكتروني، لكن لم يتم إرسال واتساب لعدم وجود رقم جوال";
+		default:
+			return null;
+	}
+};
+
 const getDeliveryChannelsForOption = (option: ReportDeliveryOption) => {
 	switch (option) {
 		case "email":
 			return { email: true, whatsapp: false };
 		case "whatsapp":
-			return { email: false, whatsapp: true };
+			return { email: true, whatsapp: true };
 		case "email_whatsapp":
 			return { email: true, whatsapp: true };
 		case "draft":
@@ -74,7 +87,7 @@ const buildDeliveryMessage = ({
 		return "تم إنشاء ملف PDF للتقرير بنجاح.";
 	}
 
-	if (option === "email" || option === "email_whatsapp") {
+	if (option === "email" || option === "whatsapp" || option === "email_whatsapp") {
 		if (emailOutcome === "not_configured") {
 			return "إعدادات البريد الإلكتروني غير مكتملة، لم يتم إرسال التقرير";
 		}
@@ -87,9 +100,15 @@ const buildDeliveryMessage = ({
 			return "لا يوجد مستلمون صالحون للبريد الإلكتروني، لم يتم إرسال التقرير";
 		}
 
-		return option === "email_whatsapp" && whatsappOutcome === "success"
-			? "تم إرسال التقرير عبر البريد الإلكتروني والواتساب."
-			: "تم إرسال التقرير عبر البريد الإلكتروني بنجاح.";
+		if (option === "email") {
+			return "تم إرسال التقرير عبر البريد الإلكتروني بنجاح.";
+		}
+
+		if (whatsappOutcome === "success") {
+			return "تم إرسال التقرير عبر البريد الإلكتروني وواتساب";
+		}
+
+		return getWhatsAppWarningMessage(whatsappOutcome) || "تم إرسال التقرير عبر البريد الإلكتروني بنجاح.";
 	}
 
 	if (whatsappOutcome === "not_configured") {
@@ -263,6 +282,7 @@ export const deliverClientReport = async (
 
 		const emailStatus = mapExecutionOutcomeToStatus(emailOutcome);
 		const whatsappStatus = mapExecutionOutcomeToStatus(whatsappOutcome);
+		const whatsappWarning = emailOutcome === "success" ? getWhatsAppWarningMessage(whatsappOutcome) : null;
 		const lastDeliveryError =
 			[
 				emailOutcome === "failed" ? "فشل إرسال التقرير عبر البريد الإلكتروني" : null,
@@ -272,13 +292,16 @@ export const deliverClientReport = async (
 				emailOutcome === "skipped" && enabledChannels.email
 					? "لا يوجد مستلمون صالحون للبريد الإلكتروني، لم يتم إرسال التقرير"
 					: null,
-				whatsappOutcome === "failed" ? "فشل إرسال التقرير عبر الواتساب" : null,
-				whatsappOutcome === "not_configured"
+				whatsappOutcome === "failed" && emailOutcome !== "success"
+					? "فشل إرسال التقرير عبر الواتساب"
+					: null,
+				whatsappOutcome === "not_configured" && emailOutcome !== "success"
 					? "إرسال الواتساب غير مهيأ حاليًا، لم يتم إرسال التقرير."
 					: null,
-				whatsappOutcome === "skipped" && enabledChannels.whatsapp
+				whatsappOutcome === "skipped" && enabledChannels.whatsapp && emailOutcome !== "success"
 					? "لا يوجد مستلمون صالحون للواتساب، لم يتم إرسال التقرير."
 					: null,
+				whatsappWarning,
 			]
 				.filter(Boolean)
 				.join(" ") || null;

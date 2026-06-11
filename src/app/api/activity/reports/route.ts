@@ -71,13 +71,17 @@ const normalizeRecipientChannel = (
 	option: ReportDeliveryOption,
 	recipient: z.infer<typeof recipientSchema>
 ) => {
+	const hasEmail = !!recipient.email?.trim();
+	const hasPhone = !!recipient.phone?.trim();
+	const sharedChannel = hasEmail && hasPhone ? "both" : hasEmail ? "email" : hasPhone ? "whatsapp" : "none";
+
 	switch (option) {
 		case "email":
-			return recipient.email?.trim() ? "email" : "none";
+			return hasEmail ? "email" : "none";
 		case "whatsapp":
-			return recipient.phone?.trim() ? "whatsapp" : "none";
+			return sharedChannel;
 		case "email_whatsapp":
-			return recipient.email?.trim() || recipient.phone?.trim() ? "both" : "none";
+			return sharedChannel;
 		case "pdf_only":
 			return "none";
 		case "draft":
@@ -109,7 +113,9 @@ const getInitialStatus = ({
 const getInitialChannelStatuses = (option: ReportDeliveryOption) => ({
 	pdfStatus: "not_generated" as const,
 	emailStatus:
-		option === "email" || option === "email_whatsapp" ? ("pending" as const) : ("not_applicable" as const),
+		option === "email" || option === "whatsapp" || option === "email_whatsapp"
+			? ("pending" as const)
+			: ("not_applicable" as const),
 	whatsappStatus:
 		option === "whatsapp" || option === "email_whatsapp"
 			? ("pending" as const)
@@ -266,7 +272,7 @@ export async function POST(req: NextRequest) {
 			!parsed.data.submitAction &&
 			parsed.data.deliveryOption !== "draft" &&
 			(parsed.data.reportType !== "client" || isAdmin);
-		const requestedImmediateClientEmailSend =
+		const requestedImmediateClientDelivery =
 			parsed.data.reportType === "client" &&
 			["email", "whatsapp", "email_whatsapp"].includes(parsed.data.deliveryOption);
 
@@ -280,7 +286,7 @@ export async function POST(req: NextRequest) {
 			if ("payload" in result) {
 				const { payload } = result;
 				const delivery = await deliverClientReport(payload, {
-					option: requestedImmediateClientEmailSend ? "email" : parsed.data.deliveryOption,
+					option: parsed.data.deliveryOption,
 				});
 
 				const emailSentSuccessfully =
@@ -288,7 +294,7 @@ export async function POST(req: NextRequest) {
 
 				const nextStatus =
 					parsed.data.reportType === "client" &&
-					requestedImmediateClientEmailSend &&
+					requestedImmediateClientDelivery &&
 					emailSentSuccessfully
 						? ("sent" as const)
 						: initialStatus === "draft"

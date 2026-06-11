@@ -45,7 +45,7 @@ export async function POST(
 			return NextResponse.json({ error: "Report must be approved before sending." }, { status: 400 });
 		}
 
-		const delivery = await deliverClientReport(payload, { option: "email" });
+		const delivery = await deliverClientReport(payload);
 
 		const emailSentSuccessfully =
 			delivery.pdfStatus === "generated" && delivery.emailOutcome === "success";
