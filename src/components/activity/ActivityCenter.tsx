@@ -626,15 +626,15 @@ const priorityClasses: Record<"high" | "medium" | "low", string> = {
 
 const reportStatusClasses: Record<ProjectReport["status"], string> = {
 	draft:
-		"border-zinc-400 bg-zinc-100 text-zinc-800 dark:border-[#8d7852]/40 dark:bg-[#2b2218] dark:text-[#eadfc7]",
+		"border-zinc-400 bg-zinc-100 font-semibold text-zinc-900 dark:border-[#8d7852]/40 dark:bg-[#2b2218] dark:text-[#eadfc7]",
 	pending_admin_approval:
-		"border-amber-400 bg-amber-100 text-amber-900 dark:border-[#b28a3d]/40 dark:bg-[#3c2d18] dark:text-[#f1d28f]",
+		"border-amber-400 bg-amber-100 font-semibold text-amber-900 dark:border-[#b28a3d]/40 dark:bg-[#3c2d18] dark:text-[#f1d28f]",
 	approved:
-		"border-sky-400 bg-sky-100 text-sky-900 dark:border-[#9c8450]/38 dark:bg-[#2d2419] dark:text-[#f0dfb8]",
+		"border-sky-400 bg-sky-100 font-semibold text-sky-900 dark:border-[#9c8450]/38 dark:bg-[#2d2419] dark:text-[#f0dfb8]",
 	rejected:
-		"border-rose-400 bg-rose-100 text-rose-900 dark:border-[#b86f68]/38 dark:bg-[#3b211d] dark:text-[#f0c2bc]",
+		"border-rose-400 bg-rose-100 font-semibold text-rose-900 dark:border-[#b86f68]/38 dark:bg-[#3b211d] dark:text-[#f0c2bc]",
 	sent:
-		"border-emerald-400 bg-emerald-100 text-emerald-900 dark:border-[#8f8a54]/40 dark:bg-[#2a2418] dark:text-[#e9ddb6]",
+		"border-emerald-400 bg-emerald-100 font-semibold text-emerald-900 dark:border-[#8f8a54]/40 dark:bg-[#2a2418] dark:text-[#e9ddb6]",
 };
 
 const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
