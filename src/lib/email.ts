@@ -17,6 +17,9 @@ const transporter = nodemailer.createTransport({
 	},
 });
 
+const getReportSenderFrom = () =>
+	process.env.SMTP_FROM ? `"CRAFT TEAM" <${process.env.SMTP_FROM}>` : process.env.SMTP_FROM;
+
 export async function sendPasswordResetEmail(email: string, otp: string) {
 	if (!isSmtpConfigured()) {
 		throw new Error("SMTP is not configured.");
@@ -70,7 +73,7 @@ export async function sendProjectReportEmail({
 	}
 
 	return transporter.sendMail({
-		from: process.env.SMTP_FROM,
+		from: getReportSenderFrom(),
 		to: recipientEmails.join(", "),
 		subject: `Project Report - ${reportTitle}`,
 		html: `
