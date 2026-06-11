@@ -625,11 +625,16 @@ const priorityClasses: Record<"high" | "medium" | "low", string> = {
 };
 
 const reportStatusClasses: Record<ProjectReport["status"], string> = {
-	draft: "border-border/60 bg-muted/40 text-muted-foreground",
-	pending_admin_approval: "border-amber-500/25 bg-amber-500/10 text-amber-200",
-	approved: "border-sky-500/25 bg-sky-500/10 text-sky-200",
-	rejected: "border-rose-500/25 bg-rose-500/10 text-rose-200",
-	sent: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+	draft:
+		"border-zinc-300 bg-zinc-100 text-zinc-800 dark:border-[#7d6f55]/35 dark:bg-[#282119] dark:text-[#e7d9bc]",
+	pending_admin_approval:
+		"border-amber-300 bg-amber-50 text-amber-900 dark:border-[#a98332]/35 dark:bg-[#382a16] dark:text-[#f0d08f]",
+	approved:
+		"border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-400/30 dark:bg-sky-500/10 dark:text-sky-200",
+	rejected:
+		"border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-200",
+	sent:
+		"border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200",
 };
 
 const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
@@ -637,33 +642,72 @@ const activityPanelScrollContainerClass =
 	"overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-color:rgba(218,197,143,0.55)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.05] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9f8a58] hover:[&::-webkit-scrollbar-thumb]:bg-[#dac58f]";
 const activityModalOverlayClassName = "fixed inset-0 z-[9998] bg-black/75 backdrop-blur-sm";
 const activityModalContentClassName =
-	"fixed left-1/2 top-1/2 z-[9999] w-full max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-background p-0 text-foreground shadow-2xl shadow-black/20";
+	"fixed left-1/2 top-1/2 z-[9999] w-full max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-300/90 bg-zinc-50 p-0 text-zinc-950 shadow-2xl shadow-black/15 dark:border-[#8f7850]/30 dark:bg-[#15110d] dark:text-[#f4ead8] dark:shadow-black/45";
 const activityModalHeaderClassName =
-	"sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-background/95 px-6 py-5 backdrop-blur";
+	"sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-zinc-200 bg-white/95 px-6 py-5 backdrop-blur dark:border-[#8f7850]/22 dark:bg-[#17120e]/94";
 const activityModalFooterClassName =
-	"sticky bottom-0 border-t border-border bg-background/95 px-6 py-4 backdrop-blur";
+	"sticky bottom-0 border-t border-zinc-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-[#8f7850]/22 dark:bg-[#17120e]/94";
 const activityModalFieldClassName =
-	"w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
+	"w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm shadow-black/5 outline-none transition placeholder:text-zinc-500 focus-visible:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900/10 dark:border-[#7f6c47]/35 dark:bg-[#221b15] dark:text-[#f4ead8] dark:placeholder:text-[#b8ad99] dark:shadow-black/20 dark:focus-visible:border-[#d6bc84] dark:focus-visible:ring-[#d6bc84]/20";
 const activityModalSelectContentClassName =
-	"z-[10001] border border-border bg-popover text-popover-foreground shadow-2xl shadow-black/20";
-const activityModalLabelClassName = "mb-2 block text-sm font-medium text-foreground";
+	"z-[10001] border border-zinc-200 bg-white text-zinc-950 shadow-2xl shadow-black/10 dark:border-[#7f6c47]/30 dark:bg-[#1d1712] dark:text-[#f4ead8] dark:shadow-black/35";
+const activityModalLabelClassName = "mb-2 block text-sm font-medium text-zinc-800 dark:text-[#eadfc9]";
 const activityModalPrimaryButtonClassName =
-	"rounded-xl bg-[#dac58f] px-5 py-2.5 text-sm font-semibold text-[#111315] transition hover:bg-[#e7d3a3] disabled:cursor-not-allowed disabled:opacity-50";
+	"rounded-xl bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#d0b27a] dark:text-[#17120e] dark:hover:bg-[#dec593]";
 const activityModalSecondaryButtonClassName =
-	"rounded-xl border border-[#dac58f]/25 bg-[#dac58f]/10 px-5 py-2.5 text-sm font-semibold text-[#e8dfc8] transition hover:border-[#dac58f]/45 hover:bg-[#dac58f]/15 disabled:cursor-not-allowed disabled:opacity-50";
+	"rounded-xl border border-zinc-300 bg-zinc-100 px-5 py-2.5 text-sm font-semibold text-zinc-900 transition hover:border-zinc-400 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#a78956]/35 dark:bg-[#2a2118] dark:text-[#f0dfbf] dark:hover:border-[#c9a86c]/55 dark:hover:bg-[#34281d]";
 const activityModalCancelButtonClassName =
-	"rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground";
+	"rounded-xl border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
 const activityModalCloseButtonClassName =
-	"rounded-full border border-border bg-background p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground";
-const activityModalCardClassName = "rounded-2xl border border-border bg-card p-4";
-const activityModalSurfaceClassName = "rounded-xl border border-border bg-card px-4 py-3";
+	"rounded-full border border-zinc-300 bg-white p-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
+const activityModalCardClassName =
+	"rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-black/5 dark:border-[#7f6c47]/24 dark:bg-[#1a1511] dark:shadow-black/25";
+const activityModalSurfaceClassName =
+	"rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-3 dark:border-[#7f6c47]/24 dark:bg-[#221b15]";
 const activityModalEmptySurfaceClassName =
-	"rounded-xl border border-dashed border-border bg-muted/30 px-4 py-4 text-sm text-muted-foreground";
+	"rounded-xl border border-dashed border-zinc-300 bg-zinc-100/70 px-4 py-4 text-sm text-zinc-600 dark:border-[#88724b]/32 dark:bg-[#231b15] dark:text-[#c9bda5]";
 const activityModalListItemClassName =
-	"flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3 text-sm";
+	"flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-100/80 px-3 py-3 text-sm dark:border-[#7f6c47]/24 dark:bg-[#211913]";
 const activityModalUploadTriggerClassName =
-	"inline-flex cursor-pointer items-center rounded-xl border border-border bg-muted/40 px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-accent";
-const activityModalGhostActionClassName = "text-muted-foreground hover:bg-accent hover:text-foreground";
+	"inline-flex cursor-pointer items-center rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 shadow-sm shadow-black/5 transition hover:border-zinc-500 hover:bg-zinc-100 dark:border-[#a78956]/35 dark:bg-[#241c15] dark:text-[#f2e2c3] dark:hover:border-[#d4b679]/60 dark:hover:bg-[#312519]";
+const activityModalGhostActionClassName =
+	"text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-950 dark:text-[#cdbf9f] dark:hover:bg-[#2d2319] dark:hover:text-[#f4ead8]";
+const reportModalContentClassName =
+	"fixed left-1/2 top-1/2 z-[9999] w-full max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-300/90 bg-zinc-50 p-0 text-zinc-950 shadow-2xl shadow-black/15 dark:border-[#8f7850]/30 dark:bg-[#15110d] dark:text-[#f4ead8] dark:shadow-black/45";
+const reportModalHeaderClassName =
+	"sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-zinc-200 bg-white/95 px-6 py-5 backdrop-blur dark:border-[#8f7850]/22 dark:bg-[#17120e]/94";
+const reportModalFooterClassName =
+	"sticky bottom-0 border-t border-zinc-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-[#8f7850]/22 dark:bg-[#17120e]/94";
+const reportModalFieldClassName =
+	"w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm shadow-black/5 outline-none transition placeholder:text-zinc-500 focus-visible:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900/10 dark:border-[#7f6c47]/35 dark:bg-[#221b15] dark:text-[#f4ead8] dark:placeholder:text-[#b8ad99] dark:shadow-black/20 dark:focus-visible:border-[#d6bc84] dark:focus-visible:ring-[#d6bc84]/20";
+const reportModalSelectContentClassName =
+	"z-[10001] border border-zinc-200 bg-white text-zinc-950 shadow-2xl shadow-black/10 dark:border-[#7f6c47]/30 dark:bg-[#1d1712] dark:text-[#f4ead8] dark:shadow-black/35";
+const reportModalLabelClassName = "mb-2 block text-sm font-medium text-zinc-800 dark:text-[#eadfc9]";
+const reportModalPrimaryButtonClassName =
+	"rounded-xl bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#d0b27a] dark:text-[#17120e] dark:hover:bg-[#dec593]";
+const reportModalSecondaryButtonClassName =
+	"rounded-xl border border-zinc-300 bg-zinc-100 px-5 py-2.5 text-sm font-semibold text-zinc-900 transition hover:border-zinc-400 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#a78956]/35 dark:bg-[#2a2118] dark:text-[#f0dfbf] dark:hover:border-[#c9a86c]/55 dark:hover:bg-[#34281d]";
+const reportModalCancelButtonClassName =
+	"rounded-xl border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
+const reportModalCloseButtonClassName =
+	"rounded-full border border-zinc-300 bg-white p-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
+const reportModalCardClassName =
+	"rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-black/5 dark:border-[#7f6c47]/24 dark:bg-[#1a1511] dark:shadow-black/25";
+const reportModalSurfaceClassName =
+	"rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-3 dark:border-[#7f6c47]/24 dark:bg-[#221b15]";
+const reportModalEmptySurfaceClassName =
+	"rounded-xl border border-dashed border-zinc-300 bg-zinc-100/70 px-4 py-4 text-sm text-zinc-600 dark:border-[#88724b]/32 dark:bg-[#231b15] dark:text-[#c9bda5]";
+const reportModalListItemClassName =
+	"flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-100/80 px-3 py-3 text-sm dark:border-[#7f6c47]/24 dark:bg-[#211913]";
+const reportModalUploadTriggerClassName =
+	"inline-flex cursor-pointer items-center rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 shadow-sm shadow-black/5 transition hover:border-zinc-500 hover:bg-zinc-100 dark:border-[#a78956]/35 dark:bg-[#241c15] dark:text-[#f2e2c3] dark:hover:border-[#d4b679]/60 dark:hover:bg-[#312519]";
+const reportModalGhostActionClassName =
+	"text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-950 dark:text-[#cdbf9f] dark:hover:bg-[#2d2319] dark:hover:text-[#f4ead8]";
+const reportModalSubtleTextClassName = "text-sm text-zinc-600 dark:text-[#c8baa0]";
+const reportModalMetaCardClassName =
+	"rounded-xl border border-zinc-200 bg-zinc-100/85 px-4 py-3 dark:border-[#7f6c47]/24 dark:bg-[#211a14]";
+const reportModalRowCardClassName =
+	"grid gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-[#7f6c47]/24 dark:bg-[#1c1611]";
 
 export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const { lang, dir } = useCheckedLocale();
@@ -1744,10 +1788,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			<Dialog open={!!viewingLetterId} onOpenChange={(open) => !open && setViewingLetterId(null)}>
 				<DialogContent
 					overlayClassName={activityModalOverlayClassName}
-					className={cn(activityModalContentClassName, "sm:max-w-4xl")}
+					className={cn(reportModalContentClassName, "sm:max-w-4xl")}
 				>
 					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
-						<DialogHeader className={activityModalHeaderClassName}>
+						<DialogHeader className={reportModalHeaderClassName}>
 							<div>
 								<DialogTitle className="text-xl font-semibold text-foreground">
 									{viewedLetter?.subject || "عرض الخطاب"}
@@ -1757,7 +1801,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								type="button"
 								variant="ghost"
 								onClick={() => setViewingLetterId(null)}
-								className={activityModalCloseButtonClassName}
+								className={reportModalCloseButtonClassName}
 							>
 								X
 							</Button>
@@ -1849,10 +1893,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			<Dialog open={!!viewingReportId} onOpenChange={(open) => !open && setViewingReportId(null)}>
 				<DialogContent
 					overlayClassName={activityModalOverlayClassName}
-					className={cn(activityModalContentClassName, "sm:max-w-5xl")}
+					className={cn(reportModalContentClassName, "sm:max-w-5xl")}
 				>
 					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
-						<DialogHeader className={activityModalHeaderClassName}>
+						<DialogHeader className={reportModalHeaderClassName}>
 							<div>
 								<DialogTitle className="text-xl font-semibold text-foreground">
 									{viewedReport?.title || "عرض التقرير"}
@@ -1862,7 +1906,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								type="button"
 								variant="ghost"
 								onClick={() => setViewingReportId(null)}
-								className={activityModalCloseButtonClassName}
+								className={reportModalCloseButtonClassName}
 							>
 								X
 							</Button>
@@ -1873,10 +1917,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								<div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]">
 									<div className={cn(activityModalCardClassName, "space-y-5")}>
 										<div className="space-y-3">
-											<h3 className="text-2xl font-semibold text-white">{viewedReport.title}</h3>
+											<h3 className="text-2xl font-semibold text-zinc-950 dark:text-[#f4ead8]">{viewedReport.title}</h3>
 										</div>
 
-										<div className="grid gap-3 sm:grid-cols-2">
+										<div className="grid gap-3 sm:grid-cols-2 [&>div]:rounded-xl [&>div]:border [&>div]:border-zinc-200 [&>div]:bg-zinc-100/85 [&>div]:px-4 [&>div]:py-3 dark:[&>div]:border-[#7f6c47]/24 dark:[&>div]:bg-[#211a14] [&>div_p:last-child]:font-medium [&>div_p:last-child]:text-zinc-900 dark:[&>div_p:last-child]:text-[#f4ead8]">
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 												<p className="text-xs text-muted-foreground">اسم المشروع</p>
 												<p className="text-sm text-[#f5f1e8]">{projectDetails?.project.name || "غير متوفر"}</p>
@@ -1895,7 +1939,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 											</div>
 										</div>
 
-										<div className="space-y-4 rounded-2xl border border-[#dac58f]/12 bg-black/20 px-5 py-5">
+										<div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-100/85 px-5 py-5 text-zinc-700 dark:border-[#8b744a]/20 dark:bg-[#211a14] dark:text-[#d6d0c2] [&_h4]:text-zinc-950 dark:[&_h4]:text-[#f4ead8] [&_p]:text-zinc-700 dark:[&_p]:text-[#d6d0c2] [&_section:last-child_p]:text-zinc-900 dark:[&_section:last-child_p]:text-[#f4ead8]">
 											<p className="text-base text-[#f5f1e8]">السلام عليكم ورحمة الله وبركاته،</p>
 											<p className="text-sm leading-8 text-[#d6d0c2]">
 												نقدم لكم هذا التقرير الذي يعرض أحدث مستجدات المشروع، موضحًا أبرز ما تم إنجازه من أعمال، والنتائج المحققة حتى تاريخ إعداد هذا التقرير، وذلك في إطار الحرص على تعزيز الشفافية ومتابعة سير العمل بكفاءة وفعالية.
@@ -1928,7 +1972,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 									</div>
 
 									<div className="space-y-4">
-										<div className={cn(activityModalCardClassName, "space-y-4")}>
+										<div className={cn(reportModalCardClassName, "space-y-4")}>
 											<div className="flex flex-wrap gap-2">
 												{(viewedReport.status === "approved" || viewedReport.status === "sent") && (
 													<Button
@@ -1936,7 +1980,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 														variant="outline"
 														size="sm"
 														onClick={() => handleOpenReportPdf(viewedReport)}
-														className={activityModalCancelButtonClassName}
+														className={reportModalCancelButtonClassName}
 													>
 														<FileText className="me-2 h-4 w-4" />
 														طباعة / حفظ PDF
@@ -1949,7 +1993,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 														size="sm"
 														onClick={() => handleSendReport(viewedReport)}
 														disabled={actioningReportId === viewedReport.id}
-														className={activityModalCancelButtonClassName}
+														className={reportModalCancelButtonClassName}
 													>
 														<Send className="me-2 h-4 w-4" />
 														إرسال
@@ -1969,7 +2013,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 																})
 															}
 															disabled={actioningReportId === viewedReport.id}
-															className={activityModalPrimaryButtonClassName}
+															className={reportModalPrimaryButtonClassName}
 														>
 															{actioningReportId === viewedReport.id ? (
 																<Loader2 className="h-4 w-4 animate-spin" />
@@ -1989,7 +2033,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 																	reason: viewedReport.rejectionReason || "",
 																})
 															}
-															className={activityModalCancelButtonClassName}
+															className={reportModalCancelButtonClassName}
 														>
 															رفض
 														</Button>
@@ -1998,29 +2042,29 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 											</div>
 
 											<div className="grid gap-3 sm:grid-cols-2">
-												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+												<div className={reportModalMetaCardClassName}>
 													<p className="text-xs text-muted-foreground">حالة التقرير</p>
-													<p className="mt-1 text-sm text-[#f5f1e8]">{reportStatusLabel[viewedReport.status]}</p>
+													<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-[#f4ead8]">{reportStatusLabel[viewedReport.status]}</p>
 												</div>
-												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+												<div className={reportModalMetaCardClassName}>
 													<p className="text-xs text-muted-foreground">حالة PDF</p>
-													<p className="mt-1 text-sm text-[#f5f1e8]">{pdfStatusLabel[viewedReport.pdfStatus]}</p>
+													<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-[#f4ead8]">{pdfStatusLabel[viewedReport.pdfStatus]}</p>
 												</div>
-												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+												<div className={reportModalMetaCardClassName}>
 													<p className="text-xs text-muted-foreground">إرسال البريد</p>
-													<p className="mt-1 text-sm text-[#f5f1e8]">{deliveryStatusLabel[viewedReport.emailStatus]}</p>
+													<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-[#f4ead8]">{deliveryStatusLabel[viewedReport.emailStatus]}</p>
 												</div>
-												<div className="rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
+												<div className={reportModalMetaCardClassName}>
 													<p className="text-xs text-muted-foreground">إرسال الواتساب</p>
-													<p className="mt-1 text-sm text-[#f5f1e8]">{deliveryStatusLabel[viewedReport.whatsappStatus]}</p>
+													<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-[#f4ead8]">{deliveryStatusLabel[viewedReport.whatsappStatus]}</p>
 												</div>
 											</div>
 										</div>
 
-										<div className={cn(activityModalCardClassName, "space-y-4")}>
+										<div className={cn(reportModalCardClassName, "space-y-4")}>
 											<div className="space-y-2">
 												<p className="text-sm font-medium text-foreground">معلومات الإرسال</p>
-												<p className="text-sm text-[#c7c0af]">
+												<p className={reportModalSubtleTextClassName}>
 													{viewedReport.recipients.length > 0
 														? viewedReport.recipients
 																.map((recipient) => `${recipient.name}${recipient.channel && recipient.channel !== "both" ? ` - ${recipient.channel === "email" ? "بريد" : recipient.channel === "whatsapp" ? "واتساب" : "بدون إرسال"}` : ""}`)
@@ -2032,7 +2076,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 											{viewedReport.permissions.length > 0 && (
 												<div className="space-y-2">
 													<p className="text-sm font-medium text-foreground">صلاحيات التقرير</p>
-													<p className="text-sm text-[#c7c0af]">
+													<p className={reportModalSubtleTextClassName}>
 														{viewedReport.permissions
 															.map((permission) => `${permission.userName} (${permission.accessLevel === "edit" ? "تعديل" : "مشاهدة"})`)
 															.join("، ")}
@@ -2050,7 +2094,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 																href={attachment.url}
 																target="_blank"
 																rel="noreferrer"
-																className="rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-3 py-2 text-xs text-[#f5f1e8] transition hover:border-[#dac58f]/35"
+																className="rounded-xl border border-zinc-200 bg-zinc-100/80 px-3 py-2 text-xs font-medium text-zinc-800 transition hover:border-zinc-400 hover:bg-zinc-200/80 dark:border-[#8b744a]/28 dark:bg-[#221b15] dark:text-[#f2e3c4] dark:hover:border-[#caa96a]/45 dark:hover:bg-[#2c2117]"
 															>
 																{attachment.name || `مرفق ${index + 1}`}
 															</a>
@@ -2061,13 +2105,13 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										</div>
 
 										{viewedReport.rejectionReason && (
-											<div className="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-4 text-sm text-rose-200">
+											<div className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-4 text-sm text-rose-900 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-200">
 												سبب الرفض: {viewedReport.rejectionReason}
 											</div>
 										)}
 
 										{viewedReport.lastDeliveryError && (
-											<div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-4 text-sm text-amber-200">
+											<div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
 												{viewedReport.lastDeliveryError}
 											</div>
 										)}
@@ -2075,7 +2119,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								</div>
 							</div>
 						) : (
-							<div className="px-6 py-8 text-sm text-[#b8b2a3]">تعذر تحميل بيانات التقرير المحدد.</div>
+							<div className="px-6 py-8 text-sm text-zinc-500 dark:text-[#b8b2a3]">تعذر تحميل بيانات التقرير المحدد.</div>
 						)}
 					</div>
 				</DialogContent>
@@ -2537,7 +2581,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 							<div className="space-y-3">
 								{reportForm.recipients.map((recipient, index) => (
-									<div key={`recipient-${index}`} className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-4">
+									<div key={`recipient-${index}`} className={cn(reportModalRowCardClassName, "md:grid-cols-4")}>
 										<Input
 											value={recipient.name}
 											onChange={(event) => updateRecipient(index, "name", event.target.value)}
@@ -2572,7 +2616,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 													<SelectItem value="none">بدون إرسال مباشر</SelectItem>
 												</SelectContent>
 											</Select>
-											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)} className={activityModalGhostActionClassName}>
+											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)} className={reportModalGhostActionClassName}>
 												حذف
 											</Button>
 										</div>
@@ -2598,7 +2642,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										</div>
 									) : (
 										reportForm.permissions.map((permission, index) => (
-											<div key={`permission-${index}`} className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_180px_80px]">
+											<div key={`permission-${index}`} className={cn(reportModalRowCardClassName, "md:grid-cols-[minmax(0,1fr)_180px_80px]")}>
 												<Select
 													value={permission.userId}
 													onValueChange={(value) => updatePermission(index, "userId", value)}
@@ -2626,7 +2670,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 														<SelectItem value="edit">تعديل</SelectItem>
 													</SelectContent>
 												</Select>
-												<Button type="button" variant="ghost" onClick={() => removePermission(index)} className={activityModalGhostActionClassName}>
+												<Button type="button" variant="ghost" onClick={() => removePermission(index)} className={reportModalGhostActionClassName}>
 													حذف
 												</Button>
 											</div>
@@ -2636,7 +2680,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							</div>
 						)}
 
-						<div className="rounded-2xl border border-border bg-card p-4 md:col-span-2">
+						<div className="rounded-2xl border border-zinc-200 bg-zinc-100/80 p-4 md:col-span-2 dark:border-[#7f6c47]/24 dark:bg-[#1f1813]">
 							<div className="grid gap-3 sm:grid-cols-3">
 								<div>
 									<p className="text-xs text-muted-foreground">كاتب التقرير</p>
@@ -2666,7 +2710,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						</div>
 					</div>
 
-					<DialogFooter className={cn(activityModalFooterClassName, "flex flex-wrap justify-end gap-2")}>
+					<DialogFooter className={cn(reportModalFooterClassName, "flex flex-wrap justify-end gap-2")}>
 						<Button
 							type="button"
 							onClick={() => void handleReportAction("draft")}
