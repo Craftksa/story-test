@@ -65,6 +65,7 @@ export async function PATCH(
 		let whatsappStatus = report.whatsappStatus;
 		let lastDeliveryError: string | null = null;
 		let sentAt: Date | null = null;
+		let failureStatusCode = 400;
 		let message = "تم اعتماد التقرير الداخلي بنجاح.";
 
 		if (report.reportType === "client") {
@@ -84,21 +85,9 @@ export async function PATCH(
 			whatsappStatus = delivery.whatsappStatus;
 			lastDeliveryError = delivery.lastDeliveryError;
 			message = delivery.userMessage;
-
-			if (!(pdfStatus === "generated" && delivery.emailOutcome === "success")) {
-				return NextResponse.json(
-					{ error: message },
-					{
-						status:
-							delivery.emailOutcome === "not_configured" || delivery.emailOutcome === "skipped"
-								? 400
-								: 502,
-					}
-				);
-			}
-
-			nextStatus = "sent";
-			sentAt = new Date();
+			failureStatusCode = delivery.failureStatusCode ?? 400;
+			nextStatus = delivery.deliverySucceeded ? "sent" : "approved";
+			sentAt = delivery.deliverySucceeded ? new Date() : null;
 		}
 
 		await db
@@ -117,6 +106,15 @@ export async function PATCH(
 				updatedAt: new Date(),
 			})
 			.where(eq(projectReports.id, params.reportId));
+
+		if (report.reportType === "client" && nextStatus !== "sent") {
+			return NextResponse.json(
+				{ error: message },
+				{
+					status: failureStatusCode,
+				}
+			);
+		}
 
 		const details = await getActivityProjectDetails(report.projectId, user ?? {});
 		return NextResponse.json({

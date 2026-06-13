@@ -79,7 +79,7 @@ const normalizeRecipientChannel = (
 		case "email":
 			return hasEmail ? "email" : "none";
 		case "whatsapp":
-			return sharedChannel;
+			return hasPhone ? "whatsapp" : "none";
 		case "email_whatsapp":
 			return sharedChannel;
 		case "pdf_only":
@@ -113,7 +113,7 @@ const getInitialStatus = ({
 const getInitialChannelStatuses = (option: ReportDeliveryOption) => ({
 	pdfStatus: "not_generated" as const,
 	emailStatus:
-		option === "email" || option === "whatsapp" || option === "email_whatsapp"
+		option === "email" || option === "email_whatsapp"
 			? ("pending" as const)
 			: ("not_applicable" as const),
 	whatsappStatus:
@@ -289,13 +289,10 @@ export async function POST(req: NextRequest) {
 					option: parsed.data.deliveryOption,
 				});
 
-				const emailSentSuccessfully =
-					delivery.pdfStatus === "generated" && delivery.emailOutcome === "success";
-
 				const nextStatus =
 					parsed.data.reportType === "client" &&
 					requestedImmediateClientDelivery &&
-					emailSentSuccessfully
+					delivery.deliverySucceeded
 						? ("sent" as const)
 						: initialStatus === "draft"
 							? ("draft" as const)

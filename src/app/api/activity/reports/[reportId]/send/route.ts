@@ -46,34 +46,35 @@ export async function POST(
 		}
 
 		const delivery = await deliverClientReport(payload);
-
-		const emailSentSuccessfully =
-			delivery.pdfStatus === "generated" && delivery.emailOutcome === "success";
-
-		if (!emailSentSuccessfully) {
-			return NextResponse.json(
-				{ error: delivery.userMessage },
-				{
-					status:
-						delivery.emailOutcome === "not_configured" || delivery.emailOutcome === "skipped"
-							? 400
-							: 502,
-				}
-			);
-		}
+		const nextStatus = delivery.deliverySucceeded ? "sent" : report.status;
+		const sentAt =
+			nextStatus === "sent"
+				? new Date()
+				: report.sentAt
+					? new Date(report.sentAt)
+					: null;
 
 		await db
 			.update(projectReports)
 			.set({
-				status: "sent",
+				status: nextStatus,
 				pdfStatus: delivery.pdfStatus,
 				emailStatus: delivery.emailStatus,
 				whatsappStatus: delivery.whatsappStatus,
 				lastDeliveryError: delivery.lastDeliveryError,
-				sentAt: new Date(),
+				sentAt,
 				updatedAt: new Date(),
 			})
 			.where(eq(projectReports.id, params.reportId));
+
+		if (!delivery.deliverySucceeded) {
+			return NextResponse.json(
+				{ error: delivery.userMessage },
+				{
+					status: delivery.failureStatusCode ?? 502,
+				}
+			);
+		}
 
 		const details = await getActivityProjectDetails(report.projectId, user ?? {});
 		return NextResponse.json({
@@ -82,10 +83,7 @@ export async function POST(
 		});
 	} catch (error) {
 		console.error("POST /api/activity/reports/[reportId]/send error:", error);
-		const userMessage = getReportPdfUserMessage(error, "فشل إرسال التقرير عبر البريد الإلكتروني");
-		return NextResponse.json(
-			{ error: userMessage },
-			{ status: userMessage === "فشل إرسال التقرير عبر البريد الإلكتروني" ? 500 : 400 }
-		);
+		const userMessage = getReportPdfUserMessage(error, "فشل إرسال التقرير");
+		return NextResponse.json({ error: userMessage }, { status: 500 });
 	}
 }
