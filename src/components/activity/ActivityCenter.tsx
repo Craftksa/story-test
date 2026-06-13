@@ -611,10 +611,6 @@ const getReportDeliveryOptionForAction = (
 		return "draft";
 	}
 
-	if (action === "send") {
-		return "email";
-	}
-
 	return currentOption === "draft" ? "pdf_only" : currentOption;
 };
 
@@ -1108,8 +1104,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				return "يمكن إرسال تقارير العميل فقط.";
 			}
 
-			const hasEmailRecipient = getCleanedReportRecipients().some((recipient) => !!recipient.email);
-			if (!hasEmailRecipient) {
+			const deliveryOption = getReportDeliveryOptionForAction(action, reportForm.deliveryOption);
+			const cleanedRecipients = getCleanedReportRecipients();
+			const hasEmailRecipient = cleanedRecipients.some((recipient) => !!recipient.email);
+			const hasWhatsAppRecipient = cleanedRecipients.some((recipient) => !!recipient.phone);
+
+			if (deliveryOption === "whatsapp" && !hasWhatsAppRecipient) {
+				return "\u064a\u062c\u0628 \u0625\u0636\u0627\u0641\u0629 \u0631\u0642\u0645 \u062c\u0648\u0627\u0644 \u0635\u0627\u0644\u062d \u0642\u0628\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062a\u0642\u0631\u064a\u0631.";
+			}
+
+			if (deliveryOption === "email_whatsapp" && (!hasEmailRecipient || !hasWhatsAppRecipient)) {
+				return "\u064a\u062c\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0633\u062a\u0644\u0645 \u0628\u0631\u064a\u062f \u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0648\u0631\u0642\u0645 \u062c\u0648\u0627\u0644 \u0635\u0627\u0644\u062d\u064a\u0646 \u0642\u0628\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062a\u0642\u0631\u064a\u0631.";
+			}
+			if (deliveryOption === "email" && !hasEmailRecipient) {
 				return "يجب إضافة مستلم بريد إلكتروني صالح قبل إرسال التقرير.";
 			}
 		}
