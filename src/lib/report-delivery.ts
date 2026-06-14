@@ -385,6 +385,48 @@ const getMetaErrorDetails = (payload: unknown) => {
 	};
 };
 
+const formatMetaWhatsAppFailureMessage = ({
+	baseMessage,
+	stage,
+	status,
+	metaErrorCode,
+	metaErrorMessage,
+	metaErrorType,
+	metaErrorSubcode,
+}: {
+	baseMessage: string;
+	stage: string;
+	status: number | null;
+	metaErrorCode: number | null;
+	metaErrorMessage: string | null;
+	metaErrorType: string | null;
+	metaErrorSubcode: number | null;
+}) => {
+	const parts = [`stage: ${stage}`];
+
+	if (typeof status === "number") {
+		parts.push(`status: ${status}`);
+	}
+
+	if (typeof metaErrorCode === "number") {
+		parts.push(`code: ${metaErrorCode}`);
+	}
+
+	if (typeof metaErrorSubcode === "number") {
+		parts.push(`subcode: ${metaErrorSubcode}`);
+	}
+
+	if (metaErrorType) {
+		parts.push(`type: ${metaErrorType}`);
+	}
+
+	if (metaErrorMessage) {
+		parts.push(`message: ${metaErrorMessage}`);
+	}
+
+	return `${baseMessage} — ${parts.join(" — ")}`;
+};
+
 const logMetaWhatsAppStage = (stage: string, details: Record<string, unknown>) => {
 	console.info("[whatsapp-meta]", {
 		stage,
@@ -585,7 +627,15 @@ const sendMetaWhatsAppReport = async ({
 		if (!uploadResponse.ok || typeof mediaId !== "string" || mediaId.length === 0) {
 			return {
 				outcome: "failed",
-				message: WHATSAPP_MEDIA_UPLOAD_FAILED_MESSAGE,
+				message: formatMetaWhatsAppFailureMessage({
+					baseMessage: WHATSAPP_MEDIA_UPLOAD_FAILED_MESSAGE,
+					stage: "media_upload_failed",
+					status: uploadResponse.status,
+					metaErrorCode: uploadMetaError.metaErrorCode,
+					metaErrorMessage: uploadMetaErrorMessage,
+					metaErrorType: uploadMetaError.metaErrorType,
+					metaErrorSubcode: uploadMetaError.metaErrorSubcode,
+				}),
 				diagnostic,
 			};
 		}
