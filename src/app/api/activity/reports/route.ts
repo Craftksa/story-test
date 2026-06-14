@@ -14,11 +14,13 @@ import { hasRole } from "@/lib/utils";
 import { deliverClientReport, type ReportDeliveryOption } from "@/lib/report-delivery";
 import { getReportPdfPayload } from "@/lib/report-pdf";
 
+const recipientChannelSchema = z.enum(["email", "whatsapp", "both", "email_whatsapp", "none"]);
+
 const recipientSchema = z.object({
 	name: z.string().min(1),
 	email: z.string().email().optional().or(z.literal("")).nullable(),
 	phone: z.string().optional().or(z.literal("")).nullable(),
-	channel: z.enum(["email", "whatsapp", "both", "none"]).optional(),
+	channel: recipientChannelSchema.optional(),
 });
 
 const attachmentSchema = z.object({
@@ -71,6 +73,12 @@ const normalizeRecipientChannel = (
 	option: ReportDeliveryOption,
 	recipient: z.infer<typeof recipientSchema>
 ) => {
+	const explicitChannel = recipient.channel === "email_whatsapp" ? "both" : recipient.channel;
+
+	if (explicitChannel) {
+		return explicitChannel;
+	}
+
 	const hasEmail = !!recipient.email?.trim();
 	const hasPhone = !!recipient.phone?.trim();
 	const sharedChannel = hasEmail && hasPhone ? "both" : hasEmail ? "email" : hasPhone ? "whatsapp" : "none";

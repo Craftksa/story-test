@@ -14,11 +14,13 @@ import { projectReportPermissions, projectReports, users } from "@/drizzle/schem
 import { hasRole, isValidId } from "@/lib/utils";
 import type { ReportDeliveryOption } from "@/lib/report-delivery";
 
+const recipientChannelSchema = z.enum(["email", "whatsapp", "both", "email_whatsapp", "none"]);
+
 const recipientSchema = z.object({
 	name: z.string().min(1),
 	email: z.string().email().optional().or(z.literal("")).nullable(),
 	phone: z.string().optional().or(z.literal("")).nullable(),
-	channel: z.enum(["email", "whatsapp", "both", "none"]).optional(),
+	channel: recipientChannelSchema.optional(),
 });
 
 const attachmentSchema = z.object({
@@ -69,6 +71,12 @@ const normalizeRecipientChannel = (
 	option: ReportDeliveryOption,
 	recipient: z.infer<typeof recipientSchema>
 ) => {
+	const explicitChannel = recipient.channel === "email_whatsapp" ? "both" : recipient.channel;
+
+	if (explicitChannel) {
+		return explicitChannel;
+	}
+
 	switch (option) {
 		case "email":
 			return recipient.email?.trim() ? "email" : "none";
