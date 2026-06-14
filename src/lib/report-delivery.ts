@@ -825,9 +825,17 @@ export const deliverClientReport = async (
 				whatsappMessage = whatsappResult.message;
 				diagnostic = whatsappResult.diagnostic ?? diagnostic;
 			}
-		} catch {
+		} catch (error) {
 			whatsappOutcome = "failed";
 			whatsappMessage = WHATSAPP_SEND_FAILED_MESSAGE;
+			diagnostic = {
+				...diagnostic,
+				whatsappStageReached: diagnostic.whatsappStageReached ?? "message_send_failed",
+				metaErrorMessage:
+					error instanceof Error
+						? error.message
+						: diagnostic.metaErrorMessage ?? "unknown_error",
+			};
 		}
 
 		const deliverySucceeded = didRequiredChannelsSucceed({

@@ -68,10 +68,20 @@ export async function POST(
 			.where(eq(projectReports.id, params.reportId));
 
 		if (!delivery.deliverySucceeded) {
+			const failureDebug = delivery.diagnostic ?? null;
+
+			console.error("POST /api/activity/reports/[reportId]/send delivery failed", {
+				hasDebug: !!failureDebug,
+				whatsappStageReached: failureDebug?.whatsappStageReached ?? null,
+				metaUploadStatus: failureDebug?.metaUploadStatus ?? null,
+				metaErrorCode: failureDebug?.metaErrorCode ?? null,
+				metaErrorMessage: failureDebug?.metaErrorMessage ?? null,
+			});
+
 			return NextResponse.json(
 				{
 					error: delivery.userMessage,
-					debug: delivery.diagnostic,
+					debug: failureDebug,
 				},
 				{
 					status: delivery.failureStatusCode ?? 502,
