@@ -11,6 +11,50 @@ import { hasRole, isValidId } from "@/lib/utils";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const formatDeliveryErrorWithDebug = (
+	message: string,
+	diagnostic?: {
+		whatsappStageReached?: string | null;
+		metaUploadStatus?: number | null;
+		metaErrorCode?: number | null;
+		metaErrorSubcode?: number | null;
+		metaErrorType?: string | null;
+		metaErrorMessage?: string | null;
+	} | null
+) => {
+	if (!diagnostic) {
+		return message;
+	}
+
+	const parts: string[] = [];
+
+	if (diagnostic.whatsappStageReached) {
+		parts.push(`stage: ${diagnostic.whatsappStageReached}`);
+	}
+
+	if (typeof diagnostic.metaUploadStatus === "number") {
+		parts.push(`status: ${diagnostic.metaUploadStatus}`);
+	}
+
+	if (typeof diagnostic.metaErrorCode === "number") {
+		parts.push(`code: ${diagnostic.metaErrorCode}`);
+	}
+
+	if (typeof diagnostic.metaErrorSubcode === "number") {
+		parts.push(`subcode: ${diagnostic.metaErrorSubcode}`);
+	}
+
+	if (diagnostic.metaErrorType) {
+		parts.push(`type: ${diagnostic.metaErrorType}`);
+	}
+
+	if (diagnostic.metaErrorMessage) {
+		parts.push(diagnostic.metaErrorMessage);
+	}
+
+	return parts.length > 0 ? `${message} — ${parts.join(" — ")}` : message;
+};
+
 export async function POST(
 	req: NextRequest,
 	{ params }: { params: { reportId: string } }
@@ -69,6 +113,7 @@ export async function POST(
 
 		if (!delivery.deliverySucceeded) {
 			const failureDebug = delivery.diagnostic ?? null;
+			const failureMessage = formatDeliveryErrorWithDebug(delivery.userMessage, failureDebug);
 
 			console.error("POST /api/activity/reports/[reportId]/send delivery failed", {
 				hasDebug: !!failureDebug,
@@ -80,7 +125,7 @@ export async function POST(
 
 			return NextResponse.json(
 				{
-					error: delivery.userMessage,
+					error: failureMessage,
 					debug: failureDebug,
 				},
 				{
