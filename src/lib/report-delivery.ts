@@ -263,6 +263,62 @@ const parseJsonSafely = async (response: Response) => {
 	}
 };
 
+const maskPhoneForLog = (phone: string) => {
+	if (phone.length <= 4) {
+		return "****";
+	}
+
+	if (phone.length <= 7) {
+		return `${phone.slice(0, 1)}***${phone.slice(-2)}`;
+	}
+
+	return `${phone.slice(0, 3)}*****${phone.slice(-4)}`;
+};
+
+const getMetaErrorDetails = (payload: unknown) => {
+	if (!payload || typeof payload !== "object" || !("error" in payload)) {
+		return {
+			metaErrorCode: null,
+			metaErrorMessage: null,
+			metaErrorType: null,
+			metaErrorSubcode: null,
+		};
+	}
+
+	const errorPayload = (payload as { error?: unknown }).error;
+
+	if (!errorPayload || typeof errorPayload !== "object") {
+		return {
+			metaErrorCode: null,
+			metaErrorMessage: "non_json_response",
+			metaErrorType: null,
+			metaErrorSubcode: null,
+		};
+	}
+
+	return {
+		metaErrorCode:
+			"code" in errorPayload && typeof errorPayload.code === "number" ? errorPayload.code : null,
+		metaErrorMessage:
+			"message" in errorPayload && typeof errorPayload.message === "string"
+				? errorPayload.message
+				: null,
+		metaErrorType:
+			"type" in errorPayload && typeof errorPayload.type === "string" ? errorPayload.type : null,
+		metaErrorSubcode:
+			"error_subcode" in errorPayload && typeof errorPayload.error_subcode === "number"
+				? errorPayload.error_subcode
+				: null,
+	};
+};
+
+const logMetaWhatsAppStage = (stage: string, details: Record<string, unknown>) => {
+	console.info("[whatsapp-meta]", {
+		stage,
+		...details,
+	});
+};
+
 const sendWebhookWhatsAppReport = async ({
 	project,
 	report,
@@ -342,6 +398,14 @@ const sendMetaWhatsAppReport = async ({
 	const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID?.trim();
 	const apiVersion = process.env.META_WHATSAPP_API_VERSION?.trim();
 
+	logMetaWhatsAppStage("whatsapp_meta_start", {
+		provider: "meta",
+		recipientCount: recipients.length,
+		hasToken: !!accessToken,
+		hasPhoneNumberId: !!phoneNumberId,
+		apiVersion: apiVersion || null,
+	});
+
 	if (!accessToken || !phoneNumberId || !apiVersion) {
 		return {
 			outcome: "not_configured",
@@ -379,6 +443,10 @@ const sendMetaWhatsAppReport = async ({
 		formData.append("type", "application/pdf");
 		formData.append("file", new Blob([pdfBuffer], { type: "application/pdf" }), fileName);
 
+		logMetaWhatsAppStage("whatsapp_media_upload_start", {
+			provider: "meta",
+		});
+
 		const uploadResponse = await fetch(`${baseUrl}/media`, {
 			method: "POST",
 			headers: {
@@ -387,10 +455,22 @@ const sendMetaWhatsAppReport = async ({
 			body: formData,
 		});
 		const uploadPayload = await parseJsonSafely(uploadResponse);
+		const uploadMetaError = getMetaErrorDetails(uploadPayload);
 		const mediaId =
 			uploadPayload && typeof uploadPayload === "object" && "id" in uploadPayload
 				? uploadPayload.id
 				: null;
+
+		logMetaWhatsAppStage("whatsapp_media_upload_result", {
+			provider: "meta",
+			status: uploadResponse.status,
+			ok: uploadResponse.ok,
+			metaErrorCode: uploadMetaError.metaErrorCode,
+			metaErrorMessage:
+				uploadPayload === null ? "non_json_response" : uploadMetaError.metaErrorMessage,
+			metaErrorType: uploadMetaError.metaErrorType,
+			metaErrorSubcode: uploadMetaError.metaErrorSubcode,
+		});
 
 		if (!uploadResponse.ok || typeof mediaId !== "string" || mediaId.length === 0) {
 			return {
@@ -400,6 +480,13 @@ const sendMetaWhatsAppReport = async ({
 		}
 
 		for (const recipient of normalizedRecipients) {
+			const recipientPhoneMasked = maskPhoneForLog(recipient.normalizedPhone);
+
+			logMetaWhatsAppStage("whatsapp_message_send_start", {
+				provider: "meta",
+				recipientPhoneMasked,
+			});
+
 			const messageResponse = await fetch(`${baseUrl}/messages`, {
 				method: "POST",
 				headers: {
@@ -418,12 +505,25 @@ const sendMetaWhatsAppReport = async ({
 				}),
 			});
 			const messagePayload = await parseJsonSafely(messageResponse);
+			const messageMetaError = getMetaErrorDetails(messagePayload);
 			const hasMessageId =
 				messagePayload &&
 				typeof messagePayload === "object" &&
 				"messages" in messagePayload &&
 				Array.isArray(messagePayload.messages) &&
 				messagePayload.messages.length > 0;
+
+			logMetaWhatsAppStage("whatsapp_message_send_result", {
+				provider: "meta",
+				status: messageResponse.status,
+				ok: messageResponse.ok,
+				metaErrorCode: messageMetaError.metaErrorCode,
+				metaErrorMessage:
+					messagePayload === null ? "non_json_response" : messageMetaError.metaErrorMessage,
+				metaErrorType: messageMetaError.metaErrorType,
+				metaErrorSubcode: messageMetaError.metaErrorSubcode,
+				recipientPhoneMasked,
+			});
 
 			if (!messageResponse.ok || !hasMessageId) {
 				return {
@@ -437,7 +537,12 @@ const sendMetaWhatsAppReport = async ({
 			outcome: "success",
 			message: null,
 		};
-	} catch {
+	} catch (error) {
+		logMetaWhatsAppStage("whatsapp_meta_exception", {
+			provider: "meta",
+			errorMessage: error instanceof Error ? error.message : "unknown_error",
+		});
+
 		return {
 			outcome: "failed",
 			message: WHATSAPP_SEND_FAILED_MESSAGE,
