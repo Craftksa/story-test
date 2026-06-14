@@ -196,6 +196,7 @@ type ActivityMutationResponse = {
 	details: ProjectDetails | null;
 	message?: string | null;
 	reportId?: string | null;
+	debug?: ApiErrorDebug | null;
 };
 
 type ApiValidationIssue = {
@@ -206,6 +207,18 @@ type ApiValidationIssue = {
 	maximum?: number;
 	validation?: string;
 	received?: string;
+};
+
+type ApiErrorDebug = {
+	whatsappStageReached?: string | null;
+	metaUploadStatus?: number | null;
+	metaErrorCode?: number | null;
+	metaErrorMessage?: string | null;
+	metaErrorType?: string | null;
+	metaErrorSubcode?: number | null;
+	hasMetaToken?: boolean | null;
+	hasMetaPhoneNumberId?: boolean | null;
+	whatsappProviderResolved?: string | null;
 };
 
 type ReportSubmitAction = "draft" | "save" | "send";
@@ -352,10 +365,56 @@ const inferDeliveryOption = (report: ProjectReport): ReportDeliveryOption => {
 	return "email_whatsapp";
 };
 
+const formatApiDebugDetails = (debug?: ApiErrorDebug | null) => {
+	if (!debug) {
+		return null;
+	}
+
+	const parts: string[] = [];
+
+	if (debug.whatsappStageReached) {
+		parts.push(`stage: ${debug.whatsappStageReached}`);
+	}
+
+	if (typeof debug.metaUploadStatus === "number") {
+		parts.push(`status: ${debug.metaUploadStatus}`);
+	}
+
+	if (typeof debug.metaErrorCode === "number") {
+		parts.push(`code: ${debug.metaErrorCode}`);
+	}
+
+	if (typeof debug.metaErrorSubcode === "number") {
+		parts.push(`subcode: ${debug.metaErrorSubcode}`);
+	}
+
+	if (debug.metaErrorType) {
+		parts.push(`type: ${debug.metaErrorType}`);
+	}
+
+	if (debug.metaErrorMessage) {
+		parts.push(debug.metaErrorMessage);
+	}
+
+	if (!parts.length && debug.whatsappProviderResolved) {
+		parts.push(`provider: ${debug.whatsappProviderResolved}`);
+	}
+
+	if (!parts.length && debug.hasMetaToken === false) {
+		parts.push("meta token missing");
+	}
+
+	if (!parts.length && debug.hasMetaPhoneNumberId === false) {
+		parts.push("phone number id missing");
+	}
+
+	return parts.length ? parts.join(" — ") : null;
+};
+
 const extractApiErrorMessage = (error: unknown, fallbackMessage: string) => {
 	if (axios.isAxiosError(error)) {
 		const responseData = error.response?.data as
-			| { error?: string; issues?: ApiValidationIssue[] }
+			| { error?: string; issues?: ApiValidationIssue[]; debug?: ApiErrorDebug | null }
 			| undefined;
 		const apiIssues = Array.isArray(responseData?.issues) ? responseData.issues : [];
 		if (apiIssues.length > 0) {
@@ -363,8 +422,14 @@ const extractApiErrorMessage = (error: unknown, fallbackMessage: string) => {
 		}
 
 		const apiMessage = responseData?.error;
+		const debugDetails = formatApiDebugDetails(responseData?.debug);
 		if (typeof apiMessage === "string" && apiMessage.trim()) {
-			return translateApiErrorMessage(apiMessage);
+			const translatedMessage = translateApiErrorMessage(apiMessage);
+			return debugDetails ? `${translatedMessage} — ${debugDetails}` : translatedMessage;
+		}
+
+		if (debugDetails) {
+			return debugDetails;
 		}
 	}
 
