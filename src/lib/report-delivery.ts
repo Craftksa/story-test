@@ -26,6 +26,32 @@ type DeliveryChannels = {
 	whatsapp: boolean;
 };
 
+type WhatsAppProviderResolved = "meta" | "webhook" | "disabled";
+type WhatsAppStageReached =
+	| "meta_start"
+	| "media_upload_start"
+	| "media_upload_failed"
+	| "media_upload_success"
+	| "message_send_start"
+	| "message_send_failed"
+	| "message_send_success";
+
+export type WhatsAppDeliveryDiagnostic = {
+	requestedWhatsApp: boolean;
+	whatsappProviderValue: string;
+	whatsappProviderResolved: WhatsAppProviderResolved;
+	hasMetaToken: boolean;
+	hasMetaPhoneNumberId: boolean;
+	metaApiVersion: string | null;
+	whatsappStageReached: WhatsAppStageReached | null;
+	metaUploadStatus: number | null;
+	metaUploadOk: boolean | null;
+	metaErrorCode: number | null;
+	metaErrorMessage: string | null;
+	metaErrorType: string | null;
+	metaErrorSubcode: number | null;
+};
+
 type DeliveryResult = {
 	pdfStatus: "generated" | "failed";
 	emailStatus: DeliveryStatus;
@@ -38,6 +64,7 @@ type DeliveryResult = {
 	requestedChannels: DeliveryChannels;
 	deliverySucceeded: boolean;
 	failureStatusCode: number | null;
+	diagnostic: WhatsAppDeliveryDiagnostic | null;
 };
 
 type DeliveryPreference = {
@@ -47,6 +74,7 @@ type DeliveryPreference = {
 type WhatsAppSendResult = {
 	outcome: DeliveryExecutionStatus;
 	message: string | null;
+	diagnostic: WhatsAppDeliveryDiagnostic | null;
 };
 
 const EMAIL_FAILED_MESSAGE = "فشل إرسال التقرير عبر البريد الإلكتروني";
@@ -234,8 +262,53 @@ const inferDeliveryOptionFromRecipients = (recipients: ActivityReportRecipient[]
 	return "pdf_only";
 };
 
-const getWhatsAppProvider = () =>
-	process.env.WHATSAPP_PROVIDER?.trim().toLowerCase() === "meta" ? "meta" : "webhook";
+const getWhatsAppProviderConfig = (
+	requestedWhatsApp: boolean
+): {
+	value: string;
+	resolved: WhatsAppProviderResolved;
+} => {
+	const rawValue = process.env.WHATSAPP_PROVIDER?.trim();
+	const normalizedValue = rawValue?.toLowerCase() ?? "";
+
+	if (!requestedWhatsApp) {
+		return {
+			value: rawValue || "missing",
+			resolved: "disabled",
+		};
+	}
+
+	return {
+		value: rawValue || "missing",
+		resolved: normalizedValue === "meta" ? "meta" : "webhook",
+	};
+};
+
+const getWhatsAppProvider = () => getWhatsAppProviderConfig(true).resolved;
+
+const createWhatsAppDiagnostic = (
+	requestedWhatsApp: boolean,
+	overrides: Partial<WhatsAppDeliveryDiagnostic> = {}
+): WhatsAppDeliveryDiagnostic => {
+	const providerConfig = getWhatsAppProviderConfig(requestedWhatsApp);
+
+	return {
+		requestedWhatsApp,
+		whatsappProviderValue: providerConfig.value,
+		whatsappProviderResolved: providerConfig.resolved,
+		hasMetaToken: !!process.env.META_WHATSAPP_ACCESS_TOKEN?.trim(),
+		hasMetaPhoneNumberId: !!process.env.META_WHATSAPP_PHONE_NUMBER_ID?.trim(),
+		metaApiVersion: process.env.META_WHATSAPP_API_VERSION?.trim() || null,
+		whatsappStageReached: null,
+		metaUploadStatus: null,
+		metaUploadOk: null,
+		metaErrorCode: null,
+		metaErrorMessage: null,
+		metaErrorType: null,
+		metaErrorSubcode: null,
+		...overrides,
+	};
+};
 
 const normalizeMetaWhatsAppPhone = (phone: string) => {
 	const compactPhone = phone.replace(/[^\d+]/g, "");
@@ -330,10 +403,13 @@ const sendWebhookWhatsAppReport = async ({
 	recipients: ActivityReportRecipient[];
 	pdfBuffer: Buffer;
 }): Promise<WhatsAppSendResult> => {
+	const diagnostic = createWhatsAppDiagnostic(true);
+
 	if (recipients.length === 0) {
 		return {
 			outcome: "skipped",
 			message: WHATSAPP_NO_VALID_PHONE_MESSAGE,
+			diagnostic,
 		};
 	}
 
@@ -341,6 +417,7 @@ const sendWebhookWhatsAppReport = async ({
 		return {
 			outcome: "not_configured",
 			message: WHATSAPP_NOT_CONFIGURED_MESSAGE,
+			diagnostic,
 		};
 	}
 
@@ -370,17 +447,20 @@ const sendWebhookWhatsAppReport = async ({
 			return {
 				outcome: "failed",
 				message: WHATSAPP_SEND_FAILED_MESSAGE,
+				diagnostic,
 			};
 		}
 
 		return {
 			outcome: "success",
 			message: null,
+			diagnostic,
 		};
 	} catch {
 		return {
 			outcome: "failed",
 			message: WHATSAPP_SEND_FAILED_MESSAGE,
+			diagnostic,
 		};
 	}
 };
@@ -397,6 +477,10 @@ const sendMetaWhatsAppReport = async ({
 	const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN?.trim();
 	const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID?.trim();
 	const apiVersion = process.env.META_WHATSAPP_API_VERSION?.trim();
+	let diagnostic = createWhatsAppDiagnostic(true, {
+		whatsappStageReached: "meta_start",
+		whatsappProviderResolved: "meta",
+	});
 
 	logMetaWhatsAppStage("whatsapp_meta_start", {
 		provider: "meta",
@@ -410,6 +494,7 @@ const sendMetaWhatsAppReport = async ({
 		return {
 			outcome: "not_configured",
 			message: WHATSAPP_INCOMPLETE_SETTINGS_MESSAGE,
+			diagnostic,
 		};
 	}
 
@@ -430,6 +515,7 @@ const sendMetaWhatsAppReport = async ({
 		return {
 			outcome: "skipped",
 			message: WHATSAPP_NO_VALID_PHONE_MESSAGE,
+			diagnostic,
 		};
 	}
 
@@ -442,6 +528,10 @@ const sendMetaWhatsAppReport = async ({
 		formData.append("messaging_product", "whatsapp");
 		formData.append("type", "application/pdf");
 		formData.append("file", new Blob([pdfBuffer], { type: "application/pdf" }), fileName);
+		diagnostic = {
+			...diagnostic,
+			whatsappStageReached: "media_upload_start",
+		};
 
 		logMetaWhatsAppStage("whatsapp_media_upload_start", {
 			provider: "meta",
@@ -460,14 +550,34 @@ const sendMetaWhatsAppReport = async ({
 			uploadPayload && typeof uploadPayload === "object" && "id" in uploadPayload
 				? uploadPayload.id
 				: null;
+		const uploadMetaErrorMessage =
+			uploadPayload === null
+				? "non_json_response"
+				: !uploadResponse.ok
+					? uploadMetaError.metaErrorMessage
+					: typeof mediaId !== "string" || mediaId.length === 0
+						? "missing_media_id"
+						: uploadMetaError.metaErrorMessage;
+		diagnostic = {
+			...diagnostic,
+			whatsappStageReached:
+				uploadResponse.ok && typeof mediaId === "string" && mediaId.length > 0
+					? "media_upload_success"
+					: "media_upload_failed",
+			metaUploadStatus: uploadResponse.status,
+			metaUploadOk: uploadResponse.ok,
+			metaErrorCode: uploadMetaError.metaErrorCode,
+			metaErrorMessage: uploadMetaErrorMessage,
+			metaErrorType: uploadMetaError.metaErrorType,
+			metaErrorSubcode: uploadMetaError.metaErrorSubcode,
+		};
 
 		logMetaWhatsAppStage("whatsapp_media_upload_result", {
 			provider: "meta",
 			status: uploadResponse.status,
 			ok: uploadResponse.ok,
 			metaErrorCode: uploadMetaError.metaErrorCode,
-			metaErrorMessage:
-				uploadPayload === null ? "non_json_response" : uploadMetaError.metaErrorMessage,
+			metaErrorMessage: uploadMetaErrorMessage,
 			metaErrorType: uploadMetaError.metaErrorType,
 			metaErrorSubcode: uploadMetaError.metaErrorSubcode,
 		});
@@ -476,11 +586,16 @@ const sendMetaWhatsAppReport = async ({
 			return {
 				outcome: "failed",
 				message: WHATSAPP_MEDIA_UPLOAD_FAILED_MESSAGE,
+				diagnostic,
 			};
 		}
 
 		for (const recipient of normalizedRecipients) {
 			const recipientPhoneMasked = maskPhoneForLog(recipient.normalizedPhone);
+			diagnostic = {
+				...diagnostic,
+				whatsappStageReached: "message_send_start",
+			};
 
 			logMetaWhatsAppStage("whatsapp_message_send_start", {
 				provider: "meta",
@@ -512,14 +627,30 @@ const sendMetaWhatsAppReport = async ({
 				"messages" in messagePayload &&
 				Array.isArray(messagePayload.messages) &&
 				messagePayload.messages.length > 0;
+			const messageMetaErrorMessage =
+				messagePayload === null
+					? "non_json_response"
+					: !messageResponse.ok
+						? messageMetaError.metaErrorMessage
+						: !hasMessageId
+							? "missing_message_id"
+							: messageMetaError.metaErrorMessage;
+			diagnostic = {
+				...diagnostic,
+				whatsappStageReached:
+					messageResponse.ok && hasMessageId ? "message_send_success" : "message_send_failed",
+				metaErrorCode: messageMetaError.metaErrorCode,
+				metaErrorMessage: messageMetaErrorMessage,
+				metaErrorType: messageMetaError.metaErrorType,
+				metaErrorSubcode: messageMetaError.metaErrorSubcode,
+			};
 
 			logMetaWhatsAppStage("whatsapp_message_send_result", {
 				provider: "meta",
 				status: messageResponse.status,
 				ok: messageResponse.ok,
 				metaErrorCode: messageMetaError.metaErrorCode,
-				metaErrorMessage:
-					messagePayload === null ? "non_json_response" : messageMetaError.metaErrorMessage,
+				metaErrorMessage: messageMetaErrorMessage,
 				metaErrorType: messageMetaError.metaErrorType,
 				metaErrorSubcode: messageMetaError.metaErrorSubcode,
 				recipientPhoneMasked,
@@ -529,6 +660,7 @@ const sendMetaWhatsAppReport = async ({
 				return {
 					outcome: "failed",
 					message: WHATSAPP_SEND_FAILED_MESSAGE,
+					diagnostic,
 				};
 			}
 		}
@@ -536,16 +668,22 @@ const sendMetaWhatsAppReport = async ({
 		return {
 			outcome: "success",
 			message: null,
+			diagnostic,
 		};
 	} catch (error) {
 		logMetaWhatsAppStage("whatsapp_meta_exception", {
 			provider: "meta",
 			errorMessage: error instanceof Error ? error.message : "unknown_error",
 		});
+		diagnostic = {
+			...diagnostic,
+			metaErrorMessage: error instanceof Error ? error.message : "unknown_error",
+		};
 
 		return {
 			outcome: "failed",
 			message: WHATSAPP_SEND_FAILED_MESSAGE,
+			diagnostic,
 		};
 	}
 };
@@ -634,6 +772,7 @@ export const deliverClientReport = async (
 ): Promise<DeliveryResult> => {
 	const option = preference.option ?? inferDeliveryOptionFromRecipients(payload.report.recipients);
 	const requestedChannels = getDeliveryChannelsForOption(option);
+	const baseDiagnostic = createWhatsAppDiagnostic(requestedChannels.whatsapp);
 
 	try {
 		validateReportDocumentPayload(payload);
@@ -650,6 +789,7 @@ export const deliverClientReport = async (
 		let emailOutcome: DeliveryExecutionStatus = requestedChannels.email ? "failed" : "skipped";
 		let whatsappOutcome: DeliveryExecutionStatus = requestedChannels.whatsapp ? "failed" : "skipped";
 		let whatsappMessage: string | null = null;
+		let diagnostic = baseDiagnostic;
 
 		try {
 			if (requestedChannels.email && emailRecipients.length > 0) {
@@ -683,6 +823,7 @@ export const deliverClientReport = async (
 				});
 				whatsappOutcome = whatsappResult.outcome;
 				whatsappMessage = whatsappResult.message;
+				diagnostic = whatsappResult.diagnostic ?? diagnostic;
 			}
 		} catch {
 			whatsappOutcome = "failed";
@@ -724,6 +865,7 @@ export const deliverClientReport = async (
 						emailOutcome,
 						whatsappOutcome,
 					}),
+			diagnostic,
 		};
 	} catch (error) {
 		const userMessage = getReportPdfUserMessage(error, PDF_DELIVERY_FAILURE_MESSAGE);
@@ -748,6 +890,7 @@ export const deliverClientReport = async (
 			requestedChannels,
 			deliverySucceeded: false,
 			failureStatusCode: 500,
+			diagnostic: baseDiagnostic,
 		};
 	}
 };

@@ -69,7 +69,10 @@ export async function POST(
 
 		if (!delivery.deliverySucceeded) {
 			return NextResponse.json(
-				{ error: delivery.userMessage },
+				{
+					error: delivery.userMessage,
+					debug: delivery.diagnostic,
+				},
 				{
 					status: delivery.failureStatusCode ?? 502,
 				}
