@@ -860,9 +860,11 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
 		(await loadEmbeddedArabicFontBoldBase64()) ?? embeddedArabicFontRegularBase64;
 	const embeddedBrandLogoBase64 = await loadEmbeddedBrandLogoBase64();
 	const attachmentsSection = content.attachments.length
-		? `<section class="content-section">
-      <h2>المرفقات</h2>
-      ${content.attachments.map((attachment) => `<p>• ${escapeHtml(attachment.name)}</p>`).join("")}
+		? `<section class="attachments-section">
+      <h2>المرفقات:</h2>
+      ${content.attachments
+				.map((attachment) => `<p class="attachment-item">• ${escapeHtml(attachment.name)}</p>`)
+				.join("")}
     </section>`
 		: "";
 
@@ -922,7 +924,7 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
       display: flex;
       justify-content: center;
       align-items: center;
-      margin-bottom: 12mm;
+      margin-bottom: 10mm;
       padding-top: 2mm;
     }
     .page-header img {
@@ -930,47 +932,32 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
       height: auto;
       display: block;
     }
-    .document-card {
-      border: 1px solid #d7d2c8;
-      border-radius: 18px;
-      padding: 14mm 12mm 16mm;
-      background: #ffffff;
-    }
-    .document-topline {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 10mm;
-      margin-bottom: 10mm;
-      border-bottom: 1px solid #e7e1d5;
-      padding-bottom: 6mm;
+    .letter-page {
+      padding: 0 6mm;
     }
     .document-date,
-    .document-type,
     .recipient-label,
     .recipient-name,
-    .subject-label,
-    .subject-title,
-    .meta-label,
-    .meta-value,
+    .subject-line,
+    .project-line,
+    .prepared-by,
     h2,
     p {
       unicode-bidi: plaintext;
     }
-    .document-date,
-    .document-type {
-      margin: 0;
-      font-size: 13px;
-      line-height: 1.8;
-      color: #403a32;
+    .document-meta {
+      margin-bottom: 10mm;
     }
-    .document-type {
-      text-align: left;
+    .document-date {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.9;
+      color: #222222;
     }
     .document-title {
-      margin: 0 0 8mm;
+      margin: 0 0 9mm;
       text-align: center;
-      font-size: 24px;
+      font-size: 23px;
       font-weight: 700;
       color: #111111;
     }
@@ -979,80 +966,55 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
     }
     .recipient-label {
       margin: 0 0 2mm;
-      font-size: 13px;
-      color: #6f675b;
+      font-size: 14px;
+      color: #1f1f1f;
     }
     .recipient-name {
       margin: 0;
       font-size: 18px;
       font-weight: 700;
-      color: #131313;
+      color: #101010;
     }
-    .subject-block {
-      margin-bottom: 8mm;
-      padding: 4mm 5mm;
-      background: #f7f4ee;
-      border-radius: 12px;
-    }
-    .subject-label {
-      margin: 0 0 1.5mm;
-      font-size: 13px;
-      color: #6f675b;
-    }
-    .subject-title {
-      margin: 0;
-      font-size: 17px;
-      font-weight: 700;
-      color: #111111;
-    }
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 4mm 8mm;
-      margin-bottom: 9mm;
-      padding: 4mm 5mm;
-      border: 1px solid #ece6dc;
-      border-radius: 12px;
-    }
-    .meta-item {
-      margin: 0;
-    }
-    .meta-label {
-      display: block;
-      margin-bottom: 1mm;
-      font-size: 12px;
-      color: #7a7368;
-    }
-    .meta-value {
-      display: block;
-      font-size: 14px;
-      font-weight: 700;
-      color: #141414;
+    .project-line,
+    .subject-line,
+    .prepared-by {
+      margin: 0 0 4mm;
+      font-size: 15px;
+      line-height: 1.95;
+      color: #161616;
     }
     .salutation,
     .closing-note {
       margin-bottom: 7mm;
     }
     .content-section {
-      margin-bottom: 7mm;
+      margin-bottom: 6mm;
+      page-break-inside: avoid;
+    }
+    .attachments-section {
+      margin-top: 8mm;
+      margin-bottom: 6mm;
       page-break-inside: avoid;
     }
     h2 {
-      font-size: 17px;
+      font-size: 16px;
       margin: 0 0 3mm;
       font-weight: 700;
       color: #151515;
     }
     p {
       font-size: 15px;
-      line-height: 2.05;
+      line-height: 2.2;
       margin: 0 0 3mm;
       white-space: pre-line;
       word-break: break-word;
-      color: #1f1f1f;
+      color: #111111;
+    }
+    .attachment-item {
+      margin-bottom: 2mm;
     }
     .signoff {
-      margin-top: 10mm;
+      margin-top: 12mm;
     }
     .signoff p {
       margin-bottom: 1mm;
@@ -1096,37 +1058,23 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
       <img src="data:image/png;base64,${embeddedBrandLogoBase64}" alt="Craft Logo" />
     </header>
 
-    <section class="document-card">
-      <div class="document-topline">
+    <section class="letter-page">
+      <div class="document-meta">
         <p class="document-date">التاريخ: ${escapeHtml(content.letterDate)}</p>
-        <p class="document-type">خطاب رسمي</p>
       </div>
 
       <h1 class="document-title">خطاب رسمي</h1>
 
       <section class="recipient-block">
-        <p class="recipient-label">الجهة</p>
+        <p class="recipient-label">الجهة / الشخص الموجه له الخطاب</p>
         <p class="recipient-name">${escapeHtml(content.recipientName)}</p>
       </section>
 
-      <section class="subject-block">
-        <p class="subject-label">الموضوع</p>
-        <p class="subject-title">${escapeHtml(content.letterSubject)}</p>
-      </section>
-
-      <section class="meta-grid">
-        <p class="meta-item">
-          <span class="meta-label">اسم المشروع</span>
-          <span class="meta-value">${escapeHtml(content.projectName)}</span>
-        </p>
-        <p class="meta-item">
-          <span class="meta-label">إعداد</span>
-          <span class="meta-value">${escapeHtml(content.authorName)}</span>
-        </p>
-      </section>
+      <p class="project-line">اسم المشروع: ${escapeHtml(content.projectName)}</p>
+      <p class="subject-line">الموضوع: ${escapeHtml(content.letterSubject)}</p>
 
       <section class="salutation">
-        <p>السلام عليكم ورحمة الله وبركاته،</p>
+        <p>تحية طيبة وبعد،</p>
       </section>
 
       <section class="content-section">
@@ -1136,11 +1084,12 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
       ${attachmentsSection}
 
       <section class="closing-note">
-        <p>وتفضلوا بقبول فائق الاحترام والتقدير.</p>
+        <p>وتفضلوا بقبول فائق التحية والتقدير،</p>
       </section>
 
       <section class="signoff">
-        <p class="signoff-name">شركة كرافت</p>
+        <p class="prepared-by">إعداد: ${escapeHtml(content.authorName)}</p>
+        <p class="signoff-name">${escapeHtml(content.authorName)}</p>
       </section>
     </section>
   </main>
