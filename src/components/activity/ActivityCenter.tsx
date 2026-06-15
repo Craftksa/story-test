@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
 	AlertCircle,
 	Clock3,
@@ -263,13 +264,13 @@ type ActivityCenterProps = {
 	};
 };
 
-const EMPTY_RECIPIENT: ReportRecipient = { name: "", email: "", phone: "", channel: "both" };
+const EMPTY_RECIPIENT: ReportRecipient = { name: "", email: "", phone: "", channel: "email" };
 
 const EMPTY_REPORT_FORM: ReportFormState = {
 	reportId: null,
 	projectId: "",
 	reportType: "client",
-	deliveryOption: "pdf_only",
+	deliveryOption: "email",
 	title: "",
 	summary: "",
 	details: "",
@@ -355,15 +356,11 @@ const truncate = (value?: string | null, max = 110) => {
 
 const inferDeliveryOption = (report: ProjectReport): ReportDeliveryOption => {
 	if (report.status === "draft") return "draft";
-	if (report.recipients.length === 0) return "pdf_only";
-
-	const channels = new Set(report.recipients.map((recipient) => recipient.channel ?? "both"));
-	if (channels.size === 1 && channels.has("none")) return "pdf_only";
-	if (channels.size === 1 && channels.has("email")) return "email";
-	if (channels.size === 1 && channels.has("whatsapp")) return "whatsapp";
-
-	return "email_whatsapp";
+	return "email";
 };
+
+const hasValidEmailAddress = (value?: string | null) =>
+	!!value && z.string().email().safeParse(value.trim()).success;
 
 const formatApiDebugDetails = (debug?: ApiErrorDebug | null) => {
 	if (!debug) {
@@ -670,13 +667,13 @@ const validateLetterForm = ({
 
 const getReportDeliveryOptionForAction = (
 	action: ReportSubmitAction,
-	currentOption: ReportDeliveryOption
+	_currentOption: ReportDeliveryOption
 ): ReportDeliveryOption => {
 	if (action === "draft") {
 		return "draft";
 	}
 
-	return currentOption === "draft" ? "pdf_only" : currentOption;
+	return "email";
 };
 
 const priorityClasses: Record<"high" | "medium" | "low", string> = {
@@ -972,7 +969,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							name: recipient.name,
 							email: recipient.email || "",
 							phone: recipient.phone || "",
-							channel: recipient.channel || "both",
+							channel: "email",
 						}))
 					: [{ ...EMPTY_RECIPIENT }],
 			permissions: report.permissions.map((permission) => ({
@@ -1124,7 +1121,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				name: recipient.name.trim(),
 				email: recipient.email?.trim() || null,
 				phone: recipient.phone?.trim() || null,
-				channel: recipient.channel || "both",
+				channel: "email" as const,
 			}))
 			.filter((recipient) => recipient.name);
 
@@ -1160,6 +1157,17 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			return validationError;
 		}
 
+		if (action !== "draft") {
+			const cleanedRecipients = getCleanedReportRecipients();
+
+			if (
+				cleanedRecipients.length === 0 ||
+				cleanedRecipients.some((recipient) => !hasValidEmailAddress(recipient.email))
+			) {
+				return "البريد الإلكتروني مطلوب لإرسال التقرير";
+			}
+		}
+
 		if (action === "send") {
 			if (!isAdmin) {
 				return "لا تملك صلاحية إرسال التقرير.";
@@ -1172,17 +1180,8 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			const deliveryOption = getReportDeliveryOptionForAction(action, reportForm.deliveryOption);
 			const cleanedRecipients = getCleanedReportRecipients();
 			const hasEmailRecipient = cleanedRecipients.some((recipient) => !!recipient.email);
-			const hasWhatsAppRecipient = cleanedRecipients.some((recipient) => !!recipient.phone);
-
-			if (deliveryOption === "whatsapp" && !hasWhatsAppRecipient) {
-				return "\u064a\u062c\u0628 \u0625\u0636\u0627\u0641\u0629 \u0631\u0642\u0645 \u062c\u0648\u0627\u0644 \u0635\u0627\u0644\u062d \u0642\u0628\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062a\u0642\u0631\u064a\u0631.";
-			}
-
-			if (deliveryOption === "email_whatsapp" && (!hasEmailRecipient || !hasWhatsAppRecipient)) {
-				return "\u064a\u062c\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0633\u062a\u0644\u0645 \u0628\u0631\u064a\u062f \u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0648\u0631\u0642\u0645 \u062c\u0648\u0627\u0644 \u0635\u0627\u0644\u062d\u064a\u0646 \u0642\u0628\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062a\u0642\u0631\u064a\u0631.";
-			}
 			if (deliveryOption === "email" && !hasEmailRecipient) {
-				return "يجب إضافة مستلم بريد إلكتروني صالح قبل إرسال التقرير.";
+				return "البريد الإلكتروني مطلوب لإرسال التقرير";
 			}
 		}
 
@@ -2538,10 +2537,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 									</SelectTrigger>
 								<SelectContent className={activityModalSelectContentClassName}>
 									<SelectItem value="draft">{deliveryOptionLabel.draft}</SelectItem>
-									<SelectItem value="pdf_only">{deliveryOptionLabel.pdf_only}</SelectItem>
 									<SelectItem value="email">{deliveryOptionLabel.email}</SelectItem>
-									<SelectItem value="whatsapp">{deliveryOptionLabel.whatsapp}</SelectItem>
-									<SelectItem value="email_whatsapp">{deliveryOptionLabel.email_whatsapp}</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
@@ -2675,17 +2671,14 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										/>
 										<div className="flex gap-2">
 											<Select
-												value={recipient.channel || "both"}
-												onValueChange={(value) => updateRecipient(index, "channel", value)}
+												value="email"
+												onValueChange={() => updateRecipient(index, "channel", "email")}
 											>
 												<SelectTrigger className={activityModalFieldClassName}>
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent className={activityModalSelectContentClassName}>
-													<SelectItem value="both">البريد والواتساب</SelectItem>
 													<SelectItem value="email">البريد فقط</SelectItem>
-													<SelectItem value="whatsapp">الواتساب فقط</SelectItem>
-													<SelectItem value="none">بدون إرسال مباشر</SelectItem>
 												</SelectContent>
 											</Select>
 											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)} className={reportModalGhostActionClassName}>

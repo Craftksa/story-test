@@ -107,6 +107,9 @@ const getDeliveryChannelsForOption = (option: ReportDeliveryOption): DeliveryCha
 	}
 };
 
+const normalizeReportDeliveryOption = (option: ReportDeliveryOption): ReportDeliveryOption =>
+	option === "draft" || option === "pdf_only" ? option : "email";
+
 const getEmailOutcomeMessage = (emailOutcome: DeliveryExecutionStatus) => {
 	switch (emailOutcome) {
 		case "failed":
@@ -820,7 +823,9 @@ export const deliverClientReport = async (
 	payload: ReportDocumentPayload,
 	preference: DeliveryPreference = {}
 ): Promise<DeliveryResult> => {
-	const option = preference.option ?? inferDeliveryOptionFromRecipients(payload.report.recipients);
+	const option = normalizeReportDeliveryOption(
+		preference.option ?? inferDeliveryOptionFromRecipients(payload.report.recipients)
+	);
 	const requestedChannels = getDeliveryChannelsForOption(option);
 	const baseDiagnostic = createWhatsAppDiagnostic(requestedChannels.whatsapp);
 

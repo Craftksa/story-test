@@ -15,10 +15,11 @@ import { deliverClientReport, type ReportDeliveryOption } from "@/lib/report-del
 import { getReportPdfPayload } from "@/lib/report-pdf";
 
 const recipientChannelSchema = z.enum(["email", "whatsapp", "both", "email_whatsapp", "none"]);
+const REPORT_EMAIL_REQUIRED_MESSAGE = "البريد الإلكتروني مطلوب لإرسال التقرير";
 
 const recipientSchema = z.object({
 	name: z.string().min(1),
-	email: z.string().email().optional().or(z.literal("")).nullable(),
+	email: z.string().optional().or(z.literal("")).nullable(),
 	phone: z.string().optional().or(z.literal("")).nullable(),
 	channel: recipientChannelSchema.optional(),
 });
@@ -69,33 +70,39 @@ const createReportSchema = z.object({
 	submitAction: reportSubmitActionSchema.optional(),
 });
 
+const getEffectiveDeliveryOption = (option: ReportDeliveryOption): ReportDeliveryOption =>
+	option === "draft" ? "draft" : "email";
+
+const hasValidRecipientEmail = (email?: string | null) =>
+	!!email && z.string().email().safeParse(email.trim()).success;
+
+const validateRecipientsForEmailDelivery = (
+	recipients: Array<z.infer<typeof recipientSchema>>,
+	option: ReportDeliveryOption
+) => {
+	if (getEffectiveDeliveryOption(option) === "draft") {
+		return null;
+	}
+
+	if (
+		recipients.length === 0 ||
+		recipients.some((recipient) => !hasValidRecipientEmail(recipient.email))
+	) {
+		return REPORT_EMAIL_REQUIRED_MESSAGE;
+	}
+
+	return null;
+};
+
 const normalizeRecipientChannel = (
 	option: ReportDeliveryOption,
 	recipient: z.infer<typeof recipientSchema>
 ) => {
-	const explicitChannel = recipient.channel === "email_whatsapp" ? "both" : recipient.channel;
-
-	if (explicitChannel) {
-		return explicitChannel;
-	}
-
-	const hasEmail = !!recipient.email?.trim();
-	const hasPhone = !!recipient.phone?.trim();
-	const sharedChannel = hasEmail && hasPhone ? "both" : hasEmail ? "email" : hasPhone ? "whatsapp" : "none";
-
-	switch (option) {
-		case "email":
-			return hasEmail ? "email" : "none";
-		case "whatsapp":
-			return hasPhone ? "whatsapp" : "none";
-		case "email_whatsapp":
-			return sharedChannel;
-		case "pdf_only":
-			return "none";
-		case "draft":
-		default:
-			return recipient.channel ?? "both";
-	}
+	return getEffectiveDeliveryOption(option) === "draft"
+		? recipient.email?.trim()
+			? "email"
+			: "none"
+		: "email";
 };
 
 const getInitialStatus = ({
@@ -193,6 +200,15 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "Invalid report data", issues: parsed.error.errors }, { status: 400 });
 		}
 
+		const effectiveDeliveryOption = getEffectiveDeliveryOption(parsed.data.deliveryOption);
+		const recipientValidationError = validateRecipientsForEmailDelivery(
+			parsed.data.recipients,
+			parsed.data.deliveryOption
+		);
+		if (recipientValidationError) {
+			return NextResponse.json({ error: recipientValidationError }, { status: 400 });
+		}
+
 		const hasAccess = await userCanAccessProjectActivity(parsed.data.projectId, user ?? {});
 		if (!hasAccess) {
 			return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -226,17 +242,17 @@ export async function POST(req: NextRequest) {
 			name: recipient.name.trim(),
 			email: recipient.email?.trim() || null,
 			phone: recipient.phone?.trim() || null,
-			channel: normalizeRecipientChannel(parsed.data.deliveryOption, recipient),
+			channel: normalizeRecipientChannel(effectiveDeliveryOption, recipient),
 		}));
 
 		const initialStatus = getStatusForSubmitAction({
 			reportType: parsed.data.reportType,
-			deliveryOption: parsed.data.deliveryOption,
+			deliveryOption: effectiveDeliveryOption,
 			isAdmin,
 			submitAction: parsed.data.submitAction,
 		});
 		const initialChannelStatuses = getChannelStatusesForSubmitAction({
-			deliveryOption: parsed.data.deliveryOption,
+			deliveryOption: effectiveDeliveryOption,
 			submitAction: parsed.data.submitAction,
 		});
 
@@ -278,11 +294,11 @@ export async function POST(req: NextRequest) {
 		let message: string;
 		const shouldProcessImmediately =
 			!parsed.data.submitAction &&
-			parsed.data.deliveryOption !== "draft" &&
+			effectiveDeliveryOption !== "draft" &&
 			(parsed.data.reportType !== "client" || isAdmin);
 		const requestedImmediateClientDelivery =
 			parsed.data.reportType === "client" &&
-			["email", "whatsapp", "email_whatsapp"].includes(parsed.data.deliveryOption);
+			effectiveDeliveryOption === "email";
 
 		if (shouldProcessImmediately) {
 			const result = await getReportPdfPayload({
@@ -294,7 +310,7 @@ export async function POST(req: NextRequest) {
 			if ("payload" in result) {
 				const { payload } = result;
 				const delivery = await deliverClientReport(payload, {
-					option: parsed.data.deliveryOption,
+					option: effectiveDeliveryOption,
 				});
 
 				const nextStatus =
@@ -323,7 +339,7 @@ export async function POST(req: NextRequest) {
 			} else {
 				message = "تم إنشاء التقرير، لكن تعذر تحميل بياناته الكاملة بعد الحفظ.";
 			}
-		} else if (parsed.data.deliveryOption === "draft") {
+		} else if (effectiveDeliveryOption === "draft") {
 			message = "تم حفظ التقرير كمسودة.";
 		} else if (parsed.data.reportType === "client" && !isAdmin) {
 			message = "تم إنشاء التقرير وبانتظار موافقة الأدمن.";

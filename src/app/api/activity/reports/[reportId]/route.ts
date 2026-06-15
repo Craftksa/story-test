@@ -15,10 +15,11 @@ import { hasRole, isValidId } from "@/lib/utils";
 import type { ReportDeliveryOption } from "@/lib/report-delivery";
 
 const recipientChannelSchema = z.enum(["email", "whatsapp", "both", "email_whatsapp", "none"]);
+const REPORT_EMAIL_REQUIRED_MESSAGE = "البريد الإلكتروني مطلوب لإرسال التقرير";
 
 const recipientSchema = z.object({
 	name: z.string().min(1),
-	email: z.string().email().optional().or(z.literal("")).nullable(),
+	email: z.string().optional().or(z.literal("")).nullable(),
 	phone: z.string().optional().or(z.literal("")).nullable(),
 	channel: recipientChannelSchema.optional(),
 });
@@ -67,29 +68,39 @@ const updateReportSchema = z.object({
 	submitAction: reportSubmitActionSchema.optional(),
 });
 
+const getEffectiveDeliveryOption = (option: ReportDeliveryOption): ReportDeliveryOption =>
+	option === "draft" ? "draft" : "email";
+
+const hasValidRecipientEmail = (email?: string | null) =>
+	!!email && z.string().email().safeParse(email.trim()).success;
+
+const validateRecipientsForEmailDelivery = (
+	recipients: Array<z.infer<typeof recipientSchema>>,
+	option: ReportDeliveryOption
+) => {
+	if (getEffectiveDeliveryOption(option) === "draft") {
+		return null;
+	}
+
+	if (
+		recipients.length === 0 ||
+		recipients.some((recipient) => !hasValidRecipientEmail(recipient.email))
+	) {
+		return REPORT_EMAIL_REQUIRED_MESSAGE;
+	}
+
+	return null;
+};
+
 const normalizeRecipientChannel = (
 	option: ReportDeliveryOption,
 	recipient: z.infer<typeof recipientSchema>
 ) => {
-	const explicitChannel = recipient.channel === "email_whatsapp" ? "both" : recipient.channel;
-
-	if (explicitChannel) {
-		return explicitChannel;
-	}
-
-	switch (option) {
-		case "email":
-			return recipient.email?.trim() ? "email" : "none";
-		case "whatsapp":
-			return recipient.phone?.trim() ? "whatsapp" : "none";
-		case "email_whatsapp":
-			return recipient.email?.trim() || recipient.phone?.trim() ? "both" : "none";
-		case "pdf_only":
-			return "none";
-		case "draft":
-		default:
-			return recipient.channel ?? "both";
-	}
+	return getEffectiveDeliveryOption(option) === "draft"
+		? recipient.email?.trim()
+			? "email"
+			: "none"
+		: "email";
 };
 
 const getStatusForSubmitAction = ({
@@ -172,6 +183,15 @@ export async function PATCH(
 			return NextResponse.json({ error: "Invalid report data", issues: parsed.error.errors }, { status: 400 });
 		}
 
+		const effectiveDeliveryOption = getEffectiveDeliveryOption(parsed.data.deliveryOption);
+		const recipientValidationError = validateRecipientsForEmailDelivery(
+			parsed.data.recipients,
+			parsed.data.deliveryOption
+		);
+		if (recipientValidationError) {
+			return NextResponse.json({ error: recipientValidationError }, { status: 400 });
+		}
+
 		const isAdmin = hasRole(user, ["admin", "moderator"]);
 		const requestedPermissions = isAdmin
 			? dedupePermissions(parsed.data.permissions)
@@ -205,7 +225,7 @@ export async function PATCH(
 			name: recipient.name.trim(),
 			email: recipient.email?.trim() || null,
 			phone: recipient.phone?.trim() || null,
-			channel: normalizeRecipientChannel(parsed.data.deliveryOption, recipient),
+			channel: normalizeRecipientChannel(effectiveDeliveryOption, recipient),
 		}));
 		const nextStatus = getStatusForSubmitAction({
 			existingStatus: existingReport.status,
