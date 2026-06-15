@@ -6,6 +6,7 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import {
 	getProjectAndClientById,
+	type ActivityLetter,
 	getReportById,
 	type ActivityReport,
 } from "@/lib/activity";
@@ -28,6 +29,11 @@ export type ReportDocumentPayload = {
 	approvedByName?: string | null;
 };
 
+export type LetterDocumentPayload = {
+	project: ReportProjectPayload;
+	letter: ActivityLetter;
+};
+
 type ReportPdfLoadSuccess = {
 	payload: ReportDocumentPayload;
 };
@@ -48,6 +54,16 @@ type ReportPdfDocumentContent = {
 	detailsText: string | null;
 	introText: string;
 	followUpText: string;
+};
+
+type LetterPdfDocumentContent = {
+	projectName: string;
+	recipientName: string;
+	letterSubject: string;
+	letterDate: string;
+	authorName: string;
+	bodyText: string;
+	attachments: Array<{ name: string }>;
 };
 
 export const PDF_VIEW_FAILURE_MESSAGE = "تعذر توليد ملف PDF، يرجى المحاولة لاحقًا.";
@@ -300,6 +316,7 @@ const loadEmbeddedBrandLogoBase64 = createEmbeddedAssetLoader({
 });
 
 export const getReportPdfFileName = (reportId: string) => `report-${reportId}.pdf`;
+export const getLetterPdfFileName = (letterId: string) => `letter-${letterId}.pdf`;
 
 const buildReportDocumentContent = ({
 	project,
@@ -345,6 +362,37 @@ const buildReportDocumentContent = ({
 			"نقدم لكم هذا التقرير الذي يوضح الأعمال التي تم إنجازها في الموقع خلال الفترة المحددة، مع توضيح أبرز التحديثات والتحسينات التي تم تنفيذها، وذلك بهدف توثيق سير العمل ومتابعة تقدم المشروع بشكل واضح ومنظم.",
 		followUpText:
 			"نؤكد أن الأعمال المذكورة أعلاه تم تنفيذها ضمن خطة تطوير الموقع، وسيتم استكمال بقية التحسينات والاختبارات لضمان استقرار النظام ورفع جودة تجربة المستخدم.",
+	};
+};
+
+const buildLetterDocumentContent = ({ project, letter }: LetterDocumentPayload): LetterPdfDocumentContent => {
+	const projectName = normalizeText(project.name);
+	const recipientName = normalizeText(letter.recipientName);
+	const letterSubject = normalizeText(letter.subject);
+	const bodyText = normalizeText(letter.body);
+	const authorName = normalizeText(letter.authorName) || "غير محدد";
+	const letterDate = letter.letterDate
+		? new Date(letter.letterDate).toLocaleDateString("ar-SA")
+		: letter.createdAt
+			? new Date(letter.createdAt).toLocaleDateString("ar-SA")
+			: "غير محدد";
+	const attachments = (letter.attachments ?? [])
+		.map((attachment, index) => normalizeText(attachment.name) || `مرفق ${index + 1}`)
+		.filter((name) => name.length > 0)
+		.map((name) => ({ name }));
+
+	if (!projectName || !recipientName || !letterSubject || !bodyText) {
+		throw new Error(PDF_INCOMPLETE_DATA_MESSAGE);
+	}
+
+	return {
+		projectName,
+		recipientName,
+		letterSubject,
+		letterDate,
+		authorName,
+		bodyText,
+		attachments,
 	};
 };
 
@@ -805,6 +853,306 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
 	return html;
 };
 
+export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
+	const content = buildLetterDocumentContent(payload);
+	const embeddedArabicFontRegularBase64 = await loadEmbeddedArabicFontRegularBase64();
+	const embeddedArabicFontBoldBase64 =
+		(await loadEmbeddedArabicFontBoldBase64()) ?? embeddedArabicFontRegularBase64;
+	const embeddedBrandLogoBase64 = await loadEmbeddedBrandLogoBase64();
+	const attachmentsSection = content.attachments.length
+		? `<section class="content-section">
+      <h2>المرفقات</h2>
+      ${content.attachments.map((attachment) => `<p>• ${escapeHtml(attachment.name)}</p>`).join("")}
+    </section>`
+		: "";
+
+	return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(content.letterSubject)}</title>
+  <style>
+    @font-face {
+      font-family: "${embeddedArabicFontFamily}";
+      src: url("data:font/ttf;base64,${embeddedArabicFontRegularBase64}") format("truetype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "${embeddedArabicFontFamily}";
+      src: url("data:font/ttf;base64,${embeddedArabicFontBoldBase64}") format("truetype");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @page {
+      size: A4;
+      margin: 24mm 18mm 34mm;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      direction: rtl;
+      text-align: right;
+      unicode-bidi: plaintext;
+      background: #ffffff;
+      color: #000000;
+      font-family: "${embeddedArabicFontFamily}", Arial, Tahoma, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+      font-synthesis: none;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      font-family: "${embeddedArabicFontFamily}", Arial, Tahoma, sans-serif;
+    }
+    body {
+      width: 100%;
+      min-height: 297mm;
+    }
+    main {
+      position: relative;
+      padding: 0 0 28mm;
+      background: #ffffff;
+    }
+    .page-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 12mm;
+      padding-top: 2mm;
+    }
+    .page-header img {
+      width: 150px;
+      height: auto;
+      display: block;
+    }
+    .document-card {
+      border: 1px solid #d7d2c8;
+      border-radius: 18px;
+      padding: 14mm 12mm 16mm;
+      background: #ffffff;
+    }
+    .document-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10mm;
+      margin-bottom: 10mm;
+      border-bottom: 1px solid #e7e1d5;
+      padding-bottom: 6mm;
+    }
+    .document-date,
+    .document-type,
+    .recipient-label,
+    .recipient-name,
+    .subject-label,
+    .subject-title,
+    .meta-label,
+    .meta-value,
+    h2,
+    p {
+      unicode-bidi: plaintext;
+    }
+    .document-date,
+    .document-type {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #403a32;
+    }
+    .document-type {
+      text-align: left;
+    }
+    .document-title {
+      margin: 0 0 8mm;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: #111111;
+    }
+    .recipient-block {
+      margin-bottom: 8mm;
+    }
+    .recipient-label {
+      margin: 0 0 2mm;
+      font-size: 13px;
+      color: #6f675b;
+    }
+    .recipient-name {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #131313;
+    }
+    .subject-block {
+      margin-bottom: 8mm;
+      padding: 4mm 5mm;
+      background: #f7f4ee;
+      border-radius: 12px;
+    }
+    .subject-label {
+      margin: 0 0 1.5mm;
+      font-size: 13px;
+      color: #6f675b;
+    }
+    .subject-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: #111111;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4mm 8mm;
+      margin-bottom: 9mm;
+      padding: 4mm 5mm;
+      border: 1px solid #ece6dc;
+      border-radius: 12px;
+    }
+    .meta-item {
+      margin: 0;
+    }
+    .meta-label {
+      display: block;
+      margin-bottom: 1mm;
+      font-size: 12px;
+      color: #7a7368;
+    }
+    .meta-value {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: #141414;
+    }
+    .salutation,
+    .closing-note {
+      margin-bottom: 7mm;
+    }
+    .content-section {
+      margin-bottom: 7mm;
+      page-break-inside: avoid;
+    }
+    h2 {
+      font-size: 17px;
+      margin: 0 0 3mm;
+      font-weight: 700;
+      color: #151515;
+    }
+    p {
+      font-size: 15px;
+      line-height: 2.05;
+      margin: 0 0 3mm;
+      white-space: pre-line;
+      word-break: break-word;
+      color: #1f1f1f;
+    }
+    .signoff {
+      margin-top: 10mm;
+    }
+    .signoff p {
+      margin-bottom: 1mm;
+    }
+    .signoff .signoff-name {
+      font-weight: 700;
+    }
+    .page-footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0 18mm 10mm;
+      text-align: center;
+      background: #ffffff;
+    }
+    .page-footer::before {
+      content: "";
+      display: block;
+      width: 100%;
+      border-top: 1px solid #d9d2c6;
+      margin-bottom: 3mm;
+    }
+    .page-footer p {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.75;
+      color: #49443d;
+    }
+    @media print {
+      body {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <img src="data:image/png;base64,${embeddedBrandLogoBase64}" alt="Craft Logo" />
+    </header>
+
+    <section class="document-card">
+      <div class="document-topline">
+        <p class="document-date">التاريخ: ${escapeHtml(content.letterDate)}</p>
+        <p class="document-type">خطاب رسمي</p>
+      </div>
+
+      <h1 class="document-title">خطاب رسمي</h1>
+
+      <section class="recipient-block">
+        <p class="recipient-label">الجهة</p>
+        <p class="recipient-name">${escapeHtml(content.recipientName)}</p>
+      </section>
+
+      <section class="subject-block">
+        <p class="subject-label">الموضوع</p>
+        <p class="subject-title">${escapeHtml(content.letterSubject)}</p>
+      </section>
+
+      <section class="meta-grid">
+        <p class="meta-item">
+          <span class="meta-label">اسم المشروع</span>
+          <span class="meta-value">${escapeHtml(content.projectName)}</span>
+        </p>
+        <p class="meta-item">
+          <span class="meta-label">إعداد</span>
+          <span class="meta-value">${escapeHtml(content.authorName)}</span>
+        </p>
+      </section>
+
+      <section class="salutation">
+        <p>السلام عليكم ورحمة الله وبركاته،</p>
+      </section>
+
+      <section class="content-section">
+        <p>${escapeHtml(content.bodyText)}</p>
+      </section>
+
+      ${attachmentsSection}
+
+      <section class="closing-note">
+        <p>وتفضلوا بقبول فائق الاحترام والتقدير.</p>
+      </section>
+
+      <section class="signoff">
+        <p class="signoff-name">شركة كرافت</p>
+      </section>
+    </section>
+  </main>
+  <footer class="page-footer">
+    <p>+966 55 536 4848</p>
+    <p>info@craftksa.com | www.craftksa.com</p>
+    <p>RIYADH | SAUDI ARABIA</p>
+  </footer>
+</body>
+</html>`;
+};
+
 const findLocalBrowserExecutable = async () => {
 	for (const browserPath of candidateBrowserPaths) {
 		try {
@@ -1025,6 +1373,133 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 			}`
 		);
 		logPdfErrorDetails("generateReportPdfBuffer", error, { diagnostics });
+		throw new Error(getReportPdfUserMessage(error, PDF_INVALID_OUTPUT_MESSAGE), {
+			cause: {
+				...formatUnknownError(error),
+				diagnostics,
+			},
+		});
+	} finally {
+		if (browser) {
+			try {
+				diagnostics.stage = "closing_browser";
+				await browser.close();
+			} catch {
+				// Ignore close failures.
+			}
+		}
+
+		await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => undefined);
+	}
+};
+
+export const generateLetterPdfBuffer = async (payload: LetterDocumentPayload) => {
+	const userDataDir = path.join(os.tmpdir(), `craft-letter-${randomUUID()}`);
+	let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+	const diagnostics: PdfGenerationDiagnostics = {
+		stage: "initializing",
+		browserStrategy: "unknown",
+		resolvedExecutablePath: null,
+		chromiumExecutablePath: null,
+		launchStarted: false,
+		launchSucceeded: false,
+		pageCreated: false,
+		setContentStarted: false,
+		setContentSucceeded: false,
+		pdfStarted: false,
+		pdfSucceeded: false,
+		userDataDir,
+		isVercel: !!process.env.VERCEL,
+		nodeEnv: process.env.NODE_ENV ?? null,
+		argsCount: 0,
+	};
+
+	try {
+		logPdfTrace("request=generateLetterPdfBuffer started");
+		logPdfTrace(`projectId=${payload.project.id}`);
+		logPdfTrace(`letterId=${payload.letter.id}`);
+		diagnostics.stage = "building_html";
+		const html = await buildLetterHtml(payload);
+		if (!html.includes('<html lang="ar" dir="rtl">')) {
+			throw new Error(PDF_INVALID_OUTPUT_MESSAGE);
+		}
+
+		diagnostics.stage = "resolving_browser";
+		const launchConfig = await resolveBrowserLaunchConfig(diagnostics);
+		const launchArgs = Array.isArray(launchConfig.args) ? launchConfig.args : [];
+		diagnostics.stage = "launching_browser";
+		diagnostics.launchStarted = true;
+		browser = await puppeteer.launch({
+			...launchConfig,
+			args: [...launchArgs, `--user-data-dir=${userDataDir}`],
+			ignoreHTTPSErrors: true,
+		});
+		diagnostics.launchSucceeded = true;
+
+		diagnostics.stage = "creating_page";
+		const page = await browser.newPage();
+		diagnostics.pageCreated = true;
+		diagnostics.stage = "setting_content";
+		diagnostics.setContentStarted = true;
+		await page.setContent(html, {
+			waitUntil: "networkidle0",
+		});
+		diagnostics.setContentSucceeded = true;
+		await page.emulateMediaType("screen");
+		await page.evaluate(async () => {
+			const documentWithFonts = document as Document & {
+				fonts?: {
+					ready?: Promise<unknown>;
+				};
+			};
+
+			if (documentWithFonts.fonts?.ready) {
+				await documentWithFonts.fonts.ready;
+			}
+		});
+
+		const arabicFontLoaded = await page.evaluate(
+			async (fontFamily) => {
+				const documentWithFonts = document as Document & {
+					fonts?: {
+						ready?: Promise<unknown>;
+						check?: (font: string) => boolean;
+					};
+				};
+
+				if (!documentWithFonts.fonts?.ready) {
+					return false;
+				}
+
+				await documentWithFonts.fonts.ready;
+
+				if (typeof documentWithFonts.fonts.check !== "function") {
+					return false;
+				}
+
+				return documentWithFonts.fonts.check(`12px ${fontFamily}`);
+			},
+			embeddedArabicFontFamily
+		);
+
+		if (!arabicFontLoaded) {
+			throw new Error(PDF_ARABIC_FONT_NOT_LOADED_MESSAGE);
+		}
+
+		diagnostics.stage = "generating_pdf";
+		diagnostics.pdfStarted = true;
+		const pdfBuffer = await page.pdf({
+			format: "A4",
+			printBackground: true,
+			preferCSSPageSize: true,
+		});
+		const normalizedPdfBuffer = Buffer.from(pdfBuffer);
+		validateGeneratedPdfBuffer(normalizedPdfBuffer);
+		diagnostics.pdfSucceeded = true;
+		diagnostics.stage = "completed";
+		return normalizedPdfBuffer;
+	} catch (error) {
+		logPdfErrorDetails("generateLetterPdfBuffer", error, { diagnostics });
 		throw new Error(getReportPdfUserMessage(error, PDF_INVALID_OUTPUT_MESSAGE), {
 			cause: {
 				...formatUnknownError(error),

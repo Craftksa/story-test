@@ -10,6 +10,11 @@ import {
 	getProjectAndClientById,
 } from "@/lib/activity";
 import { sendProjectLetterEmail } from "@/lib/email";
+import {
+	generateLetterPdfBuffer,
+	getLetterPdfFileName,
+	getReportPdfUserMessage,
+} from "@/lib/report-pdf";
 import { db } from "@/drizzle/db";
 import { projectLetters } from "@/drizzle/schema";
 import { isValidId } from "@/lib/utils";
@@ -70,21 +75,18 @@ export async function POST(
 			return NextResponse.json({ error: "Project not found" }, { status: 404 });
 		}
 
-		if (!hasValidEmailAddress(parsed.data.recipientEmail)) {
-			return NextResponse.json(
-				{ error: "البريد الإلكتروني مطلوب لإرسال الخطاب" },
-				{ status: 400 }
-			);
-		}
+		const pdfBuffer = await generateLetterPdfBuffer({
+			project,
+			letter,
+		});
 
 		await sendProjectLetterEmail({
 			projectName: project.name,
 			recipientEmail: parsed.data.recipientEmail.trim(),
 			recipientName: letter.recipientName,
 			letterSubject: letter.subject,
-			letterBody: letter.body,
-			letterDate: letter.letterDate,
-			attachments: letter.attachments,
+			pdfBuffer,
+			attachmentFileName: getLetterPdfFileName(letter.id),
 		});
 
 		await db
@@ -103,7 +105,7 @@ export async function POST(
 	} catch (error) {
 		console.error("POST /api/activity/letters/[letterId]/send error:", error);
 		return NextResponse.json(
-			{ error: getLetterSendUserMessage(error) },
+			{ error: getReportPdfUserMessage(error, getLetterSendUserMessage(error)) },
 			{ status: 500 }
 		);
 	}
