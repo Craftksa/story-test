@@ -242,6 +242,7 @@ type LetterFormState = {
 	letterId: string | null;
 	projectId: string;
 	recipientName: string;
+	recipientEmail: string;
 	subject: string;
 	letterDate: string;
 	body: string;
@@ -284,6 +285,7 @@ const EMPTY_LETTER_FORM: LetterFormState = {
 	letterId: null,
 	projectId: "",
 	recipientName: "",
+	recipientEmail: "",
 	subject: "",
 	letterDate: "",
 	body: "",
@@ -689,22 +691,22 @@ const priorityClasses: Record<"high" | "medium" | "low", string> = {
 
 const reportStatusClasses: Record<ProjectReport["status"], string> = {
 	draft:
-		"border-zinc-400 bg-zinc-100 font-semibold text-zinc-900 dark:border-[#8d7852]/40 dark:bg-[#2b2218] dark:text-[#d8c6a2]",
+		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
 	pending_admin_approval:
-		"border-amber-400 bg-amber-100 font-semibold text-amber-900 dark:border-[#b28a3d]/40 dark:bg-[#3c2d18] dark:text-[#dfbf7f]",
+		"border-amber-300 bg-amber-100 font-semibold text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
 	approved:
-		"border-sky-400 bg-sky-100 font-semibold text-sky-900 dark:border-[#9c8450]/38 dark:bg-[#2d2419] dark:text-[#d8c39a]",
+		"border-sky-300 bg-sky-100 font-semibold text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
 	rejected:
-		"border-rose-400 bg-rose-100 font-semibold text-rose-900 dark:border-[#b86f68]/38 dark:bg-[#3b211d] dark:text-[#d9aca7]",
+		"border-rose-300 bg-rose-100 font-semibold text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
 	sent:
-		"border-emerald-400 bg-emerald-100 font-semibold text-emerald-900 dark:border-[#8f8a54]/40 dark:bg-[#2a2418] dark:text-[#d0c48f]",
+		"border-emerald-300 bg-emerald-100 font-semibold text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
 };
 
 const letterStatusClasses: Record<ProjectLetter["status"], string> = {
 	draft:
-		"border-zinc-400 bg-zinc-100 font-semibold text-zinc-900 dark:border-[#8d7852]/40 dark:bg-[#2b2218] dark:text-[#d8c6a2]",
+		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
 	ready:
-		"border-sky-400 bg-sky-100 font-semibold text-sky-900 dark:border-[#9c8450]/38 dark:bg-[#2d2419] dark:text-[#d8c39a]",
+		"border-sky-300 bg-sky-100 font-semibold text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
 };
 
 const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
@@ -961,6 +963,8 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		setLetterForm({
 			...EMPTY_LETTER_FORM,
 			projectId: selectedProjectId || filteredProjects[0]?.id || "",
+			recipientEmail:
+				getProjectClientEmail(selectedProjectId || filteredProjects[0]?.id || "") || "",
 			letterDate: new Date().toISOString().slice(0, 10),
 		});
 		setLetterDialogOpen(true);
@@ -1007,6 +1011,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			letterId: letter.id,
 			projectId: letter.projectId,
 			recipientName: letter.recipientName,
+			recipientEmail: getProjectClientEmail(letter.projectId) || "",
 			subject: letter.subject,
 			letterDate: letter.letterDate ? letter.letterDate.slice(0, 10) : "",
 			body: letter.body,
@@ -1289,7 +1294,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			return;
 		}
 
-		if (action === "send" && !hasValidEmailAddress(getProjectClientEmail(letterForm.projectId))) {
+		if (action === "send" && !hasValidEmailAddress(letterForm.recipientEmail)) {
 			toast.error("البريد الإلكتروني مطلوب لإرسال الخطاب");
 			return;
 		}
@@ -1349,7 +1354,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				}
 
 				const sendResponse = await upsertProjectDetails(
-					axios.post<ActivityMutationResponse>(`/api/activity/letters/${savedLetterId}/send`, {})
+					axios.post<ActivityMutationResponse>(`/api/activity/letters/${savedLetterId}/send`, {
+						recipientEmail: letterForm.recipientEmail.trim(),
+					})
 				);
 				toast.success(sendResponse.message || "تم إرسال الخطاب عبر البريد الإلكتروني بنجاح");
 				closeLetterDialog();
@@ -1417,24 +1424,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}
 	};
 
-	const handleSendLetter = async (letter: ProjectLetter) => {
-		if (!hasValidEmailAddress(getProjectClientEmail(letter.projectId))) {
-			toast.error("البريد الإلكتروني مطلوب لإرسال الخطاب");
-			return;
-		}
-
-		setActioningLetterId(letter.id);
-		try {
-			const responsePayload = await upsertProjectDetails(
-				axios.post<ActivityMutationResponse>(`/api/activity/letters/${letter.id}/send`, {})
-			);
-			toast.success(responsePayload.message || "تم إرسال الخطاب عبر البريد الإلكتروني بنجاح");
-		} catch (error) {
-			console.error("Failed to send letter", error);
-			toast.error(extractApiErrorMessage(error, "فشل إرسال الخطاب عبر البريد الإلكتروني"));
-		} finally {
-			setActioningLetterId(null);
-		}
+	const handleSendLetter = (letter: ProjectLetter) => {
+		setViewingLetterId(null);
+		openEditLetterDialog(letter);
 	};
 
 	const openPrintPage = (url: string) => {
@@ -2008,7 +2000,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 												) : (
 													<>
 														<Send className="me-2 h-4 w-4" />
-														إرسال
+														تعديل للإرسال
 													</>
 												)}
 											</Button>
@@ -2044,7 +2036,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										</div>
 									</div>
 
-									<div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-100/85 px-5 py-5 text-zinc-700 dark:border-[#8b744a]/20 dark:bg-[#211a14] dark:text-[#d6d0c2] [&_p]:text-zinc-700 dark:[&_p]:text-[#d6d0c2] [&_section:last-child_p]:text-zinc-900 dark:[&_section:last-child_p]:text-[#f4ead8]">
+									<div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-100/85 px-5 py-5 text-zinc-700 dark:border-[#8b744a]/20 dark:bg-[#211a14] dark:text-stone-200 [&_p]:text-zinc-700 dark:[&_p]:text-stone-200 [&_section:last-child_p]:text-zinc-900 dark:[&_section:last-child_p]:text-stone-100">
 										<p className="text-base">تحية طيبة وبعد،</p>
 										<p className="whitespace-pre-line text-sm leading-8">
 											{viewedLetter.body || "لا يوجد نص مضاف لهذا الخطاب."}
@@ -2115,50 +2107,50 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 										<div className="grid gap-3 sm:grid-cols-2 [&>div]:rounded-xl [&>div]:border [&>div]:border-zinc-200 [&>div]:bg-zinc-100/85 [&>div]:px-4 [&>div]:py-3 dark:[&>div]:border-[#7f6c47]/24 dark:[&>div]:bg-[#211a14] [&>div_p:last-child]:font-medium [&>div_p:last-child]:text-zinc-900 dark:[&>div_p:last-child]:text-[#f4ead8]">
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 												<p className="text-xs text-muted-foreground">اسم المشروع</p>
-												<p className="text-sm text-[#f5f1e8]">{projectDetails?.project.name || "غير متوفر"}</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">{projectDetails?.project.name || "غير متوفر"}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 												<p className="text-xs text-muted-foreground">نوع التقرير</p>
-												<p className="text-sm text-[#f5f1e8]">{reportTypeLabel[viewedReport.reportType]}</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">{reportTypeLabel[viewedReport.reportType]}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 												<p className="text-xs text-muted-foreground">التاريخ</p>
-												<p className="text-sm text-[#f5f1e8]">{formatDate(viewedReport.createdAt)}</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">{formatDate(viewedReport.createdAt)}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 												<p className="text-xs text-muted-foreground">إعداد</p>
-												<p className="text-sm text-[#f5f1e8]">{viewedReport.authorName}</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">{viewedReport.authorName}</p>
 											</div>
 										</div>
 
-										<div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-100/85 px-5 py-5 text-zinc-700 dark:border-[#8b744a]/20 dark:bg-[#211a14] dark:text-[#d6d0c2] [&_h4]:text-zinc-950 dark:[&_h4]:text-[#f4ead8] [&_p]:text-zinc-700 dark:[&_p]:text-[#d6d0c2] [&_section:last-child_p]:text-zinc-900 dark:[&_section:last-child_p]:text-[#f4ead8]">
-											<p className="text-base text-[#f5f1e8]">السلام عليكم ورحمة الله وبركاته،</p>
-											<p className="text-sm leading-8 text-[#d6d0c2]">
+										<div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-100/85 px-5 py-5 text-zinc-700 dark:border-[#8b744a]/20 dark:bg-[#211a14] dark:text-stone-200 [&_h4]:text-zinc-950 dark:[&_h4]:text-stone-100 [&_p]:text-zinc-700 dark:[&_p]:text-stone-200 [&_section:last-child_p]:text-zinc-900 dark:[&_section:last-child_p]:text-stone-100">
+											<p className="text-base text-zinc-900 dark:text-stone-100">السلام عليكم ورحمة الله وبركاته،</p>
+											<p className="text-sm leading-8 text-zinc-700 dark:text-stone-200">
 												نقدم لكم هذا التقرير الذي يعرض أحدث مستجدات المشروع، موضحًا أبرز ما تم إنجازه من أعمال، والنتائج المحققة حتى تاريخ إعداد هذا التقرير، وذلك في إطار الحرص على تعزيز الشفافية ومتابعة سير العمل بكفاءة وفعالية.
 											</p>
 
 											<section className="space-y-2">
-												<h4 className="text-sm font-semibold text-white">ملخص التقرير</h4>
-												<p className="whitespace-pre-line text-sm leading-8 text-[#d6d0c2]">
+												<h4 className="text-sm font-semibold text-zinc-900 dark:text-stone-100">ملخص التقرير</h4>
+												<p className="whitespace-pre-line text-sm leading-8 text-zinc-700 dark:text-stone-200">
 													{viewedReport.summary || "لا يوجد ملخص لهذا التقرير."}
 												</p>
 											</section>
 
 											<section className="space-y-2">
-												<h4 className="text-sm font-semibold text-white">متن التقرير</h4>
-												<p className="whitespace-pre-line text-sm leading-8 text-[#d6d0c2]">
+												<h4 className="text-sm font-semibold text-zinc-900 dark:text-stone-100">متن التقرير</h4>
+												<p className="whitespace-pre-line text-sm leading-8 text-zinc-700 dark:text-stone-200">
 													{viewedReport.details}
 												</p>
 												{viewedReport.workDetails && (
-													<p className="whitespace-pre-line text-sm leading-8 text-[#d6d0c2]">
+													<p className="whitespace-pre-line text-sm leading-8 text-zinc-700 dark:text-stone-200">
 														{viewedReport.workDetails}
 													</p>
 												)}
 											</section>
 
 											<section className="space-y-1 pt-2">
-												<p className="text-sm text-[#f5f1e8]">أطيب التحيات،</p>
-												<p className="text-sm text-[#f5f1e8]">فريق شركة كرافت</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">أطيب التحيات،</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">فريق شركة كرافت</p>
 											</section>
 										</div>
 									</div>
@@ -2458,6 +2450,22 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 											}))
 										}
 										placeholder="اسم الجهة أو الشخص"
+										className={activityModalFieldClassName}
+									/>
+								</div>
+
+								<div className="space-y-2">
+									<label className={activityModalLabelClassName}>البريد الإلكتروني للمستلم</label>
+									<Input
+										value={letterForm.recipientEmail}
+										onChange={(event) =>
+											setLetterForm((current) => ({
+												...current,
+												recipientEmail: event.target.value,
+											}))
+										}
+										placeholder="name@example.com"
+										type="email"
 										className={activityModalFieldClassName}
 									/>
 								</div>

@@ -20,6 +20,10 @@ export const maxDuration = 60;
 const hasValidEmailAddress = (value?: string | null) =>
 	!!value && z.string().email().safeParse(value.trim()).success;
 
+const sendLetterSchema = z.object({
+	recipientEmail: z.string().email(),
+});
+
 const getLetterSendUserMessage = (error: unknown) => {
 	if (error instanceof Error && error.message === "SMTP is not configured.") {
 		return "البريد الإلكتروني غير مهيأ لإرسال الخطاب";
@@ -39,6 +43,15 @@ export async function POST(
 	}
 
 	try {
+		const body = await req.json().catch(() => null);
+		const parsed = sendLetterSchema.safeParse(body);
+		if (!parsed.success || !hasValidEmailAddress(parsed.data.recipientEmail)) {
+			return NextResponse.json(
+				{ error: "البريد الإلكتروني مطلوب لإرسال الخطاب" },
+				{ status: 400 }
+			);
+		}
+
 		const canModify = await canUserModifyLetter(params.letterId, user ?? {});
 		if (!canModify) {
 			return NextResponse.json(
@@ -57,7 +70,7 @@ export async function POST(
 			return NextResponse.json({ error: "Project not found" }, { status: 404 });
 		}
 
-		if (!hasValidEmailAddress(project.clientEmail)) {
+		if (!hasValidEmailAddress(parsed.data.recipientEmail)) {
 			return NextResponse.json(
 				{ error: "البريد الإلكتروني مطلوب لإرسال الخطاب" },
 				{ status: 400 }
@@ -66,7 +79,7 @@ export async function POST(
 
 		await sendProjectLetterEmail({
 			projectName: project.name,
-			recipientEmail: project.clientEmail!,
+			recipientEmail: parsed.data.recipientEmail.trim(),
 			recipientName: letter.recipientName,
 			letterSubject: letter.subject,
 			letterBody: letter.body,
