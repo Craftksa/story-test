@@ -94,6 +94,67 @@ export async function sendProjectReportEmail({
 	});
 }
 
+export async function sendProjectLetterEmail({
+	projectName,
+	recipientEmail,
+	recipientName,
+	letterSubject,
+	letterBody,
+	letterDate,
+	attachments,
+}: {
+	projectName: string;
+	recipientEmail: string;
+	recipientName: string;
+	letterSubject: string;
+	letterBody: string;
+	letterDate?: string | null;
+	attachments?: Array<{ url: string; name?: string | null }>;
+}) {
+	if (!isSmtpConfigured()) {
+		throw new Error("SMTP is not configured.");
+	}
+
+	const attachmentLinks = (attachments ?? []).filter((attachment) => attachment?.url?.trim());
+	const formattedLetterDate = letterDate ? new Date(letterDate).toLocaleDateString("en-GB") : null;
+
+	return transporter.sendMail({
+		from: getReportSenderFrom(),
+		to: recipientEmail.trim(),
+		subject: letterSubject,
+		html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+        <h2 style="color: #1f2937; margin-bottom: 8px;">Official Letter</h2>
+        <p style="color: #4b5563; margin: 0 0 16px;">
+          A letter has been issued for project <strong>${projectName}</strong>.
+        </p>
+        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; color: #374151;">
+          <p style="margin: 0 0 12px;"><strong>Recipient:</strong> ${recipientName}</p>
+          ${formattedLetterDate ? `<p style="margin: 0 0 12px;"><strong>Date:</strong> ${formattedLetterDate}</p>` : ""}
+          <p style="margin: 0 0 12px;"><strong>Subject:</strong> ${letterSubject}</p>
+          <div style="white-space: pre-line; line-height: 1.8;">${letterBody}</div>
+        </div>
+        ${
+					attachmentLinks.length > 0
+						? `
+        <div style="margin-top: 16px;">
+          <p style="color: #374151; margin: 0 0 8px;"><strong>Attachments</strong></p>
+          <ul style="padding-left: 20px; margin: 0;">
+            ${attachmentLinks
+							.map(
+								(attachment) =>
+									`<li><a href="${attachment.url}" style="color: #2563eb;">${attachment.name || attachment.url}</a></li>`
+							)
+							.join("")}
+          </ul>
+        </div>`
+						: ""
+				}
+      </div>
+    `,
+	});
+}
+
 export function generateOTP(): string {
 	return Math.floor(100000 + Math.random() * 900000).toString();
 }

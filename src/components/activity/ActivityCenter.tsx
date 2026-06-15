@@ -782,6 +782,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [noteDialogOpen, setNoteDialogOpen] = useState(false);
 	const [reportDialogOpen, setReportDialogOpen] = useState(false);
 	const [letterDialogOpen, setLetterDialogOpen] = useState(false);
+	const [whatsAppComingSoonDialogOpen, setWhatsAppComingSoonDialogOpen] = useState(false);
 	const [viewingReportId, setViewingReportId] = useState<string | null>(null);
 	const [viewingLetterId, setViewingLetterId] = useState<string | null>(null);
 	const [approvalDialog, setApprovalDialog] = useState<ApprovalDialogState | null>(null);
@@ -792,6 +793,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [submittingNote, setSubmittingNote] = useState(false);
 	const [reportSubmitAction, setReportSubmitAction] = useState<ReportSubmitAction | null>(null);
 	const [submittingLetter, setSubmittingLetter] = useState(false);
+	const [actioningLetterId, setActioningLetterId] = useState<string | null>(null);
 	const [uploadingAttachments, setUploadingAttachments] = useState(false);
 	const [uploadingLetterAttachments, setUploadingLetterAttachments] = useState(false);
 	const [actioningReportId, setActioningReportId] = useState<string | null>(null);
@@ -950,6 +952,10 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			letterDate: new Date().toISOString().slice(0, 10),
 		});
 		setLetterDialogOpen(true);
+	};
+
+	const openWhatsAppComingSoonDialog = () => {
+		setWhatsAppComingSoonDialogOpen(true);
 	};
 
 	const openEditReportDialog = (report: ProjectReport) => {
@@ -1344,6 +1350,26 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}
 	};
 
+	const handleSendLetter = async (letter: ProjectLetter) => {
+		if (!hasValidEmailAddress(projectDetails?.project.clientEmail)) {
+			toast.error("البريد الإلكتروني مطلوب لإرسال الخطاب");
+			return;
+		}
+
+		setActioningLetterId(letter.id);
+		try {
+			const responsePayload = await upsertProjectDetails(
+				axios.post<ActivityMutationResponse>(`/api/activity/letters/${letter.id}/send`, {})
+			);
+			toast.success(responsePayload.message || "تم إرسال الخطاب عبر البريد الإلكتروني بنجاح");
+		} catch (error) {
+			console.error("Failed to send letter", error);
+			toast.error(extractApiErrorMessage(error, "فشل إرسال الخطاب عبر البريد الإلكتروني"));
+		} finally {
+			setActioningLetterId(null);
+		}
+	};
+
 	const openPrintPage = (url: string) => {
 		if (!url) return;
 
@@ -1392,6 +1418,13 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					? [{ ...EMPTY_RECIPIENT }]
 					: current.recipients.filter((_, currentIndex) => currentIndex !== index),
 		}));
+	};
+
+	const handleWhatsAppFieldKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+		if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			openWhatsAppComingSoonDialog();
+		}
 	};
 
 	const addPermission = () => {
@@ -1892,6 +1925,25 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 											<FileText className="me-2 h-4 w-4" />
 											طباعة / حفظ PDF
 										</Button>
+										{viewedLetter.canEdit && (
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={() => handleSendLetter(viewedLetter)}
+												disabled={actioningLetterId === viewedLetter.id}
+												className={activityModalCancelButtonClassName}
+											>
+												{actioningLetterId === viewedLetter.id ? (
+													<Loader2 className="h-4 w-4 animate-spin" />
+												) : (
+													<>
+														<Send className="me-2 h-4 w-4" />
+														إرسال
+													</>
+												)}
+											</Button>
+										)}
 									</div>
 
 									<div className="grid gap-3 sm:grid-cols-2">
@@ -2663,16 +2715,36 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 											type="email"
 											className={activityModalFieldClassName}
 										/>
-										<Input
-											value={recipient.phone || ""}
-											onChange={(event) => updateRecipient(index, "phone", event.target.value)}
-											placeholder="WhatsApp number"
-											className={activityModalFieldClassName}
-										/>
+										<div
+											role="button"
+											tabIndex={0}
+											onClick={openWhatsAppComingSoonDialog}
+											onKeyDown={handleWhatsAppFieldKeyDown}
+											className="relative"
+											aria-label="ميزة الواتساب غير مفعلة حاليًا"
+										>
+											<Input
+												value={recipient.phone || ""}
+												readOnly
+												placeholder="رقم الواتساب"
+												className={cn(
+													activityModalFieldClassName,
+													"pointer-events-none cursor-not-allowed pe-24 opacity-70"
+												)}
+												aria-disabled="true"
+											/>
+											<Badge
+												variant="secondary"
+												className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 whitespace-nowrap"
+											>
+												قريبًا
+											</Badge>
+										</div>
 										<div className="flex gap-2">
 											<Select
 												value="email"
 												onValueChange={() => updateRecipient(index, "channel", "email")}
+												disabled
 											>
 												<SelectTrigger className={activityModalFieldClassName}>
 													<SelectValue />
@@ -2871,6 +2943,24 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							) : (
 								"تأكيد الرفض"
 							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={whatsAppComingSoonDialogOpen} onOpenChange={setWhatsAppComingSoonDialogOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>قريبًا</DialogTitle>
+					</DialogHeader>
+					<p className="text-sm leading-7 text-muted-foreground">
+						سيتم تطوير ميزة الإرسال عبر واتساب لاحقًا.
+						<br />
+						حاليًا إرسال التقارير يتم عبر البريد الإلكتروني فقط.
+					</p>
+					<DialogFooter>
+						<Button type="button" onClick={() => setWhatsAppComingSoonDialogOpen(false)}>
+							حسنًا
 						</Button>
 					</DialogFooter>
 				</DialogContent>
