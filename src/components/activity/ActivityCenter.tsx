@@ -408,6 +408,11 @@ const formatApiDebugDetails = (debug?: ApiErrorDebug | null) => {
 	return parts.length ? parts.join(" — ") : null;
 };
 
+const normalizeLetterDate = (value?: string | null) => {
+	if (!value) return null;
+	return value.slice(0, 10);
+};
+
 const extractApiErrorMessage = (error: unknown, fallbackMessage: string) => {
 	if (axios.isAxiosError(error)) {
 		const responseData = error.response?.data as
@@ -684,15 +689,22 @@ const priorityClasses: Record<"high" | "medium" | "low", string> = {
 
 const reportStatusClasses: Record<ProjectReport["status"], string> = {
 	draft:
-		"border-zinc-400 bg-zinc-100 font-semibold text-zinc-900 dark:border-[#8d7852]/40 dark:bg-[#2b2218] dark:text-[#eadfc7]",
+		"border-zinc-400 bg-zinc-100 font-semibold text-zinc-900 dark:border-[#8d7852]/40 dark:bg-[#2b2218] dark:text-[#d8c6a2]",
 	pending_admin_approval:
-		"border-amber-400 bg-amber-100 font-semibold text-amber-900 dark:border-[#b28a3d]/40 dark:bg-[#3c2d18] dark:text-[#f1d28f]",
+		"border-amber-400 bg-amber-100 font-semibold text-amber-900 dark:border-[#b28a3d]/40 dark:bg-[#3c2d18] dark:text-[#dfbf7f]",
 	approved:
-		"border-sky-400 bg-sky-100 font-semibold text-sky-900 dark:border-[#9c8450]/38 dark:bg-[#2d2419] dark:text-[#f0dfb8]",
+		"border-sky-400 bg-sky-100 font-semibold text-sky-900 dark:border-[#9c8450]/38 dark:bg-[#2d2419] dark:text-[#d8c39a]",
 	rejected:
-		"border-rose-400 bg-rose-100 font-semibold text-rose-900 dark:border-[#b86f68]/38 dark:bg-[#3b211d] dark:text-[#f0c2bc]",
+		"border-rose-400 bg-rose-100 font-semibold text-rose-900 dark:border-[#b86f68]/38 dark:bg-[#3b211d] dark:text-[#d9aca7]",
 	sent:
-		"border-emerald-400 bg-emerald-100 font-semibold text-emerald-900 dark:border-[#8f8a54]/40 dark:bg-[#2a2418] dark:text-[#e9ddb6]",
+		"border-emerald-400 bg-emerald-100 font-semibold text-emerald-900 dark:border-[#8f8a54]/40 dark:bg-[#2a2418] dark:text-[#d0c48f]",
+};
+
+const letterStatusClasses: Record<ProjectLetter["status"], string> = {
+	draft:
+		"border-zinc-400 bg-zinc-100 font-semibold text-zinc-900 dark:border-[#8d7852]/40 dark:bg-[#2b2218] dark:text-[#d8c6a2]",
+	ready:
+		"border-sky-400 bg-sky-100 font-semibold text-sky-900 dark:border-[#9c8450]/38 dark:bg-[#2d2419] dark:text-[#d8c39a]",
 };
 
 const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
@@ -1121,6 +1133,17 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		});
 	};
 
+	const closeLetterDialog = () => {
+		setLetterDialogOpen(false);
+		setLetterForm({
+			...EMPTY_LETTER_FORM,
+			projectId: selectedProjectId,
+		});
+	};
+
+	const getProjectClientEmail = (projectId: string) =>
+		projects.find((project) => project.id === projectId)?.clientEmail?.trim() || null;
+
 	const getCleanedReportRecipients = () =>
 		reportForm.recipients
 			.map((recipient) => ({
@@ -1253,7 +1276,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}
 	};
 
-	const handleLetterSubmit = async () => {
+	const handleLetterAction = async (action: "save" | "send") => {
 		const validationError = validateLetterForm({
 			projectId: letterForm.projectId,
 			recipientName: letterForm.recipientName,
@@ -1263,6 +1286,11 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 		if (validationError) {
 			toast.error(validationError);
+			return;
+		}
+
+		if (action === "send" && !hasValidEmailAddress(getProjectClientEmail(letterForm.projectId))) {
+			toast.error("البريد الإلكتروني مطلوب لإرسال الخطاب");
 			return;
 		}
 
@@ -1279,29 +1307,68 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 				attachments: cleanedAttachments,
 			};
 
+			const isEditingLetter = !!letterForm.letterId;
+			let savedLetterId = letterForm.letterId;
+			let responsePayload: ActivityMutationResponse;
+
 			if (letterForm.letterId) {
-				const responsePayload = await upsertProjectDetails(
+				responsePayload = await upsertProjectDetails(
 					axios.patch<ActivityMutationResponse>(
 						`/api/activity/letters/${letterForm.letterId}`,
 						payload
 					)
 				);
-				toast.success(responsePayload.message || "تم تحديث الخطاب.");
 			} else {
-				const responsePayload = await upsertProjectDetails(
+				responsePayload = await upsertProjectDetails(
 					axios.post<ActivityMutationResponse>("/api/activity/letters", payload)
 				);
-				toast.success(responsePayload.message || "تم إنشاء الخطاب بنجاح.");
 			}
 
-			setLetterDialogOpen(false);
-			setLetterForm({
-				...EMPTY_LETTER_FORM,
-				projectId: selectedProjectId,
-			});
+			if (!savedLetterId) {
+				const matchingLetter = responsePayload.details?.letters
+					.filter((letter) => letter.projectId === payload.projectId)
+					.sort(
+						(a, b) =>
+							new Date(b.updatedAt || b.createdAt || 0).getTime() -
+							new Date(a.updatedAt || a.createdAt || 0).getTime()
+					)
+					.find(
+						(letter) =>
+							letter.recipientName === payload.recipientName &&
+							letter.subject === payload.subject &&
+							letter.body === payload.body &&
+							normalizeLetterDate(letter.letterDate) === normalizeLetterDate(payload.letterDate)
+					);
+
+				savedLetterId = matchingLetter?.id ?? null;
+			}
+
+			if (action === "send") {
+				if (!savedLetterId) {
+					throw new Error("تعذر حفظ الخطاب قبل الإرسال.");
+				}
+
+				const sendResponse = await upsertProjectDetails(
+					axios.post<ActivityMutationResponse>(`/api/activity/letters/${savedLetterId}/send`, {})
+				);
+				toast.success(sendResponse.message || "تم إرسال الخطاب عبر البريد الإلكتروني بنجاح");
+				closeLetterDialog();
+				return;
+			}
+
+			toast.success(
+				responsePayload.message ||
+					(isEditingLetter ? "تم تحديث الخطاب." : "تم إنشاء الخطاب بنجاح.")
+			);
+			closeLetterDialog();
 		} catch (error) {
-			console.error("Failed to submit letter", error);
-			toast.error(extractApiErrorMessage(error, "تعذر حفظ الخطاب."));
+			console.error(`Failed to ${action} letter`, error);
+			toast.error(
+				extractApiErrorMessage(
+					error,
+					action === "send" ? "فشل إرسال الخطاب عبر البريد الإلكتروني" : "تعذر حفظ الخطاب."
+				)
+			);
 		} finally {
 			setSubmittingLetter(false);
 		}
@@ -1351,7 +1418,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	};
 
 	const handleSendLetter = async (letter: ProjectLetter) => {
-		if (!hasValidEmailAddress(projectDetails?.project.clientEmail)) {
+		if (!hasValidEmailAddress(getProjectClientEmail(letter.projectId))) {
 			toast.error("البريد الإلكتروني مطلوب لإرسال الخطاب");
 			return;
 		}
@@ -1665,7 +1732,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								)}
 							>
 								<div dir="rtl" className={cn("space-y-5 px-6 py-6 text-right", activityTextAlignClass)}>
-									<div className="grid gap-3 sm:grid-cols-2">
+									<div className="grid gap-3 sm:grid-cols-2 [&>div]:rounded-xl [&>div]:border [&>div]:border-zinc-200 [&>div]:bg-zinc-100/85 [&>div]:px-4 [&>div]:py-3 dark:[&>div]:border-[#7f6c47]/24 dark:[&>div]:bg-[#211a14] [&>div_p:last-child]:font-medium [&>div_p:last-child]:text-zinc-900 dark:[&>div_p:last-child]:text-[#f4ead8]">
 										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
 											<p className="text-xs text-muted-foreground">العميل</p>
 											<p className="mt-1 font-medium">
@@ -1774,7 +1841,9 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 															<div className={cn("min-w-0 flex-1 space-y-3", activityTextAlignClass)}>
 																<div className="flex flex-wrap items-center gap-2">
 																	<h4 className="min-w-0 text-sm font-semibold text-foreground">{letter.subject}</h4>
-																	<Badge variant="outline">{letterStatusLabel[letter.status]}</Badge>
+																	<Badge className={letterStatusClasses[letter.status]}>
+																		{letterStatusLabel[letter.status]}
+																	</Badge>
 																</div>
 																<div className={cn("grid gap-3 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4", activityTextAlignClass)}>
 																	<div className="space-y-1">
@@ -1949,40 +2018,40 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 									<div className="grid gap-3 sm:grid-cols-2">
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 											<p className="text-xs text-muted-foreground">اسم المشروع</p>
-											<p className="text-sm text-[#f5f1e8]">{projectDetails?.project.name || "غير متوفر"}</p>
+											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{projectDetails?.project.name || "غير متوفر"}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 											<p className="text-xs text-muted-foreground">الجهة الموجه لها</p>
-											<p className="text-sm text-[#f5f1e8]">{viewedLetter.recipientName}</p>
+											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{viewedLetter.recipientName}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 											<p className="text-xs text-muted-foreground">الموضوع</p>
-											<p className="text-sm text-[#f5f1e8]">{viewedLetter.subject}</p>
+											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{viewedLetter.subject}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 											<p className="text-xs text-muted-foreground">التاريخ</p>
-											<p className="text-sm text-[#f5f1e8]">
+											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">
 												{formatDate(viewedLetter.letterDate || viewedLetter.createdAt)}
 											</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 											<p className="text-xs text-muted-foreground">الحالة</p>
-											<p className="text-sm text-[#f5f1e8]">{letterStatusLabel[viewedLetter.status]}</p>
+											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{letterStatusLabel[viewedLetter.status]}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
 											<p className="text-xs text-muted-foreground">الكاتب</p>
-											<p className="text-sm text-[#f5f1e8]">{viewedLetter.authorName}</p>
+											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{viewedLetter.authorName}</p>
 										</div>
 									</div>
 
-									<div className="space-y-4 rounded-2xl border border-[#dac58f]/12 bg-black/20 px-5 py-5">
-										<p className="text-base text-[#f5f1e8]">تحية طيبة وبعد،</p>
-										<p className="whitespace-pre-line text-sm leading-8 text-[#d6d0c2]">
+									<div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-100/85 px-5 py-5 text-zinc-700 dark:border-[#8b744a]/20 dark:bg-[#211a14] dark:text-[#d6d0c2] [&_p]:text-zinc-700 dark:[&_p]:text-[#d6d0c2] [&_section:last-child_p]:text-zinc-900 dark:[&_section:last-child_p]:text-[#f4ead8]">
+										<p className="text-base">تحية طيبة وبعد،</p>
+										<p className="whitespace-pre-line text-sm leading-8">
 											{viewedLetter.body || "لا يوجد نص مضاف لهذا الخطاب."}
 										</p>
 										<section className="space-y-1 pt-2">
-											<p className="text-sm text-[#f5f1e8]">وتفضلوا بقبول فائق التحية والتقدير،</p>
-											<p className="text-sm text-[#f5f1e8]">فريق شركة كرافت</p>
+											<p className="text-sm">وتفضلوا بقبول فائق التحية والتقدير،</p>
+											<p className="text-sm">فريق شركة كرافت</p>
 										</section>
 									</div>
 
@@ -1996,7 +2065,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 														href={attachment.url}
 														target="_blank"
 														rel="noreferrer"
-														className="rounded-xl border border-[#dac58f]/15 bg-white/[0.03] px-3 py-2 text-xs text-[#f5f1e8] transition hover:border-[#dac58f]/35"
+														className="rounded-xl border border-zinc-200 bg-zinc-100/80 px-3 py-2 text-xs font-medium text-zinc-800 transition hover:border-zinc-400 hover:bg-zinc-200/80 dark:border-[#8b744a]/28 dark:bg-[#221b15] dark:text-[#f2e3c4] dark:hover:border-[#caa96a]/45 dark:hover:bg-[#2c2117]"
 													>
 														{attachment.name || `مرفق ${index + 1}`}
 													</a>
@@ -2007,7 +2076,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 								</div>
 							</div>
 						) : (
-							<div className="px-6 py-8 text-sm text-[#b8b2a3]">تعذر تحميل بيانات الخطاب المحدد.</div>
+							<div className="px-6 py-8 text-sm text-zinc-500 dark:text-[#b8b2a3]">تعذر تحميل بيانات الخطاب المحدد.</div>
 						)}
 					</div>
 				</DialogContent>
@@ -2333,7 +2402,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							<Button
 								type="button"
 								variant="ghost"
-								onClick={() => setLetterDialogOpen(false)}
+								onClick={closeLetterDialog}
 								className={activityModalCloseButtonClassName}
 							>
 								X
@@ -2483,14 +2552,23 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							<Button
 								type="button"
 								variant="outline"
-								onClick={() => setLetterDialogOpen(false)}
+								onClick={closeLetterDialog}
 								className={activityModalCancelButtonClassName}
 							>
 								إلغاء
 							</Button>
 							<Button
 								type="button"
-								onClick={handleLetterSubmit}
+								variant="outline"
+								onClick={() => void handleLetterAction("send")}
+								disabled={submittingLetter || uploadingLetterAttachments}
+								className={activityModalCancelButtonClassName}
+							>
+								{submittingLetter ? <Loader2 className="h-4 w-4 animate-spin" /> : "إرسال الخطاب"}
+							</Button>
+							<Button
+								type="button"
+								onClick={() => void handleLetterAction("save")}
 								disabled={submittingLetter || uploadingLetterAttachments}
 								className={activityModalPrimaryButtonClassName}
 							>
