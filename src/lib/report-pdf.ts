@@ -299,6 +299,16 @@ const normalizeText = (value?: string | null) => value?.trim() ?? "";
 
 const hasMeaningfulText = (value?: string | null) => normalizeText(value).length > 0;
 
+const formatEnglishNumericDate = (value?: string | null) => {
+	if (!value) return "00 | 00 | 0000";
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) return "00 | 00 | 0000";
+	const day = String(date.getDate()).padStart(2, "0");
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const year = String(date.getFullYear());
+	return `${day} | ${month} | ${year}`;
+};
+
 const loadEmbeddedArabicFontRegularBase64 = createEmbeddedAssetLoader({
 	assetPath: embeddedArabicFontRegularPath,
 	missingMessage: PDF_ARABIC_FONT_MISSING_MESSAGE,
@@ -340,9 +350,7 @@ const buildReportDocumentContent = ({
 		throw new Error(PDF_EMPTY_CONTENT_MESSAGE);
 	}
 
-	const reportDate = report.createdAt
-		? new Date(report.createdAt).toLocaleDateString("ar-SA")
-		: "غير محدد";
+	const reportDate = formatEnglishNumericDate(report.createdAt || null);
 
 	if (!reportDate) {
 		throw new Error(PDF_INCOMPLETE_DATA_MESSAGE);
@@ -371,11 +379,7 @@ const buildLetterDocumentContent = ({ project, letter }: LetterDocumentPayload):
 	const letterSubject = normalizeText(letter.subject);
 	const bodyText = normalizeText(letter.body);
 	const authorName = normalizeText(letter.authorName) || "غير محدد";
-	const letterDate = letter.letterDate
-		? new Date(letter.letterDate).toLocaleDateString("ar-SA")
-		: letter.createdAt
-			? new Date(letter.createdAt).toLocaleDateString("ar-SA")
-			: "غير محدد";
+	const letterDate = formatEnglishNumericDate(letter.letterDate || letter.createdAt || null);
 	const attachments = (letter.attachments ?? [])
 		.map((attachment, index) => normalizeText(attachment.name) || `مرفق ${index + 1}`)
 		.filter((name) => name.length > 0)
@@ -473,9 +477,14 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
 	const embeddedBrandLogoBase64 = await loadEmbeddedBrandLogoBase64();
 	const recipientBlock = content.clientName
 		? `<section class="recipient-block">
-      <p class="recipient-label">الجهة</p>
-      <p class="recipient-name">${escapeHtml(content.clientName)}</p>
-    </section>`
+      <p class="recipient-name">المكرم | ${escapeHtml(content.clientName)}</p>
+     </section>`
+		: "";
+	const projectContext = `<section class="report-context">
+      <p>بخصوص مشروع ${escapeHtml(content.projectName)}</p>
+    </section>`;
+	const reportTypeLine = hasMeaningfulText(content.reportType)
+		? `<p class="report-type">${escapeHtml(content.reportType)}</p>`
 		: "";
 	const summarySection = hasMeaningfulText(content.summaryText)
 		? `<section class="content-section">
@@ -573,37 +582,23 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
       display: block;
     }
 
-    .document-card {
-      border: 1px solid #d7d2c8;
-      border-radius: 18px;
-      padding: 14mm 12mm 16mm;
-      background: #ffffff;
+    .report-page {
+      padding: 0 6mm;
     }
 
-    .document-topline {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 10mm;
+    .document-meta {
       margin-bottom: 10mm;
-      border-bottom: 1px solid #e7e1d5;
-      padding-bottom: 6mm;
     }
 
-    .document-date,
-    .document-type {
+    .document-date {
       margin: 0;
-      font-size: 13px;
-      line-height: 1.8;
-      color: #403a32;
-    }
-
-    .document-type {
-      text-align: left;
+      font-size: 14px;
+      line-height: 1.9;
+      color: #222222;
     }
 
     .document-title {
-      margin: 0 0 8mm;
+      margin: 0 0 5mm;
       text-align: center;
       font-size: 24px;
       font-weight: 700;
@@ -611,14 +606,16 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
       unicode-bidi: plaintext;
     }
 
-    .recipient-block {
-      margin-bottom: 8mm;
+    .report-type {
+      margin: 0 0 8mm;
+      text-align: center;
+      font-size: 15px;
+      line-height: 1.9;
+      color: #3a342d;
     }
 
-    .recipient-label {
-      margin: 0 0 2mm;
-      font-size: 13px;
-      color: #6f675b;
+    .recipient-block {
+      margin-bottom: 8mm;
     }
 
     .recipient-name {
@@ -628,70 +625,17 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
       color: #131313;
     }
 
-    .subject-block {
-      margin-bottom: 8mm;
-      padding: 4mm 5mm;
-      background: #f7f4ee;
-      border-radius: 12px;
-    }
-
-    .subject-label {
-      margin: 0 0 1.5mm;
-      font-size: 13px;
-      color: #6f675b;
-    }
-
-    .subject-title {
-      margin: 0;
-      font-size: 17px;
-      font-weight: 700;
-      color: #111111;
-    }
-
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 4mm 8mm;
-      margin-bottom: 9mm;
-      padding: 4mm 5mm;
-      border: 1px solid #ece6dc;
-      border-radius: 12px;
-    }
-
-    .meta-item {
-      margin: 0;
-    }
-
-    .meta-label {
-      display: block;
-      margin-bottom: 1mm;
-      font-size: 12px;
-      color: #7a7368;
-    }
-
-    .meta-value {
-      display: block;
-      font-size: 14px;
-      font-weight: 700;
-      color: #141414;
+    .report-context,
+    .closing-note {
+      margin-bottom: 7mm;
     }
 
     .document-date,
-    .document-type,
-    .recipient-label,
+    .report-type,
     .recipient-name,
-    .subject-label,
-    .subject-title,
-    .meta-label,
-    .meta-value,
     h2,
     p {
       unicode-bidi: plaintext;
-    }
-
-    .salutation,
-    .closing-note {
-      margin-bottom: 7mm;
     }
 
     .content-section {
@@ -708,15 +652,15 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
 
     p {
       font-size: 15px;
-      line-height: 2.05;
+      line-height: 2.15;
       margin: 0 0 3mm;
       white-space: pre-line;
       word-break: break-word;
-      color: #1f1f1f;
+      color: #111111;
     }
 
     .signoff {
-      margin-top: 10mm;
+      margin-top: 12mm;
     }
 
     .signoff p {
@@ -725,6 +669,10 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
 
     .signoff .signoff-name {
       font-weight: 700;
+    }
+
+    .signoff .signoff-company {
+      color: #3a342d;
     }
 
     .page-footer {
@@ -766,35 +714,18 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
       <img src="data:image/png;base64,${embeddedBrandLogoBase64}" alt="Craft Logo" />
     </header>
 
-    <section class="document-card">
-      <div class="document-topline">
-        <p class="document-date">التاريخ: ${escapeHtml(content.reportDate)}</p>
-        <p class="document-type">${escapeHtml(content.reportType)}</p>
+    <section class="report-page">
+      <div class="document-meta">
+        <p class="document-date">${escapeHtml(content.reportDate)}</p>
       </div>
 
-      <h1 class="document-title">تقرير أعمال الموقع</h1>
+      <h1 class="document-title">${escapeHtml(content.reportTitle)}</h1>
+
+      ${reportTypeLine}
 
       ${recipientBlock}
 
-      <section class="subject-block">
-        <p class="subject-label">عنوان التقرير</p>
-        <p class="subject-title">${escapeHtml(content.reportTitle)}</p>
-      </section>
-
-      <section class="meta-grid">
-        <p class="meta-item">
-          <span class="meta-label">اسم المشروع</span>
-          <span class="meta-value">${escapeHtml(content.projectName)}</span>
-        </p>
-        <p class="meta-item">
-          <span class="meta-label">إعداد</span>
-          <span class="meta-value">${escapeHtml(content.authorName)}</span>
-        </p>
-      </section>
-
-      <section class="salutation">
-        <p>السلام عليكم ورحمة الله وبركاته،</p>
-      </section>
+      ${projectContext}
 
       <section class="content-section">
         <p>${escapeHtml(content.introText)}</p>
@@ -809,8 +740,9 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
       </section>
 
       <section class="signoff">
-        <p>وتفضلوا بقبول فائق الاحترام،</p>
-        <p class="signoff-name">شركة كرافت</p>
+        <p>وتفضلوا بقبول فائق التحية والتقدير،</p>
+        <p class="signoff-name">${escapeHtml(content.authorName)}</p>
+        <p class="signoff-company">شركة كرافت</p>
       </section>
     </section>
   </main>
@@ -936,10 +868,8 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
       padding: 0 6mm;
     }
     .document-date,
-    .recipient-label,
     .recipient-name,
     .subject-line,
-    .project-line,
     .prepared-by,
     h2,
     p {
@@ -964,18 +894,12 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
     .recipient-block {
       margin-bottom: 8mm;
     }
-    .recipient-label {
-      margin: 0 0 2mm;
-      font-size: 14px;
-      color: #1f1f1f;
-    }
     .recipient-name {
       margin: 0;
       font-size: 18px;
       font-weight: 700;
       color: #101010;
     }
-    .project-line,
     .subject-line,
     .prepared-by {
       margin: 0 0 4mm;
@@ -1060,18 +984,16 @@ export const buildLetterHtml = async (payload: LetterDocumentPayload) => {
 
     <section class="letter-page">
       <div class="document-meta">
-        <p class="document-date">التاريخ: ${escapeHtml(content.letterDate)}</p>
+        <p class="document-date">${escapeHtml(content.letterDate)}</p>
       </div>
 
       <h1 class="document-title">خطاب رسمي</h1>
 
       <section class="recipient-block">
-        <p class="recipient-label">الجهة / الشخص الموجه له الخطاب</p>
         <p class="recipient-name">${escapeHtml(content.recipientName)}</p>
       </section>
 
-      <p class="project-line">اسم المشروع: ${escapeHtml(content.projectName)}</p>
-      <p class="subject-line">الموضوع: ${escapeHtml(content.letterSubject)}</p>
+      <p class="subject-line">${escapeHtml(content.letterSubject)}</p>
 
       <section class="salutation">
         <p>تحية طيبة وبعد،</p>
