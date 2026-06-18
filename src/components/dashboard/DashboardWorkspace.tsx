@@ -724,22 +724,22 @@ const priorityClasses: Record<"high" | "medium" | "low", string> = {
 
 const reportStatusClasses: Record<ProjectReport["status"], string> = {
 	draft:
-		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
+		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-500/30 dark:bg-stone-900/45 dark:text-stone-200",
 	pending_admin_approval:
-		"border-amber-300 bg-amber-100 font-semibold text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
+		"border-amber-300 bg-amber-100 font-semibold text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/35 dark:text-amber-200",
 	approved:
-		"border-sky-300 bg-sky-100 font-semibold text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
+		"border-sky-300 bg-sky-100 font-semibold text-sky-900 dark:border-sky-400/30 dark:bg-sky-950/35 dark:text-sky-200",
 	rejected:
-		"border-rose-300 bg-rose-100 font-semibold text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
+		"border-rose-300 bg-rose-100 font-semibold text-rose-900 dark:border-rose-400/30 dark:bg-rose-950/35 dark:text-rose-200",
 	sent:
-		"border-emerald-300 bg-emerald-100 font-semibold text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
+		"border-emerald-300 bg-emerald-100 font-semibold text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-950/35 dark:text-emerald-200",
 };
 
 const letterStatusClasses: Record<ProjectLetter["status"], string> = {
 	draft:
-		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
+		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-500/30 dark:bg-stone-900/45 dark:text-stone-200",
 	ready:
-		"border-sky-300 bg-sky-100 font-semibold text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
+		"border-sky-300 bg-sky-100 font-semibold text-sky-900 dark:border-sky-400/30 dark:bg-sky-950/35 dark:text-sky-200",
 };
 
 const activityItemTypeLabel: Record<ActivityInboxItem["type"], string> = {
