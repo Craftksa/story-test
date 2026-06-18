@@ -39,6 +39,7 @@ import {
 } from "@/lib/project-visibility";
 import { cn } from "@/lib/utils";
 import { ActivityCenter } from "@/components/activity/ActivityCenter";
+import { DashboardWorkspace } from "@/components/dashboard/DashboardWorkspace";
 import { CalendarDays, List } from "lucide-react";
 
 type ProjectStatus = 'in_progress' | 'not_started' | 'completed' | 'on_hold';
@@ -255,8 +256,7 @@ const getAllowedDashboardTabs = (role?: string | null): DashboardTab[] =>
 		: ['projects', 'tasks', 'activity'];
 
 const DEFAULT_DASHBOARD_TAB: DashboardTab = 'projects';
-const getDefaultDashboardTab = (role?: string | null): DashboardTab =>
-	role === 'admin' ? 'analysis' : DEFAULT_DASHBOARD_TAB;
+const getDefaultDashboardTab = (_role?: string | null): DashboardTab => DEFAULT_DASHBOARD_TAB;
 
 const resolveDashboardTab = (
 	tabParam: string | null | undefined,
@@ -1786,13 +1786,7 @@ export default function AdminDashboard() {
 
 			<Tabs value={activeTab} className="min-w-0 max-w-full gap-4 overflow-x-hidden" onValueChange={handleActiveTabChange}>
 				<TabsContent value="projects" className="space-y-4">
-					<Card className="border-border/70 shadow-sm">
-						<CardContent className="flex min-h-[240px] items-center justify-center px-6 py-12 text-center">
-							<p className="text-base text-muted-foreground">
-								سوف يتم تطوير هذه الصفحة بواسطة المطور لاحقًا
-							</p>
-						</CardContent>
-					</Card>
+					{activeTab === "projects" ? <DashboardWorkspace currentUser={user ?? {}} /> : null}
 				</TabsContent>
 
 				<TabsContent value="tasks" className="min-w-0 max-w-full space-y-4 overflow-hidden">

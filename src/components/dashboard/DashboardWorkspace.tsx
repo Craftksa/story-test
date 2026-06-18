@@ -856,7 +856,7 @@ const reportModalMetaCardClassName =
 const reportModalRowCardClassName =
 	"grid gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-[#7f6c47]/24 dark:bg-[#1c1611]";
 
-export function ActivityCenter({ currentUser }: ActivityCenterProps) {
+export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 	const router = useRouter();
 	const { lang, dir } = useCheckedLocale();
 	const activityDirection = dir === "rtl" ? "rtl" : "ltr";
@@ -1822,144 +1822,429 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 
 	return (
 		<div dir={activityDirection} className={cn("space-y-4", activityTextAlignClass)}>
-			<Card className="border-border/70 shadow-sm">
-				<CardHeader className={cn("pb-3", activityTextAlignClass)}>
-					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-						<div className={cn("space-y-1", activityTextAlignClass)}>
-							<CardTitle className="text-base">صندوق المتابعة اليومي</CardTitle>
-							<p className="text-sm text-muted-foreground">
-								يعرض العناصر التي تحتاج متابعة الآن خلال آخر 7 أيام فقط.
-							</p>
-						</div>
-						<Badge variant="outline" className="w-fit">
-							{visibleActivityItems.length} عنصر
-						</Badge>
-					</div>
-				</CardHeader>
-				<CardContent>
-					{loadingProjects ? (
-						<div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
-							<Spinner className="h-4 w-4 text-muted-foreground" />
-							جارٍ تحميل عناصر المتابعة...
-						</div>
-					) : visibleActivityItems.length === 0 ? (
-						<div className="rounded-3xl border border-dashed border-border/60 bg-muted/10 px-6 py-10">
-							<div className="mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
-								<span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-background text-muted-foreground shadow-sm">
-									<Sparkles className="h-5 w-5" />
-								</span>
-								<div className="space-y-2">
-									<h3 className="text-base font-semibold text-foreground">
-										لا توجد عناصر متابعة حاليًا
-									</h3>
-									<p className="text-sm leading-7 text-zinc-700 dark:text-stone-200">
-										سيظهر هنا كل ما يحتاج موافقة أو إجراء، مثل التقارير والخطابات
-										والملاحظات الداخلية وطلبات التعديل.
+			<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+				{summaryCards.map((card) => {
+					const isActive = activityFilter === card.filter;
+					const isApprovalCard = card.filter === "pending_approval";
+					const Icon = card.icon;
+
+					return (
+						<button
+							key={card.filter}
+							type="button"
+							onClick={() => setActivityFilter(card.filter)}
+							className={cn(
+								"rounded-2xl border px-4 py-3 text-right transition hover:border-primary/30 hover:bg-muted/30",
+								isActive
+									? isApprovalCard
+										? "border-destructive/35 bg-destructive/10 shadow-sm"
+										: "border-primary/35 bg-primary/5 shadow-sm"
+									: "border-border/60 bg-background"
+							)}
+						>
+							<div className="flex items-start justify-between gap-3">
+								<div className={cn("min-w-0 flex-1", activityTextAlignClass)}>
+									<p
+										className={cn(
+											"text-sm font-medium",
+											isActive && isApprovalCard ? "text-destructive" : "text-foreground"
+										)}
+									>
+										{card.label}
 									</p>
+									<div className="mt-3 flex items-end gap-2">
+										<span className="text-2xl font-semibold text-foreground">{card.count}</span>
+										<span className="pb-1 text-xs text-muted-foreground">
+											{getProjectCountLabel(card.count)}
+										</span>
+									</div>
 								</div>
-								<div className="flex flex-wrap items-center justify-center gap-2">
-									<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
-										طلبات الموافقة
-									</Badge>
-									<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
-										ملاحظات داخلية
-									</Badge>
-									<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
-										إشعارات جديدة
-									</Badge>
-									<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
-										طلبات تعديل
-									</Badge>
+								<div
+									className={cn(
+										"flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
+										isActive
+											? isApprovalCard
+												? "border-destructive/25 bg-destructive/10 text-destructive"
+												: "border-primary/20 bg-primary/10 text-primary"
+											: "border-border/60 bg-muted/20 text-muted-foreground"
+									)}
+								>
+									<Icon className="h-4 w-4" />
 								</div>
 							</div>
-						</div>
-					) : (
-						<div className="grid gap-3 lg:grid-cols-2">
-							{visibleActivityItems.map((item) => {
-								const Icon = getActivityItemIcon(item.type);
-								return (
-									<div
-										key={item.id}
-										className="rounded-2xl border border-border/60 bg-background p-4 shadow-sm transition hover:border-primary/20"
-									>
-										<div className="flex items-start justify-between gap-3">
-											<div className={cn("min-w-0 flex-1 space-y-2", activityTextAlignClass)}>
-												<div className="flex flex-wrap items-center gap-2">
-													<span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-muted/20 text-muted-foreground">
-														<Icon className="h-4 w-4" />
-													</span>
-													<Badge className={activityItemStatusClasses[item.type]}>
-														{activityItemTypeLabel[item.type]}
-													</Badge>
-													<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
-														{item.statusLabel}
-													</Badge>
+						</button>
+					);
+				})}
+			</div>
+			<Card className="border-border/70 shadow-sm">
+				<CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
+					<div className={cn("space-y-1", activityTextAlignClass)}>
+						<CardTitle>لوحة التحكم</CardTitle>
+					</div>
+					<div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+						<Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as ActivityFilter)}>
+							<SelectTrigger className="w-full min-w-44 bg-background sm:w-48">
+								<Filter className="me-2 h-4 w-4 text-muted-foreground" />
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">كل المشاريع</SelectItem>
+								<SelectItem value="pending_approval">تحتاج اعتماد</SelectItem>
+								<SelectItem value="overdue">متأخرة</SelectItem>
+								<SelectItem value="waiting_client_action">بانتظار العميل</SelectItem>
+								<SelectItem value="no_recent_activity">بدون نشاط حديث</SelectItem>
+								<SelectItem value="recent">محدثة اليوم</SelectItem>
+							</SelectContent>
+						</Select>
+						<Button type="button" variant="outline" onClick={openAddNoteDialog}>
+							<MessageSquarePlus className="me-2 h-4 w-4" />
+							إضافة ملاحظة
+						</Button>
+						<Button type="button" onClick={openCreateReportDialog}>
+							<FilePlus2 className="me-2 h-4 w-4" />
+							إنشاء تقرير
+						</Button>
+						<Button type="button" variant="outline" onClick={openCreateLetterDialog}>
+							<FilePlus2 className="me-2 h-4 w-4" />
+							إنشاء خطاب
+						</Button>
+					</div>
+				</CardHeader>
+			</Card>
+
+			<div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+				<Card className="overflow-hidden">
+					<CardHeader className={cn("pb-3", activityTextAlignClass)}>
+						<CardTitle className="text-base">المشاريع</CardTitle>
+					</CardHeader>
+					<CardContent className="min-h-0">
+						{loadingProjects ? (
+							<div className="flex min-h-52 items-center justify-center gap-2 text-sm text-muted-foreground">
+								<Spinner className="h-4 w-4 text-muted-foreground" />
+								جاري تحميل المشاريع...
+							</div>
+						) : filteredProjects.length === 0 ? (
+							<div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+								لا توجد مشاريع مطابقة لهذا الفلتر.
+							</div>
+						) : (
+							<div
+								className={cn(
+									activityPanelScrollHeightClass,
+									activityPanelScrollContainerClass,
+									"activity-scrollbar-right pe-2"
+								)}
+							>
+								<div dir="rtl" className="grid gap-3 text-right md:grid-cols-2">
+									{filteredProjects.map((summary) => (
+										<button
+											type="button"
+											key={summary.id}
+											onClick={() => setSelectedProjectId(summary.id)}
+											className={cn(
+												"rounded-2xl border p-4 text-right transition hover:border-primary/40 hover:bg-muted/40",
+												selectedProjectId === summary.id
+													? "border-primary/50 bg-primary/5 shadow-sm"
+													: "border-border/60 bg-background"
+											)}
+										>
+											<div className="flex items-start justify-between gap-3">
+												<div className={cn("min-w-0 flex-1 space-y-1", activityTextAlignClass)}>
+													<h3 className="break-words text-sm font-semibold text-foreground">
+														{summary.name}
+													</h3>
+													<p className="text-xs text-muted-foreground">
+														{summary.clientName || "بدون عميل محدد"}
+													</p>
 												</div>
-												<div className="space-y-1">
-													<h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
-													<p className="text-sm leading-6 text-zinc-700 dark:text-stone-200">
-														{truncate(item.summary, 180)}
+												<div className="shrink-0 self-start">
+													<StatusBadge status={formatStatus(summary.status)} />
+												</div>
+											</div>
+											<div className={cn("mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2", activityTextAlignClass)}>
+												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
+													<p>آخر تحديث</p>
+													<p className="mt-1 font-medium text-foreground">{formatDate(summary.lastActivityAt || summary.lastUpdatedAt)}</p>
+												</div>
+												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
+													<p>الملاحظات</p>
+													<p className="mt-1 font-medium text-foreground">{summary.noteCount}</p>
+												</div>
+												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
+													<p>التقارير</p>
+													<p className="mt-1 font-medium text-foreground">{summary.reportCount}</p>
+												</div>
+												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
+													<p>المهام الحرجة</p>
+													<p className="mt-1 font-medium text-foreground">
+														{summary.overdueTaskCount} متأخر | {summary.clientActionTaskCount} عميل
 													</p>
 												</div>
 											</div>
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon"
-												className="h-9 w-9 shrink-0"
-												onClick={() => void handleActivityDetails(item)}
-											>
-												<ExternalLink className="h-4 w-4" />
-											</Button>
+											<div className={cn("mt-3 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground", activityTextAlignClass)}>
+												{summary.lastNote ? truncate(summary.lastNote.content) : "لا توجد ملاحظات بعد"}
+											</div>
+											{summary.pendingApprovalCount > 0 && (
+												<div className="mt-3 inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-200">
+													{summary.pendingApprovalCount} تقرير بانتظار المراجعة
+												</div>
+											)}
+										</button>
+									))}
+								</div>
+							</div>
+						)}
+					</CardContent>
+				</Card>
+
+				<Card className="overflow-hidden">
+					<CardHeader className={cn("border-b border-border/60", activityTextAlignClass)}>
+						<CardTitle className="text-base">
+							{selectedSummary ? selectedSummary.name : "تفاصيل النشاط"}
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="min-h-0 p-0">
+						{loadingDetails ? (
+							<div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
+								<Loader2 className="h-4 w-4 animate-spin" />
+								جاري تحميل تفاصيل المشروع...
+							</div>
+						) : !projectDetails ? (
+							<div className="px-6 py-10" />
+						) : (
+							<div
+								className={cn(
+									activityPanelScrollHeightClass,
+									activityPanelScrollContainerClass,
+									"activity-scrollbar-right"
+								)}
+							>
+								<div dir="rtl" className={cn("space-y-5 px-6 py-6 text-right", activityTextAlignClass)}>
+									<div className="grid gap-3 sm:grid-cols-2 [&>div]:rounded-xl [&>div]:border [&>div]:border-zinc-200 [&>div]:bg-zinc-100/85 [&>div]:px-4 [&>div]:py-3 dark:[&>div]:border-[#7f6c47]/24 dark:[&>div]:bg-[#211a14] [&>div_p:last-child]:font-medium [&>div_p:last-child]:text-zinc-900 dark:[&>div_p:last-child]:text-[#f4ead8]">
+										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
+											<p className="text-xs text-muted-foreground">العميل</p>
+											<p className="mt-1 font-medium">
+												{projectDetails.project.clientName || "غير محدد"}
+											</p>
 										</div>
-
-										<div className="mt-4 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
-											<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
-												<p>المشروع</p>
-												<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-stone-100">
-													{item.projectName}
-												</p>
-											</div>
-											<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
-												<p>التاريخ</p>
-												<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-stone-100">
-													{formatDate(item.createdAt)}
-												</p>
-											</div>
-											<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
-												<p>المنشئ / المرسل</p>
-												<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-stone-100">
-													{item.createdByName || "غير محدد"}
-												</p>
-											</div>
-											<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
-												<p>الحالة</p>
-												<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-stone-100">
-													{item.statusLabel}
-												</p>
-											</div>
+										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
+											<p className="text-xs text-muted-foreground">آخر نشاط</p>
+											<p className="mt-1 font-medium">
+												{formatDate(projectDetails.project.lastActivityAt || projectDetails.project.lastUpdatedAt)}
+											</p>
 										</div>
-
-										{item.reviewNotes && (
-											<div className="mt-3 rounded-xl border border-amber-300/45 bg-amber-50/80 px-3 py-3 text-sm text-amber-950 dark:border-amber-700/45 dark:bg-amber-950/20 dark:text-amber-100">
-												<p className="font-medium">آخر ملاحظة</p>
-												<p className="mt-1 leading-6">{item.reviewNotes}</p>
-											</div>
-										)}
-
-										<div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-											<Button type="button" variant="ghost" size="sm" onClick={() => void handleActivityDetails(item)}>
-												Details
-											</Button>
-											<div className="flex flex-wrap gap-2">{renderActivityItemActions(item)}</div>
+										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
+											<p className="text-xs text-muted-foreground">الفريق</p>
+											<p className="mt-1 font-medium">
+												{projectDetails.project.teamMembers.map((member) => member.name || member.email).join("، ") || "غير محدد"}
+											</p>
+										</div>
+										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
+											<p className="text-xs text-muted-foreground">الوصف</p>
+											<p className="mt-1 font-medium text-sm text-muted-foreground">
+												{projectDetails.project.description || "لا يوجد وصف"}
+											</p>
 										</div>
 									</div>
-								);
-							})}
-						</div>
-					)}
-				</CardContent>
-			</Card>
+
+									<section className={cn("space-y-3", activityTextAlignClass)}>
+										<div className="flex items-center justify-between">
+											<h3 className="text-sm font-semibold">النشاط المرتبط بالمشروع</h3>
+											<Badge variant="outline">{projectDetails.activities.length}</Badge>
+										</div>
+										<div className="space-y-3">
+											{projectDetails.activities.length === 0 ? (
+												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+													لا توجد عناصر نشاط بعد.
+												</div>
+											) : (
+												projectDetails.activities.map((activity) => (
+													<div key={activity.id} className={cn("rounded-2xl border border-border/60 p-4", activityTextAlignClass)}>
+														<div className="flex items-start justify-between gap-3">
+															<div className={cn("space-y-1", activityTextAlignClass)}>
+																<p className="text-sm font-semibold">{activity.title}</p>
+																<p className="text-sm text-muted-foreground">{truncate(activity.description, 160)}</p>
+															</div>
+															<span className={cn("rounded-full border px-2 py-1 text-[11px] font-medium", priorityClasses[activity.priority])}>
+																{activity.priority === "high" ? "عالي" : activity.priority === "medium" ? "متوسط" : "منخفض"}
+															</span>
+														</div>
+														<p className="mt-3 text-xs text-muted-foreground">{formatDate(activity.occurredAt)}</p>
+													</div>
+												))
+											)}
+										</div>
+									</section>
+
+									<section className={cn("space-y-3", activityTextAlignClass)}>
+										<div className="flex items-center justify-between">
+											<h3 className="text-sm font-semibold">الملاحظات</h3>
+											<Button type="button" variant="outline" size="sm" onClick={openAddNoteDialog}>
+												<MessageSquarePlus className="me-2 h-4 w-4" />
+												إضافة ملاحظة
+											</Button>
+										</div>
+										<div className="space-y-3">
+											{projectDetails.notes.length === 0 ? (
+												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+													لا توجد ملاحظات بعد
+												</div>
+											) : (
+												projectDetails.notes.map((note) => (
+													<div key={note.id} className={cn("rounded-2xl border border-border/60 p-4", activityTextAlignClass)}>
+														<p className="text-sm leading-7 text-foreground">{note.content}</p>
+														<div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+															<span>{note.authorName}</span>
+															<span>{formatDate(note.createdAt)}</span>
+														</div>
+													</div>
+												))
+											)}
+										</div>
+									</section>
+
+									<section className={cn("space-y-3", activityTextAlignClass)}>
+										<div className="flex items-center justify-between">
+											<h3 className="text-sm font-semibold">الخطابات</h3>
+											<Button type="button" size="sm" onClick={openCreateLetterDialog}>
+												<FilePlus2 className="me-2 h-4 w-4" />
+												إنشاء خطاب
+											</Button>
+										</div>
+										<div className="space-y-3">
+											{projectDetails.letters.length === 0 ? (
+												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+													لا توجد خطابات مرتبطة بهذا المشروع بعد.
+												</div>
+											) : (
+												projectDetails.letters.map((letter) => (
+													<div
+														key={letter.id}
+														className={cn(
+															"w-full rounded-2xl border border-border/60 bg-muted/10 px-4 py-4 transition hover:border-border/90 hover:bg-muted/15",
+															activityTextAlignClass
+														)}
+													>
+														<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+															<div className={cn("min-w-0 flex-1 space-y-3", activityTextAlignClass)}>
+																<div className="flex flex-wrap items-center gap-2">
+																	<h4 className="min-w-0 text-sm font-semibold text-foreground">{letter.subject}</h4>
+																	<Badge className={letterStatusClasses[letter.status]}>
+																		{letterStatusLabel[letter.status]}
+																	</Badge>
+																</div>
+																<div className={cn("grid gap-3 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4", activityTextAlignClass)}>
+																	<div className="space-y-1">
+																		<p>الجهة الموجه لها</p>
+																		<p className="text-sm text-foreground">{letter.recipientName}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>التاريخ</p>
+																		<p className="text-sm text-foreground">{formatDate(letter.letterDate || letter.createdAt)}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>الحالة</p>
+																		<p className="text-sm text-foreground">{letterStatusLabel[letter.status]}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>الكاتب</p>
+																		<p className="text-sm text-foreground">{letter.authorName}</p>
+																	</div>
+																</div>
+															</div>
+															<div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+																<Button type="button" variant="outline" size="sm" onClick={() => openViewLetterDialog(letter)}>
+																	عرض
+																</Button>
+																{letter.canEdit && (
+																	<Button type="button" size="sm" onClick={() => openEditLetterDialog(letter)}>
+																		تعديل
+																	</Button>
+																)}
+															</div>
+														</div>
+													</div>
+												))
+											)}
+										</div>
+									</section>
+
+									<section className={cn("space-y-3", activityTextAlignClass)}>
+										<div className="flex items-center justify-between">
+											<h3 className="text-sm font-semibold">التقارير</h3>
+											<Button type="button" size="sm" onClick={openCreateReportDialog}>
+												<FilePlus2 className="me-2 h-4 w-4" />
+												إنشاء تقرير
+											</Button>
+										</div>
+										<div className="space-y-3">
+											{projectDetails.reports.length === 0 ? (
+												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+													لا توجد تقارير مرتبطة بهذا المشروع بعد.
+												</div>
+											) : (
+												projectDetails.reports.map((report) => (
+													<div
+														key={report.id}
+														className={cn(
+															"w-full rounded-2xl border border-border/60 bg-muted/10 px-4 py-4 transition hover:border-border/90 hover:bg-muted/15",
+															activityTextAlignClass
+														)}
+													>
+														<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+															<div className={cn("min-w-0 flex-1 space-y-3", activityTextAlignClass)}>
+																<div className="flex flex-wrap items-center gap-2">
+																	<h4 className="min-w-0 text-sm font-semibold text-foreground">{report.title}</h4>
+																	<Badge className={reportStatusClasses[report.status]}>
+																		{reportStatusLabel[report.status]}
+																	</Badge>
+																</div>
+																<div
+																	className={cn(
+																		"grid gap-3 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4",
+																		activityTextAlignClass
+																	)}
+																>
+																	<div className="space-y-1">
+																		<p>نوع التقرير</p>
+																		<p className="text-sm text-foreground">{reportTypeLabel[report.reportType]}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>حالة التقرير</p>
+																		<p className="text-sm text-foreground">{reportStatusLabel[report.status]}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>تاريخ الإنشاء</p>
+																		<p className="text-sm text-foreground">{formatDate(report.createdAt)}</p>
+																	</div>
+																	<div className="space-y-1">
+																		<p>كاتب التقرير</p>
+																		<p className="text-sm text-foreground">{report.authorName}</p>
+																	</div>
+																</div>
+															</div>
+															<div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+																<Button type="button" variant="outline" size="sm" onClick={() => openViewReportDialog(report)}>
+																	عرض
+																</Button>
+																{report.canEdit && (
+																	<Button type="button" size="sm" onClick={() => openEditReportDialog(report)}>
+																		تعديل
+																	</Button>
+																)}
+															</div>
+														</div>
+													</div>
+												))
+											)}
+										</div>
+									</section>
+								</div>
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			</div>
 
 			<Dialog open={!!viewingLetterId} onOpenChange={(open) => !open && setViewingLetterId(null)}>
 				<DialogContent
