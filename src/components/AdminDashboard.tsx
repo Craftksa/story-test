@@ -1766,8 +1766,6 @@ export default function AdminDashboard() {
 		}
 	};
 
-	const renderActivityCenterPanel = () => <ActivityCenter currentUser={user ?? {}} />;
-
 	return (
 		<div className="bg-background min-w-0 max-w-full space-y-4 overflow-x-hidden md:pt-4">
 			{/*<div className="flex items-center justify-between">*/}
@@ -1782,7 +1780,13 @@ export default function AdminDashboard() {
 
 			<Tabs value={activeTab} className="min-w-0 max-w-full gap-4 overflow-x-hidden" onValueChange={handleActiveTabChange}>
 				<TabsContent value="projects" className="space-y-4">
-					{activeTab === "projects" ? renderActivityCenterPanel() : null}
+					<Card className="border-border/70 shadow-sm">
+						<CardContent className="flex min-h-[240px] items-center justify-center px-6 py-12 text-center">
+							<p className="text-base text-muted-foreground">
+								سوف يتم تطوير هذه الصفحة بواسطة المطور لاحقًا
+							</p>
+						</CardContent>
+					</Card>
 				</TabsContent>
 
 				<TabsContent value="tasks" className="min-w-0 max-w-full space-y-4 overflow-hidden">
@@ -2327,7 +2331,7 @@ export default function AdminDashboard() {
 				)}
 
 				<TabsContent value="activity" className="space-y-4">
-					{activeTab === "activity" ? renderActivityCenterPanel() : null}
+					<ActivityCenter currentUser={user ?? {}} />
 					{false && (
 						<>
 					<Card>
