@@ -5,12 +5,13 @@ import { authenticate } from "@/lib/authenticate";
 import {
 	canAccessActivity,
 	canUserModifyReport,
+	createActivitySystemNoteContent,
 	getActivityProjectDetails,
 	getReportById,
 	serializeJsonList,
 } from "@/lib/activity";
 import { db } from "@/drizzle/db";
-import { projectReportPermissions, projectReports, users } from "@/drizzle/schema";
+import { projectNotes, projectReportPermissions, projectReports, users } from "@/drizzle/schema";
 import { hasRole, isValidId } from "@/lib/utils";
 import type { ReportDeliveryOption } from "@/lib/report-delivery";
 
@@ -103,6 +104,24 @@ const normalizeRecipientChannel = (
 		: "email";
 };
 
+const recordWorkflowEvent = async ({
+	projectId,
+	authorId,
+	payload,
+}: {
+	projectId: string;
+	authorId: string | null | undefined;
+	payload: Parameters<typeof createActivitySystemNoteContent>[0];
+}) => {
+	await db.insert(projectNotes).values({
+		projectId,
+		authorId: authorId ?? null,
+		content: createActivitySystemNoteContent(payload),
+		createdAt: new Date(),
+		updatedAt: new Date(),
+	});
+};
+
 const getStatusForSubmitAction = ({
 	existingStatus,
 	reportType,
@@ -123,6 +142,14 @@ const getStatusForSubmitAction = ({
 			return "sent" as const;
 		}
 
+		if (reportType === "client") {
+			return isAdmin ? ("approved" as const) : ("pending_admin_approval" as const);
+		}
+
+		return "approved" as const;
+	}
+
+	if (submitAction === "save" && existingStatus === "rejected") {
 		if (reportType === "client") {
 			return isAdmin ? ("approved" as const) : ("pending_admin_approval" as const);
 		}
@@ -271,6 +298,32 @@ export async function PATCH(
 					}))
 				);
 			}
+		}
+
+		if (
+			!isAdmin &&
+			existingReport.reportType === "client" &&
+			parsed.data.submitAction === "save" &&
+			nextStatus === "pending_admin_approval"
+		) {
+			await recordWorkflowEvent({
+				projectId: existingReport.projectId,
+				authorId: user?.id,
+				payload: {
+					version: 1,
+					eventType:
+						existingReport.status === "rejected"
+							? "report_resubmitted_for_review"
+							: "report_submitted_for_review",
+					relatedType: "report",
+					relatedId: existingReport.id,
+					projectId: existingReport.projectId,
+					title: parsed.data.title.trim(),
+					summary: parsed.data.summary?.trim() || parsed.data.details.trim().slice(0, 220),
+					actorId: user?.id ?? null,
+					actorName: user?.name || user?.email || null,
+				},
+			});
 		}
 
 		const details = await getActivityProjectDetails(existingReport.projectId, user ?? {});

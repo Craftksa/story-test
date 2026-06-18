@@ -136,6 +136,62 @@ export type ActivityProjectDetails = {
 		occurredAt: string | null;
 		priority: "high" | "medium" | "low";
 	}>;
+	activityItems: ActivityInboxItem[];
+};
+
+export type ActivitySystemEventType =
+	| "report_submitted_for_review"
+	| "report_resubmitted_for_review"
+	| "report_returned_for_changes"
+	| "report_sent"
+	| "report_send_failed"
+	| "letter_submitted_for_review"
+	| "letter_resubmitted_for_review"
+	| "letter_returned_for_changes"
+	| "letter_sent"
+	| "letter_send_failed";
+
+export type ActivitySystemEventPayload = {
+	version: 1;
+	eventType: ActivitySystemEventType;
+	relatedType: "report" | "letter" | "task" | "project" | "note";
+	relatedId: string;
+	projectId: string;
+	title: string;
+	summary?: string | null;
+	actorId?: string | null;
+	actorName?: string | null;
+	note?: string | null;
+	recipientEmail?: string | null;
+};
+
+export type ActivityInboxItem = {
+	id: string;
+	type:
+		| "report_pending_approval"
+		| "report_resubmitted"
+		| "report_needs_changes"
+		| "report_sent"
+		| "report_send_failed"
+		| "letter_pending_approval"
+		| "letter_resubmitted"
+		| "letter_needs_changes"
+		| "letter_sent"
+		| "letter_send_failed"
+		| "internal_note"
+		| "task_follow_up";
+	title: string;
+	summary: string;
+	projectId: string;
+	projectName: string;
+	createdAt: string;
+	createdByName: string | null;
+	statusLabel: string;
+	relatedType: "report" | "letter" | "task" | "project" | "note";
+	relatedId: string;
+	reviewNotes: string | null;
+	recipientEmail: string | null;
+	detailsHref: string | null;
 };
 
 type AuthLikeUser = {
@@ -156,6 +212,15 @@ type BaseProjectRow = {
 	clientName: string | null;
 	clientEmail: string | null;
 	updatedAt: Date | null;
+};
+
+type ActivitySystemEventRecord = {
+	id: string;
+	projectId: string;
+	authorName: string;
+	createdAt: string | null;
+	updatedAt: string | null;
+	event: ActivitySystemEventPayload;
 };
 
 type ProjectTaskRow = {
@@ -221,6 +286,8 @@ type RawLetterRow = {
 };
 
 const ACTIVITY_ALLOWED_ROLES = ["admin", "moderator", "employee"];
+const ACTIVITY_SYSTEM_NOTE_PREFIX = "__CRAFT_ACTIVITY__:";
+const ACTIVITY_WINDOW_DAYS = 7;
 
 const noteAuthor = alias(users, "note_author");
 const letterAuthor = alias(users, "letter_author");
@@ -247,6 +314,48 @@ const parseJsonList = <T>(value: string | null | undefined): T[] => {
 };
 
 export const serializeJsonList = (value: unknown) => JSON.stringify(value ?? []);
+
+export const createActivitySystemNoteContent = (payload: ActivitySystemEventPayload) =>
+	`${ACTIVITY_SYSTEM_NOTE_PREFIX}${JSON.stringify(payload)}`;
+
+const parseActivitySystemNoteContent = (content: string): ActivitySystemEventPayload | null => {
+	if (!content.startsWith(ACTIVITY_SYSTEM_NOTE_PREFIX)) return null;
+
+	try {
+		const parsed = JSON.parse(content.slice(ACTIVITY_SYSTEM_NOTE_PREFIX.length));
+		if (
+			parsed &&
+			typeof parsed === "object" &&
+			parsed.version === 1 &&
+			typeof parsed.eventType === "string" &&
+			typeof parsed.relatedType === "string" &&
+			typeof parsed.relatedId === "string" &&
+			typeof parsed.projectId === "string" &&
+			typeof parsed.title === "string"
+		) {
+			return parsed as ActivitySystemEventPayload;
+		}
+	} catch {
+		return null;
+	}
+
+	return null;
+};
+
+const getActivityWindowStart = () => Date.now() - ACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+const isRecentActivityDate = (value?: string | null) => {
+	if (!value) return false;
+	const timestamp = new Date(value).getTime();
+	if (Number.isNaN(timestamp)) return false;
+	return timestamp >= getActivityWindowStart();
+};
+
+const getLatestActivityTimestamp = (...values: Array<string | null | undefined>) =>
+	values
+		.map((value) => (value ? new Date(value).getTime() : Number.NaN))
+		.filter((value) => Number.isFinite(value))
+		.sort((left, right) => right - left)[0] ?? Number.NaN;
 
 const getDisplayName = (name?: string | null, email?: string | null) =>
 	name?.trim() || email?.trim() || "غير معروف";
@@ -410,6 +519,334 @@ const mapReport = (
 		canApprove: canUserApproveReport(report, user),
 		canSendToClient: canUserSendReportToClient(report, user),
 	};
+};
+
+const splitProjectNotes = (notes: ActivityNote[]) => {
+	const userNotes: ActivityNote[] = [];
+	const systemEvents: ActivitySystemEventRecord[] = [];
+
+	notes.forEach((note) => {
+		const parsedEvent = parseActivitySystemNoteContent(note.content);
+		if (!parsedEvent) {
+			userNotes.push(note);
+			return;
+		}
+
+		systemEvents.push({
+			id: note.id,
+			projectId: note.projectId,
+			authorName: note.authorName,
+			createdAt: note.createdAt,
+			updatedAt: note.updatedAt,
+			event: parsedEvent,
+		});
+	});
+
+	return { userNotes, systemEvents };
+};
+
+const buildLatestEventMap = (events: ActivitySystemEventRecord[]) => {
+	const map = new Map<string, ActivitySystemEventRecord>();
+
+	events.forEach((eventRecord) => {
+		const key = `${eventRecord.event.relatedType}:${eventRecord.event.relatedId}`;
+		const current = map.get(key);
+		const currentTime = getLatestActivityTimestamp(current?.createdAt, current?.updatedAt);
+		const nextTime = getLatestActivityTimestamp(eventRecord.createdAt, eventRecord.updatedAt);
+		if (!current || nextTime >= currentTime) {
+			map.set(key, eventRecord);
+		}
+	});
+
+	return map;
+};
+
+const getProjectDetailsHref = (projectId: string) => `/projects/${projectId}`;
+const getTaskDetailsHref = (projectId: string, taskId: string) => `/projects/${projectId}/tasks/${taskId}`;
+
+const buildActivityInboxItems = ({
+	projectsById,
+	projectTasks,
+	userNotes,
+	reports,
+	letters,
+	systemEvents,
+	user,
+}: {
+	projectsById: Map<string, BaseProjectRow>;
+	projectTasks: ProjectTaskRow[];
+	userNotes: ActivityNote[];
+	reports: ActivityReport[];
+	letters: ActivityLetter[];
+	systemEvents: ActivitySystemEventRecord[];
+	user: AuthLikeUser;
+}) => {
+	const items: ActivityInboxItem[] = [];
+	const isAdminUser = canManageAllReports(user);
+	const latestEventMap = buildLatestEventMap(systemEvents);
+
+	reports.forEach((report) => {
+		const project = projectsById.get(report.projectId);
+		if (!project) return;
+
+		const latestEvent = latestEventMap.get(`report:${report.id}`) ?? null;
+		const actorName = latestEvent?.event.actorName || report.authorName || null;
+		const reviewTimestamp =
+			latestEvent?.createdAt || latestEvent?.updatedAt || report.updatedAt || report.createdAt || null;
+
+		if (report.status === "pending_admin_approval" && isAdminUser) {
+			const isResubmitted = latestEvent?.event.eventType === "report_resubmitted_for_review";
+			if (isRecentActivityDate(reviewTimestamp)) {
+				items.push({
+					id: `report-review-${report.id}`,
+					type: isResubmitted ? "report_resubmitted" : "report_pending_approval",
+					title: isResubmitted ? "تقرير أعيد تسليمه للمراجعة" : "تقرير بانتظار موافقة الأدمن",
+					summary: report.summary || truncateReportText(report.details),
+					projectId: report.projectId,
+					projectName: project.name,
+					createdAt: reviewTimestamp!,
+					createdByName: actorName,
+					statusLabel: "بانتظار الموافقة",
+					relatedType: "report",
+					relatedId: report.id,
+					reviewNotes: report.adminDecisionNote,
+					recipientEmail: null,
+					detailsHref: getProjectDetailsHref(report.projectId),
+				});
+			}
+		}
+
+		if (report.status === "rejected" && report.authorId && report.authorId === user.id) {
+			if (isRecentActivityDate(reviewTimestamp)) {
+				items.push({
+					id: `report-returned-${report.id}`,
+					type: "report_needs_changes",
+					title: "تقرير بحاجة إلى تعديل",
+					summary: report.summary || truncateReportText(report.details),
+					projectId: report.projectId,
+					projectName: project.name,
+					createdAt: reviewTimestamp!,
+					createdByName: report.approvedByName || latestEvent?.authorName || null,
+					statusLabel: "بحاجة إلى تعديل",
+					relatedType: "report",
+					relatedId: report.id,
+					reviewNotes: report.adminDecisionNote || report.rejectionReason,
+					recipientEmail: null,
+					detailsHref: getProjectDetailsHref(report.projectId),
+				});
+			}
+		}
+
+		if (report.status === "sent" && isRecentActivityDate(report.sentAt)) {
+			items.push({
+				id: `report-sent-${report.id}`,
+				type: "report_sent",
+				title: "تم إرسال تقرير",
+				summary: report.title,
+				projectId: report.projectId,
+				projectName: project.name,
+				createdAt: report.sentAt!,
+				createdByName: report.approvedByName || report.authorName,
+				statusLabel: "تم الإرسال",
+				relatedType: "report",
+				relatedId: report.id,
+				reviewNotes: null,
+				recipientEmail: null,
+				detailsHref: getProjectDetailsHref(report.projectId),
+			});
+		}
+
+		if (report.lastDeliveryError && isRecentActivityDate(report.updatedAt)) {
+			items.push({
+				id: `report-send-failed-${report.id}`,
+				type: "report_send_failed",
+				title: "فشل إرسال تقرير",
+				summary: report.lastDeliveryError,
+				projectId: report.projectId,
+				projectName: project.name,
+				createdAt: report.updatedAt!,
+				createdByName: report.approvedByName || report.authorName,
+				statusLabel: "فشل الإرسال",
+				relatedType: "report",
+				relatedId: report.id,
+				reviewNotes: null,
+				recipientEmail: null,
+				detailsHref: getProjectDetailsHref(report.projectId),
+			});
+		}
+	});
+
+	letters.forEach((letter) => {
+		const project = projectsById.get(letter.projectId);
+		if (!project) return;
+
+		const latestEvent = latestEventMap.get(`letter:${letter.id}`) ?? null;
+		const eventType = latestEvent?.event.eventType ?? null;
+		const eventTimestamp =
+			latestEvent?.createdAt || latestEvent?.updatedAt || letter.updatedAt || letter.createdAt || null;
+		const recipientEmail = latestEvent?.event.recipientEmail?.trim() || null;
+
+		if (eventType === "letter_returned_for_changes" && letter.authorId === user.id && isRecentActivityDate(eventTimestamp)) {
+			items.push({
+				id: `letter-returned-${letter.id}`,
+				type: "letter_needs_changes",
+				title: "خطاب بحاجة إلى تعديل",
+				summary: letter.subject,
+				projectId: letter.projectId,
+				projectName: project.name,
+				createdAt: eventTimestamp!,
+				createdByName: latestEvent?.authorName || latestEvent?.event.actorName || null,
+				statusLabel: "بحاجة إلى تعديل",
+				relatedType: "letter",
+				relatedId: letter.id,
+				reviewNotes: latestEvent?.event.note || null,
+				recipientEmail,
+				detailsHref: getProjectDetailsHref(letter.projectId),
+			});
+		}
+
+		const isPendingLetterReview =
+			(eventType === "letter_submitted_for_review" || eventType === "letter_resubmitted_for_review") ||
+			(!eventType && letter.status === "ready");
+		if (isPendingLetterReview && isAdminUser && isRecentActivityDate(eventTimestamp)) {
+			items.push({
+				id: `letter-review-${letter.id}`,
+				type:
+					eventType === "letter_resubmitted_for_review"
+						? "letter_resubmitted"
+						: "letter_pending_approval",
+				title:
+					eventType === "letter_resubmitted_for_review"
+						? "خطاب أعيد تسليمه للمراجعة"
+						: "خطاب بانتظار موافقة الأدمن",
+				summary: letter.subject,
+				projectId: letter.projectId,
+				projectName: project.name,
+				createdAt: eventTimestamp!,
+				createdByName: latestEvent?.event.actorName || letter.authorName,
+				statusLabel: "بانتظار الموافقة",
+				relatedType: "letter",
+				relatedId: letter.id,
+				reviewNotes: latestEvent?.event.note || null,
+				recipientEmail,
+				detailsHref: getProjectDetailsHref(letter.projectId),
+			});
+		}
+
+		if (eventType === "letter_sent" && isRecentActivityDate(eventTimestamp)) {
+			items.push({
+				id: `letter-sent-${letter.id}`,
+				type: "letter_sent",
+				title: "تم إرسال خطاب",
+				summary: letter.subject,
+				projectId: letter.projectId,
+				projectName: project.name,
+				createdAt: eventTimestamp!,
+				createdByName: latestEvent?.event.actorName || letter.authorName,
+				statusLabel: "تم الإرسال",
+				relatedType: "letter",
+				relatedId: letter.id,
+				reviewNotes: null,
+				recipientEmail,
+				detailsHref: getProjectDetailsHref(letter.projectId),
+			});
+		}
+
+		if (eventType === "letter_send_failed" && isAdminUser && isRecentActivityDate(eventTimestamp)) {
+			items.push({
+				id: `letter-send-failed-${letter.id}`,
+				type: "letter_send_failed",
+				title: "فشل إرسال خطاب",
+				summary: latestEvent?.event.summary || letter.subject,
+				projectId: letter.projectId,
+				projectName: project.name,
+				createdAt: eventTimestamp!,
+				createdByName: latestEvent?.event.actorName || letter.authorName,
+				statusLabel: "فشل الإرسال",
+				relatedType: "letter",
+				relatedId: letter.id,
+				reviewNotes: latestEvent?.event.note || null,
+				recipientEmail,
+				detailsHref: getProjectDetailsHref(letter.projectId),
+			});
+		}
+	});
+
+	userNotes.forEach((note) => {
+		const project = projectsById.get(note.projectId);
+		if (!project || !isRecentActivityDate(note.createdAt)) return;
+		items.push({
+			id: `note-${note.id}`,
+			type: "internal_note",
+			title: "ملاحظة داخلية",
+			summary: note.content,
+			projectId: note.projectId,
+			projectName: project.name,
+			createdAt: note.createdAt!,
+			createdByName: note.authorName,
+			statusLabel: "جديد",
+			relatedType: "project",
+			relatedId: note.projectId,
+			reviewNotes: null,
+			recipientEmail: null,
+			detailsHref: getProjectDetailsHref(note.projectId),
+		});
+	});
+
+	projectTasks.forEach((task) => {
+		const project = projectsById.get(task.projectId);
+		if (!project) return;
+
+		const occurredAt = toIsoString(task.updatedAt ?? task.createdAt ?? task.endDate);
+		if (!isRecentActivityDate(occurredAt)) return;
+
+		if (isTaskOverdue(task)) {
+			items.push({
+				id: `task-overdue-${task.id}`,
+				type: "task_follow_up",
+				title: "مهمة تحتاج متابعة",
+				summary: `${task.name} تجاوزت تاريخ الاستحقاق`,
+				projectId: task.projectId,
+				projectName: project.name,
+				createdAt: occurredAt!,
+				createdByName: null,
+				statusLabel: "متأخرة",
+				relatedType: "task",
+				relatedId: task.id,
+				reviewNotes: null,
+				recipientEmail: null,
+				detailsHref: getTaskDetailsHref(task.projectId, task.id),
+			});
+			return;
+		}
+
+		if (needsClientAction(task)) {
+			items.push({
+				id: `task-client-action-${task.id}`,
+				type: "task_follow_up",
+				title: "تعليق أو مهمة تحتاج متابعة",
+				summary: `${task.name} تحتاج متابعة`,
+				projectId: task.projectId,
+				projectName: project.name,
+				createdAt: occurredAt!,
+				createdByName: null,
+				statusLabel: "تحتاج متابعة",
+				relatedType: "task",
+				relatedId: task.id,
+				reviewNotes: null,
+				recipientEmail: null,
+				detailsHref: getTaskDetailsHref(task.projectId, task.id),
+			});
+		}
+	});
+
+	return items.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+};
+
+const truncateReportText = (value?: string | null, max = 180) => {
+	if (!value) return "";
+	if (value.length <= max) return value;
+	return `${value.slice(0, max).trim()}...`;
 };
 
 const loadBaseProjects = async (user: AuthLikeUser) => {
@@ -647,7 +1084,7 @@ export const getActivityProjectsPayload = async (user: AuthLikeUser) => {
 		lettersByProjectId.set(letter.projectId, current);
 	});
 
-	const notes: ActivityNote[] = rawNotes.map((note) => ({
+	const allNotes: ActivityNote[] = rawNotes.map((note) => ({
 		id: note.id,
 		projectId: note.projectId,
 		content: note.content,
@@ -656,6 +1093,7 @@ export const getActivityProjectsPayload = async (user: AuthLikeUser) => {
 		createdAt: toIsoString(note.createdAt),
 		updatedAt: toIsoString(note.updatedAt),
 	}));
+	const { userNotes: notes, systemEvents } = splitProjectNotes(allNotes);
 	const notesByProjectId = new Map<string, ActivityNote[]>();
 	notes.forEach((note) => {
 		const current = notesByProjectId.get(note.projectId) ?? [];
@@ -718,9 +1156,21 @@ export const getActivityProjectsPayload = async (user: AuthLikeUser) => {
 		};
 	});
 
+	const projectsById = new Map(baseProjects.map((project) => [project.id, project] as const));
+	const activityItems = buildActivityInboxItems({
+		projectsById,
+		projectTasks,
+		userNotes: notes,
+		reports: accessibleReports,
+		letters: Array.from(lettersByProjectId.values()).flat(),
+		systemEvents,
+		user,
+	});
+
 	return {
 		projects: summaries,
 		internalUsers,
+		activityItems,
 	};
 };
 
@@ -754,7 +1204,7 @@ export const getActivityProjectDetails = async (
 	const accessibleReports = getAccessibleReports(rawReports, user, permissionsByReportId).map((report) =>
 		mapReport(report, user, permissionsByReportId)
 	);
-	const notes: ActivityNote[] = rawNotes.map((note) => ({
+	const allNotes: ActivityNote[] = rawNotes.map((note) => ({
 		id: note.id,
 		projectId: note.projectId,
 		content: note.content,
@@ -763,6 +1213,7 @@ export const getActivityProjectDetails = async (
 		createdAt: toIsoString(note.createdAt),
 		updatedAt: toIsoString(note.updatedAt),
 	}));
+	const { userNotes: notes, systemEvents } = splitProjectNotes(allNotes);
 	const teamMembers: ActivityUser[] = teamRows.map((member) => ({
 		id: member.id,
 		name: member.name,
@@ -770,6 +1221,7 @@ export const getActivityProjectDetails = async (
 		role: member.role,
 	}));
 	const letters = rawLetters.map((letter) => mapLetter(letter, user));
+	const projectsById = new Map([[baseProject.id, baseProject] as const]);
 
 	const summary: ActivityProjectSummary = {
 		id: baseProject.id,
@@ -885,6 +1337,15 @@ export const getActivityProjectDetails = async (
 		reports: accessibleReports,
 		letters,
 		activities: activities.slice(0, 20),
+		activityItems: buildActivityInboxItems({
+			projectsById,
+			projectTasks,
+			userNotes: notes,
+			reports: accessibleReports,
+			letters,
+			systemEvents,
+			user,
+		}),
 	};
 };
 

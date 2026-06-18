@@ -4,12 +4,13 @@ import { eq, inArray } from "drizzle-orm";
 import { authenticate } from "@/lib/authenticate";
 import {
 	canAccessActivity,
+	createActivitySystemNoteContent,
 	getActivityProjectDetails,
 	serializeJsonList,
 	userCanAccessProjectActivity,
 } from "@/lib/activity";
 import { db } from "@/drizzle/db";
-import { projectReportPermissions, projectReports, users } from "@/drizzle/schema";
+import { projectNotes, projectReportPermissions, projectReports, users } from "@/drizzle/schema";
 import { hasRole } from "@/lib/utils";
 import { deliverClientReport, type ReportDeliveryOption } from "@/lib/report-delivery";
 import { getReportPdfPayload } from "@/lib/report-pdf";
@@ -103,6 +104,24 @@ const normalizeRecipientChannel = (
 			? "email"
 			: "none"
 		: "email";
+};
+
+const recordWorkflowEvent = async ({
+	projectId,
+	authorId,
+	payload,
+}: {
+	projectId: string;
+	authorId: string | null | undefined;
+	payload: Parameters<typeof createActivitySystemNoteContent>[0];
+}) => {
+	await db.insert(projectNotes).values({
+		projectId,
+		authorId: authorId ?? null,
+		content: createActivitySystemNoteContent(payload),
+		createdAt: new Date(),
+		updatedAt: new Date(),
+	});
 };
 
 const getInitialStatus = ({
@@ -348,6 +367,24 @@ export async function POST(req: NextRequest) {
 				parsed.data.reportType === "client"
 					? "تم إنشاء تقرير العميل وهو جاهز للاعتماد أو الإرسال."
 					: "تم إنشاء التقرير بنجاح.";
+		}
+
+		if (!isAdmin && parsed.data.reportType === "client" && initialStatus === "pending_admin_approval") {
+			await recordWorkflowEvent({
+				projectId: parsed.data.projectId,
+				authorId: user?.id,
+				payload: {
+					version: 1,
+					eventType: "report_submitted_for_review",
+					relatedType: "report",
+					relatedId: createdReport.id,
+					projectId: parsed.data.projectId,
+					title: parsed.data.title.trim(),
+					summary: parsed.data.summary?.trim() || parsed.data.details.trim().slice(0, 220),
+					actorId: user?.id ?? null,
+					actorName: user?.name || user?.email || null,
+				},
+			});
 		}
 
 		const details = await getActivityProjectDetails(parsed.data.projectId, user ?? {});

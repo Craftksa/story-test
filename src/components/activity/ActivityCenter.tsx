@@ -2,11 +2,13 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
 	AlertCircle,
 	Clock3,
+	ExternalLink,
 	FilePlus2,
 	FileText,
 	Filter,
@@ -186,11 +188,42 @@ type ProjectDetails = {
 		occurredAt: string | null;
 		priority: "high" | "medium" | "low";
 	}>;
+	activityItems: ActivityInboxItem[];
+};
+
+type ActivityInboxItem = {
+	id: string;
+	type:
+		| "report_pending_approval"
+		| "report_resubmitted"
+		| "report_needs_changes"
+		| "report_sent"
+		| "report_send_failed"
+		| "letter_pending_approval"
+		| "letter_resubmitted"
+		| "letter_needs_changes"
+		| "letter_sent"
+		| "letter_send_failed"
+		| "internal_note"
+		| "task_follow_up";
+	title: string;
+	summary: string;
+	projectId: string;
+	projectName: string;
+	createdAt: string;
+	createdByName: string | null;
+	statusLabel: string;
+	relatedType: "report" | "letter" | "task" | "project" | "note";
+	relatedId: string;
+	reviewNotes: string | null;
+	recipientEmail: string | null;
+	detailsHref: string | null;
 };
 
 type ActivityProjectsResponse = {
 	projects: ProjectSummary[];
 	internalUsers: InternalUser[];
+	activityItems: ActivityInboxItem[];
 };
 
 type ActivityMutationResponse = {
@@ -709,6 +742,48 @@ const letterStatusClasses: Record<ProjectLetter["status"], string> = {
 		"border-sky-300 bg-sky-100 font-semibold text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
 };
 
+const activityItemTypeLabel: Record<ActivityInboxItem["type"], string> = {
+	report_pending_approval: "تقرير",
+	report_resubmitted: "تقرير",
+	report_needs_changes: "طلب تعديل",
+	report_sent: "إشعار",
+	report_send_failed: "إشعار",
+	letter_pending_approval: "خطاب",
+	letter_resubmitted: "خطاب",
+	letter_needs_changes: "طلب تعديل",
+	letter_sent: "إشعار",
+	letter_send_failed: "إشعار",
+	internal_note: "ملاحظة داخلية",
+	task_follow_up: "مهمة",
+};
+
+const activityItemStatusClasses: Record<ActivityInboxItem["type"], string> = {
+	report_pending_approval:
+		"border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
+	report_resubmitted:
+		"border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
+	report_needs_changes:
+		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
+	report_sent:
+		"border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
+	report_send_failed:
+		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
+	letter_pending_approval:
+		"border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
+	letter_resubmitted:
+		"border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
+	letter_needs_changes:
+		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
+	letter_sent:
+		"border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
+	letter_send_failed:
+		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
+	internal_note:
+		"border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
+	task_follow_up:
+		"border-violet-300 bg-violet-100 text-violet-950 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-100",
+};
+
 const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
 const activityPanelScrollContainerClass =
 	"overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-color:rgba(218,197,143,0.55)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.05] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9f8a58] hover:[&::-webkit-scrollbar-thumb]:bg-[#dac58f]";
@@ -782,6 +857,7 @@ const reportModalRowCardClassName =
 	"grid gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-[#7f6c47]/24 dark:bg-[#1c1611]";
 
 export function ActivityCenter({ currentUser }: ActivityCenterProps) {
+	const router = useRouter();
 	const { lang, dir } = useCheckedLocale();
 	const activityDirection = dir === "rtl" ? "rtl" : "ltr";
 	const activityTextAlignClass = activityDirection === "rtl" ? "text-right" : "text-left";
@@ -789,6 +865,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
 	const [projects, setProjects] = useState<ProjectSummary[]>([]);
 	const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
+	const [activityItems, setActivityItems] = useState<ActivityInboxItem[]>([]);
 	const [loadingProjects, setLoadingProjects] = useState(true);
 	const [selectedProjectId, setSelectedProjectId] = useState("");
 	const [projectDetails, setProjectDetails] = useState<ProjectDetails | null>(null);
@@ -821,12 +898,21 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		});
 	};
 
+	const getActivityItemIcon = (itemType: ActivityInboxItem["type"]) => {
+		if (itemType.includes("report")) return FileText;
+		if (itemType.includes("letter")) return FilePlus2;
+		if (itemType === "internal_note") return MessageSquarePlus;
+		if (itemType === "task_follow_up") return Clock3;
+		return AlertCircle;
+	};
+
 	const loadProjects = async () => {
 		setLoadingProjects(true);
 		try {
 			const response = await axios.get<ActivityProjectsResponse>("/api/activity/projects");
 			setProjects(response.data.projects);
 			setInternalUsers(response.data.internalUsers);
+			setActivityItems(response.data.activityItems || []);
 			setSelectedProjectId((current) => {
 				if (current && response.data.projects.some((project) => project.id === current)) {
 					return current;
@@ -844,17 +930,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const loadProjectDetails = async (projectId: string) => {
 		if (!projectId) {
 			setProjectDetails(null);
-			return;
+			return null;
 		}
 
 		setLoadingDetails(true);
 		try {
 			const response = await axios.get<ProjectDetails>(`/api/activity/projects/${projectId}`);
 			setProjectDetails(response.data);
+			return response.data;
 		} catch (error) {
 			console.error("Failed to load project activity details", error);
 			toast.error("تعذر تحميل تفاصيل النشاط لهذا المشروع.");
 			setProjectDetails(null);
+			return null;
 		} finally {
 			setLoadingDetails(false);
 		}
@@ -922,6 +1010,29 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	}, [filteredProjects, selectedProjectId]);
 
 	const selectedSummary = projects.find((project) => project.id === selectedProjectId) ?? null;
+	const visibleActivityItems = useMemo(
+		() =>
+			activityItems.filter((item) => {
+				if (item.type === "report_pending_approval" || item.type === "report_resubmitted") {
+					return isAdmin;
+				}
+
+				if (item.type === "report_needs_changes") {
+					return !isAdmin;
+				}
+
+				if (item.type === "letter_pending_approval" || item.type === "letter_resubmitted") {
+					return isAdmin;
+				}
+
+				if (item.type === "letter_needs_changes") {
+					return !isAdmin;
+				}
+
+				return true;
+			}),
+		[activityItems, isAdmin]
+	);
 	const viewedReport = useMemo(
 		() => projectDetails?.reports.find((report) => report.id === viewingReportId) ?? null,
 		[projectDetails?.reports, viewingReportId]
@@ -1024,6 +1135,65 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		setViewingLetterId(letter.id);
 	};
 
+	const ensureProjectLoaded = async (projectId: string) => {
+		if (projectDetails?.project.id === projectId) {
+			return projectDetails;
+		}
+
+		setSelectedProjectId(projectId);
+		return loadProjectDetails(projectId);
+	};
+
+	const handleActivityDetails = async (item: ActivityInboxItem) => {
+		if (item.relatedType === "task" && item.detailsHref) {
+			router.push(item.detailsHref);
+			return;
+		}
+
+		if (item.relatedType === "project") {
+			setSelectedProjectId(item.projectId);
+			return;
+		}
+
+		const details = await ensureProjectLoaded(item.projectId);
+		if (!details) return;
+
+		if (item.relatedType === "report") {
+			const report = details.reports.find((entry) => entry.id === item.relatedId);
+			if (report) {
+				openViewReportDialog(report);
+			}
+			return;
+		}
+
+		if (item.relatedType === "letter") {
+			const letter = details.letters.find((entry) => entry.id === item.relatedId);
+			if (letter) {
+				openViewLetterDialog(letter);
+			}
+		}
+	};
+
+	const handleActivityEdit = async (item: ActivityInboxItem) => {
+		const details = await ensureProjectLoaded(item.projectId);
+		if (!details) return;
+
+		if (item.relatedType === "report") {
+			const report = details.reports.find((entry) => entry.id === item.relatedId);
+			if (report) {
+				openEditReportDialog(report);
+			}
+			return;
+		}
+
+		if (item.relatedType === "letter") {
+			const letter = details.letters.find((entry) => entry.id === item.relatedId);
+			if (letter) {
+				openEditLetterDialog(letter);
+			}
+		}
+	};
+
 	const handleNoteSubmit = async () => {
 		if (!noteProjectId || !noteText.trim()) {
 			toast.error("اكتب الملاحظة وحدد المشروع أولًا.");
@@ -1121,6 +1291,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		if (payload.details) {
 			setProjectDetails(payload.details);
 			setSelectedProjectId(payload.details.project.id);
+			setActivityItems(payload.details.activityItems || []);
 		}
 		await loadProjects();
 		return payload;
@@ -1381,6 +1552,48 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}
 	};
 
+	const handleResubmitReport = async (item: ActivityInboxItem) => {
+		const details = await ensureProjectLoaded(item.projectId);
+		if (!details) return;
+
+		const report = details.reports.find((entry) => entry.id === item.relatedId);
+		if (!report) {
+			toast.error("تعذر العثور على التقرير لإعادة تسليمه.");
+			return;
+		}
+
+		setActioningReportId(report.id);
+		try {
+			const responsePayload = await upsertProjectDetails(
+				axios.patch<ActivityMutationResponse>(`/api/activity/reports/${report.id}`, {
+					title: report.title,
+					summary: report.summary || null,
+					details: report.details,
+					workDetails: report.workDetails || null,
+					attachments: normalizeAttachmentList(report.attachments),
+					recipients: report.recipients.map((recipient) => ({
+						name: recipient.name,
+						email: recipient.email || null,
+						phone: recipient.phone || null,
+						channel: "email",
+					})),
+					permissions: report.permissions.map((permission) => ({
+						userId: permission.userId,
+						accessLevel: permission.accessLevel,
+					})),
+					deliveryOption: "email",
+					submitAction: "save",
+				})
+			);
+			toast.success(responsePayload.message || "تمت إعادة تسليم التقرير للمراجعة.");
+		} catch (error) {
+			console.error("Failed to resubmit report", error);
+			toast.error(extractApiErrorMessage(error, "تعذر إعادة تسليم التقرير للمراجعة."));
+		} finally {
+			setActioningReportId(null);
+		}
+	};
+
 	const handleApprovalAction = async () => {
 		if (!approvalDialog) return;
 		if (approvalDialog.decision === "reject" && !approvalDialog.reason.trim()) {
@@ -1524,6 +1737,89 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const selectedProjectTeam = projectDetails?.project.teamMembers ?? [];
 	const visiblePermissionUsers = internalUsers.filter((user) => user.id !== currentUser.id);
 
+	const renderActivityItemActions = (item: ActivityInboxItem) => {
+		if (item.type === "report_pending_approval" || item.type === "report_resubmitted") {
+			return (
+				<>
+					<Button
+						type="button"
+						size="sm"
+						onClick={() =>
+							setApprovalDialog({
+								reportId: item.relatedId,
+								projectId: item.projectId,
+								decision: "approve",
+								reason: "",
+							})
+						}
+						disabled={actioningReportId === item.relatedId}
+					>
+						موافقة وإرسال
+					</Button>
+					<Button type="button" size="sm" variant="outline" onClick={() => void handleActivityEdit(item)}>
+						تعديل
+					</Button>
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						onClick={() =>
+							setApprovalDialog({
+								reportId: item.relatedId,
+								projectId: item.projectId,
+								decision: "reject",
+								reason: "",
+							})
+						}
+					>
+						إرجاع للتعديل
+					</Button>
+				</>
+			);
+		}
+
+		if (item.type === "report_needs_changes") {
+			return (
+				<>
+					<Button type="button" size="sm" variant="outline" onClick={() => void handleActivityEdit(item)}>
+						فتح وتعديل
+					</Button>
+					<Button
+						type="button"
+						size="sm"
+						onClick={() => void handleResubmitReport(item)}
+						disabled={actioningReportId === item.relatedId}
+					>
+						تسليم للمراجعة
+					</Button>
+				</>
+			);
+		}
+
+		if (
+			item.type === "letter_pending_approval" ||
+			item.type === "letter_resubmitted" ||
+			item.type === "letter_needs_changes"
+		) {
+			return (
+				<>
+					<Button type="button" size="sm" variant="outline" onClick={() => void handleActivityEdit(item)}>
+						فتح وتعديل
+					</Button>
+					<Button type="button" size="sm" variant="ghost" onClick={() => void handleActivityDetails(item)}>
+						Details
+					</Button>
+				</>
+			);
+		}
+
+		return (
+			<Button type="button" size="sm" variant="ghost" onClick={() => void handleActivityDetails(item)}>
+				Details
+			</Button>
+		);
+	};
+
 	return (
 		<div dir={activityDirection} className={cn("space-y-4", activityTextAlignClass)}>
 			<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
@@ -1614,6 +1910,118 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 						</Button>
 					</div>
 				</CardHeader>
+			</Card>
+
+			<Card className="border-border/70 shadow-sm">
+				<CardHeader className={cn("pb-3", activityTextAlignClass)}>
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+						<div className={cn("space-y-1", activityTextAlignClass)}>
+							<CardTitle className="text-base">صندوق المتابعة اليومي</CardTitle>
+							<p className="text-sm text-muted-foreground">
+								يعرض العناصر التي تحتاج متابعة الآن خلال آخر 7 أيام فقط.
+							</p>
+						</div>
+						<Badge variant="outline" className="w-fit">
+							{visibleActivityItems.length} عنصر
+						</Badge>
+					</div>
+				</CardHeader>
+				<CardContent>
+					{loadingProjects ? (
+						<div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+							<Spinner className="h-4 w-4 text-muted-foreground" />
+							جارٍ تحميل عناصر المتابعة...
+						</div>
+					) : visibleActivityItems.length === 0 ? (
+						<div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+							لا توجد عناصر تحتاج متابعة الآن.
+						</div>
+					) : (
+						<div className="grid gap-3 lg:grid-cols-2">
+							{visibleActivityItems.map((item) => {
+								const Icon = getActivityItemIcon(item.type);
+								return (
+									<div
+										key={item.id}
+										className="rounded-2xl border border-border/60 bg-background p-4 shadow-sm transition hover:border-primary/20"
+									>
+										<div className="flex items-start justify-between gap-3">
+											<div className={cn("min-w-0 flex-1 space-y-2", activityTextAlignClass)}>
+												<div className="flex flex-wrap items-center gap-2">
+													<span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-muted/20 text-muted-foreground">
+														<Icon className="h-4 w-4" />
+													</span>
+													<Badge className={activityItemStatusClasses[item.type]}>
+														{activityItemTypeLabel[item.type]}
+													</Badge>
+													<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
+														{item.statusLabel}
+													</Badge>
+												</div>
+												<div className="space-y-1">
+													<h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+													<p className="text-sm leading-6 text-zinc-700 dark:text-stone-200">
+														{truncate(item.summary, 180)}
+													</p>
+												</div>
+											</div>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												className="h-9 w-9 shrink-0"
+												onClick={() => void handleActivityDetails(item)}
+											>
+												<ExternalLink className="h-4 w-4" />
+											</Button>
+										</div>
+
+										<div className="mt-4 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+											<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+												<p>المشروع</p>
+												<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-stone-100">
+													{item.projectName}
+												</p>
+											</div>
+											<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+												<p>التاريخ</p>
+												<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-stone-100">
+													{formatDate(item.createdAt)}
+												</p>
+											</div>
+											<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+												<p>المنشئ / المرسل</p>
+												<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-stone-100">
+													{item.createdByName || "غير محدد"}
+												</p>
+											</div>
+											<div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+												<p>الحالة</p>
+												<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-stone-100">
+													{item.statusLabel}
+												</p>
+											</div>
+										</div>
+
+										{item.reviewNotes && (
+											<div className="mt-3 rounded-xl border border-amber-300/45 bg-amber-50/80 px-3 py-3 text-sm text-amber-950 dark:border-amber-700/45 dark:bg-amber-950/20 dark:text-amber-100">
+												<p className="font-medium">آخر ملاحظة</p>
+												<p className="mt-1 leading-6">{item.reviewNotes}</p>
+											</div>
+										)}
+
+										<div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+											<Button type="button" variant="ghost" size="sm" onClick={() => void handleActivityDetails(item)}>
+												Details
+											</Button>
+											<div className="flex flex-wrap gap-2">{renderActivityItemActions(item)}</div>
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					)}
+				</CardContent>
 			</Card>
 
 			<div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">

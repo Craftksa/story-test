@@ -2,16 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { authenticate } from "@/lib/authenticate";
-import { getActivityProjectDetails, getProjectAndClientById, getReportById } from "@/lib/activity";
+import {
+	createActivitySystemNoteContent,
+	getActivityProjectDetails,
+	getProjectAndClientById,
+	getReportById,
+} from "@/lib/activity";
 import { deliverClientReport } from "@/lib/report-delivery";
 import { db } from "@/drizzle/db";
-import { projectReports } from "@/drizzle/schema";
+import { projectNotes, projectReports } from "@/drizzle/schema";
 import { hasRole, isValidId } from "@/lib/utils";
 
 const approvalSchema = z.object({
 	decision: z.enum(["approve", "reject"]),
 	reason: z.string().max(2000).optional().nullable(),
 });
+
+const recordWorkflowEvent = async ({
+	projectId,
+	authorId,
+	payload,
+}: {
+	projectId: string;
+	authorId: string | null | undefined;
+	payload: Parameters<typeof createActivitySystemNoteContent>[0];
+}) => {
+	await db.insert(projectNotes).values({
+		projectId,
+		authorId: authorId ?? null,
+		content: createActivitySystemNoteContent(payload),
+		createdAt: new Date(),
+		updatedAt: new Date(),
+	});
+};
 
 export async function PATCH(
 	req: NextRequest,
@@ -51,6 +74,23 @@ export async function PATCH(
 					updatedAt: new Date(),
 				})
 				.where(eq(projectReports.id, params.reportId));
+
+			await recordWorkflowEvent({
+				projectId: report.projectId,
+				authorId: user?.id,
+				payload: {
+					version: 1,
+					eventType: "report_returned_for_changes",
+					relatedType: "report",
+					relatedId: report.id,
+					projectId: report.projectId,
+					title: report.title,
+					summary: report.summary || report.details.slice(0, 220),
+					actorId: user?.id ?? null,
+					actorName: user?.name || user?.email || null,
+					note: parsed.data.reason.trim(),
+				},
+			});
 
 			const details = await getActivityProjectDetails(report.projectId, user ?? {});
 			return NextResponse.json({
@@ -106,6 +146,23 @@ export async function PATCH(
 				updatedAt: new Date(),
 			})
 			.where(eq(projectReports.id, params.reportId));
+
+		await recordWorkflowEvent({
+			projectId: report.projectId,
+			authorId: user?.id,
+			payload: {
+				version: 1,
+				eventType: nextStatus === "sent" ? "report_sent" : "report_send_failed",
+				relatedType: "report",
+				relatedId: report.id,
+				projectId: report.projectId,
+				title: report.title,
+				summary: nextStatus === "sent" ? message : lastDeliveryError || message,
+				actorId: user?.id ?? null,
+				actorName: user?.name || user?.email || null,
+				note: nextStatus === "sent" ? null : lastDeliveryError || message,
+			},
+		});
 
 		if (report.reportType === "client" && nextStatus !== "sent") {
 			return NextResponse.json(

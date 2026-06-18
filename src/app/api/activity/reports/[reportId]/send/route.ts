@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { authenticate } from "@/lib/authenticate";
-import { getActivityProjectDetails } from "@/lib/activity";
+import { createActivitySystemNoteContent, getActivityProjectDetails } from "@/lib/activity";
 import { deliverClientReport } from "@/lib/report-delivery";
 import { getReportPdfPayload, getReportPdfUserMessage } from "@/lib/report-pdf";
 import { db } from "@/drizzle/db";
-import { projectReports } from "@/drizzle/schema";
+import { projectNotes, projectReports } from "@/drizzle/schema";
 import { hasRole, isValidId } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -53,6 +53,24 @@ const formatDeliveryErrorWithDebug = (
 	}
 
 	return parts.length > 0 ? `${message} — ${parts.join(" — ")}` : message;
+};
+
+const recordWorkflowEvent = async ({
+	projectId,
+	authorId,
+	payload,
+}: {
+	projectId: string;
+	authorId: string | null | undefined;
+	payload: Parameters<typeof createActivitySystemNoteContent>[0];
+}) => {
+	await db.insert(projectNotes).values({
+		projectId,
+		authorId: authorId ?? null,
+		content: createActivitySystemNoteContent(payload),
+		createdAt: new Date(),
+		updatedAt: new Date(),
+	});
 };
 
 export async function POST(
@@ -115,6 +133,23 @@ export async function POST(
 			const failureDebug = delivery.diagnostic ?? null;
 			const failureMessage = formatDeliveryErrorWithDebug(delivery.userMessage, failureDebug);
 
+			await recordWorkflowEvent({
+				projectId: report.projectId,
+				authorId: user?.id,
+				payload: {
+					version: 1,
+					eventType: "report_send_failed",
+					relatedType: "report",
+					relatedId: report.id,
+					projectId: report.projectId,
+					title: report.title,
+					summary: failureMessage,
+					actorId: user?.id ?? null,
+					actorName: user?.name || user?.email || null,
+					note: delivery.lastDeliveryError || failureMessage,
+				},
+			});
+
 			console.error("POST /api/activity/reports/[reportId]/send delivery failed", {
 				hasDebug: !!failureDebug,
 				whatsappStageReached: failureDebug?.whatsappStageReached ?? null,
@@ -133,6 +168,22 @@ export async function POST(
 				}
 			);
 		}
+
+		await recordWorkflowEvent({
+			projectId: report.projectId,
+			authorId: user?.id,
+			payload: {
+				version: 1,
+				eventType: "report_sent",
+				relatedType: "report",
+				relatedId: report.id,
+				projectId: report.projectId,
+				title: report.title,
+				summary: delivery.userMessage,
+				actorId: user?.id ?? null,
+				actorName: user?.name || user?.email || null,
+			},
+		});
 
 		const details = await getActivityProjectDetails(report.projectId, user ?? {});
 		return NextResponse.json({
