@@ -1933,8 +1933,35 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 							جارٍ تحميل عناصر المتابعة...
 						</div>
 					) : visibleActivityItems.length === 0 ? (
-						<div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
-							لا توجد عناصر تحتاج متابعة الآن.
+						<div className="rounded-3xl border border-dashed border-border/60 bg-muted/10 px-6 py-10">
+							<div className="mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
+								<span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-background text-muted-foreground shadow-sm">
+									<Sparkles className="h-5 w-5" />
+								</span>
+								<div className="space-y-2">
+									<h3 className="text-base font-semibold text-foreground">
+										لا توجد عناصر متابعة حاليًا
+									</h3>
+									<p className="text-sm leading-7 text-zinc-700 dark:text-stone-200">
+										سيظهر هنا كل ما يحتاج موافقة أو إجراء، مثل التقارير والخطابات
+										والملاحظات الداخلية وطلبات التعديل.
+									</p>
+								</div>
+								<div className="flex flex-wrap items-center justify-center gap-2">
+									<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
+										طلبات الموافقة
+									</Badge>
+									<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
+										ملاحظات داخلية
+									</Badge>
+									<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
+										إشعارات جديدة
+									</Badge>
+									<Badge variant="outline" className="text-zinc-700 dark:text-stone-200">
+										طلبات تعديل
+									</Badge>
+								</div>
+							</div>
 						</div>
 					) : (
 						<div className="grid gap-3 lg:grid-cols-2">
