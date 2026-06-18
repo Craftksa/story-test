@@ -255,6 +255,8 @@ const getAllowedDashboardTabs = (role?: string | null): DashboardTab[] =>
 		: ['projects', 'tasks', 'activity'];
 
 const DEFAULT_DASHBOARD_TAB: DashboardTab = 'projects';
+const getDefaultDashboardTab = (role?: string | null): DashboardTab =>
+	role === 'admin' ? 'analysis' : DEFAULT_DASHBOARD_TAB;
 
 const resolveDashboardTab = (
 	tabParam: string | null | undefined,
@@ -1166,12 +1168,16 @@ export default function AdminDashboard() {
 
 	useEffect(() => {
 		const tabParam = searchParams.get('tab');
-		const nextTab = resolveDashboardTab(tabParam, allowedTabs);
+		const nextTab = resolveDashboardTab(
+			tabParam,
+			allowedTabs,
+			getDefaultDashboardTab(userRole)
+		);
 
 		if (activeTab !== nextTab) {
 			setActiveTab(nextTab);
 		}
-	}, [activeTab, allowedTabs, searchParams]);
+	}, [activeTab, allowedTabs, searchParams, userRole]);
 
 	// Chart configurations
 	const cityDistributionConfig = {
@@ -1688,7 +1694,7 @@ export default function AdminDashboard() {
 			setActiveTab(nextTab);
 
 			const nextParams = new URLSearchParams(searchParams.toString());
-			if (nextTab === 'projects') {
+			if (nextTab === getDefaultDashboardTab(userRole)) {
 				nextParams.delete('tab');
 			} else {
 				nextParams.set('tab', nextTab);
