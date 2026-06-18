@@ -18,15 +18,32 @@ import {BrandDetails} from "@/components/team-switcher"
 import {Sidebar, SidebarContent, SidebarFooter, SidebarHeader,} from "@/components/ui/sidebar"
 import {ScrollArea} from "@/components/ui/scroll-area";
 import {useSession} from "next-auth/react";
-import {useParams} from "next/navigation";
+import {useParams, usePathname, useSearchParams} from "next/navigation";
 import {useCheckedLocale} from "@/lib/client-utils";
 import {useTranslations} from "use-intl";
 
 export const getNavigationData = (
-  role: "admin" | "moderator" | "employee" | "client"
+  role: "admin" | "moderator" | "employee" | "client",
+  {
+    projectId,
+    pathname,
+    currentTab,
+  }: {
+    projectId?: string | string[];
+    pathname: string;
+    currentTab: string | null;
+  }
 ) => {
-  const { id: projectId } = useParams();
   const t = useTranslations();
+  const normalizedProjectId =
+    typeof projectId === "string" ? projectId : Array.isArray(projectId) ? projectId[0] : undefined;
+  const isRootPath = pathname === "/";
+  const isProjectsPath = pathname === "/projects" || pathname.startsWith("/projects/");
+  const isUsersPath = pathname === "/users" || pathname.startsWith("/users/");
+  const isProfilePath = pathname === "/profile";
+  const isClientTasksPath = !!normalizedProjectId && pathname.startsWith(`/projects/${normalizedProjectId}/tasks`);
+  const isClientContractsPath =
+    !!normalizedProjectId && pathname.startsWith(`/projects/${normalizedProjectId}/contracts`);
 
   return {
     navMain: [
@@ -34,7 +51,7 @@ export const getNavigationData = (
         title: t("Dashboard"),
         url: "/",
         icon: LayoutDashboardIcon,
-        isActive: true,
+        isActive: isRootPath && !currentTab,
       },
 
       ...(["admin", "moderator", "employee"].includes(role)
@@ -43,16 +60,19 @@ export const getNavigationData = (
             title: t("Projects"),
             url: "/projects",
             icon: FolderOpenDotIcon,
+            isActive: isProjectsPath,
           },
           {
             title: t("activityCenterTitle"),
             url: "/?tab=activity",
             icon: ActivityIcon,
+            isActive: isRootPath && currentTab === "activity",
           },
           {
             title: t("Tasks"),
             url: "/?tab=tasks",
             icon: ClipboardListIcon,
+            isActive: isRootPath && currentTab === "tasks",
           },
         ]
         : []),
@@ -63,6 +83,7 @@ export const getNavigationData = (
             title: t("Users"),
             url: "/users",
             icon: UsersIcon,
+            isActive: isUsersPath,
           },
         ]
         : []),
@@ -71,13 +92,15 @@ export const getNavigationData = (
         ? [
           {
             title: t("Tasks"),
-            url: `/projects/${projectId}/tasks`,
+            url: `/projects/${normalizedProjectId}/tasks`,
             icon: ClipboardListIcon,
+            isActive: isClientTasksPath,
           },
           {
             title: t("Contracts"),
-            url: `/projects/${projectId}/contracts`,
+            url: `/projects/${normalizedProjectId}/contracts`,
             icon: FileTextIcon,
+            isActive: isClientContractsPath,
           },
         ]
         : []),
@@ -86,13 +109,15 @@ export const getNavigationData = (
         title: t("Profile"),
         url: "/profile",
         icon: SquareUserIcon,
+        isActive: isProfilePath && currentTab !== "settings",
       },
       ...(["admin", "moderator", "employee"].includes(role)
         ? [
           {
             title: t("Settings"),
-            url: "/profile",
+            url: "/profile?tab=settings",
             icon: SettingsIcon,
+            isActive: isProfilePath && currentTab === "settings",
           },
         ]
         : []),
@@ -101,8 +126,16 @@ export const getNavigationData = (
 };
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const {data: session} = useSession();
+  const { id: projectId } = useParams();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab");
   // @ts-ignore
-  const data = getNavigationData(session?.user?.role ?? "client");
+  const data = getNavigationData(session?.user?.role ?? "client", {
+    projectId,
+    pathname,
+    currentTab,
+  });
 
   const {dir} = useCheckedLocale();
   return (

@@ -32,6 +32,7 @@ export function NavMain({
       title: string
       url: string
       icon?: LucideIcon
+      isActive?: boolean
     }[]
   }[]
 }) {
@@ -46,7 +47,12 @@ export function NavMain({
           if (!hasSubItems) {
             return (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton className='text-[15px] size-8' asChild tooltip={item.title}>
+                <SidebarMenuButton
+                  className='text-[15px] size-8'
+                  asChild
+                  tooltip={item.title}
+                  isActive={item.isActive}
+                >
                   <Link href={item.url} className="flex items-center gap-2 w-full">
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
@@ -65,7 +71,11 @@ export function NavMain({
             >
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton className='text-[15px] size-8 w-full' tooltip={item.title}>
+                  <SidebarMenuButton
+                    className='text-[15px] size-8 w-full'
+                    tooltip={item.title}
+                    isActive={item.isActive}
+                  >
                     {item.icon && <item.icon  />}
                     <span>{item.title}</span>
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -75,7 +85,11 @@ export function NavMain({
                   <SidebarMenuSub>
                     {item.items?.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton className='text-[15px] size-8 w-full' asChild>
+                        <SidebarMenuSubButton
+                          className='text-[15px] size-8 w-full'
+                          asChild
+                          isActive={subItem.isActive}
+                        >
                           <Link href={subItem.url}>
                             {subItem.icon && <subItem.icon />}
                             <span>{subItem.title}</span>
