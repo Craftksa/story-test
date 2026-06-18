@@ -2129,7 +2129,13 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 															<div className={cn("min-w-0 flex-1 space-y-3", activityTextAlignClass)}>
 																<div className="flex flex-wrap items-center gap-2">
 																	<h4 className="min-w-0 text-sm font-semibold text-foreground">{letter.subject}</h4>
-																	<Badge className={letterStatusClasses[letter.status]}>
+																	<Badge
+																		className={cn(
+																			letterStatusClasses[letter.status],
+																			letter.status === "ready" &&
+																				"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800"
+																		)}
+																	>
 																		{letterStatusLabel[letter.status]}
 																	</Badge>
 																</div>
@@ -2195,7 +2201,15 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 															<div className={cn("min-w-0 flex-1 space-y-3", activityTextAlignClass)}>
 																<div className="flex flex-wrap items-center gap-2">
 																	<h4 className="min-w-0 text-sm font-semibold text-foreground">{report.title}</h4>
-																	<Badge className={reportStatusClasses[report.status]}>
+																	<Badge
+																		className={cn(
+																			reportStatusClasses[report.status],
+																			report.status === "sent" &&
+																				"bg-emerald-50 !text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:!text-emerald-200 dark:border-emerald-800",
+																			report.status === "draft" &&
+																				"bg-neutral-100 !text-neutral-800 border-neutral-300 dark:bg-neutral-800 dark:!text-neutral-100 dark:border-neutral-700"
+																		)}
+																	>
 																		{reportStatusLabel[report.status]}
 																	</Badge>
 																</div>
