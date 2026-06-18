@@ -724,22 +724,22 @@ const priorityClasses: Record<"high" | "medium" | "low", string> = {
 
 const reportStatusClasses: Record<ProjectReport["status"], string> = {
 	draft:
-		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-500/30 dark:bg-stone-900/45 dark:text-stone-200",
+		"border-zinc-200 bg-zinc-50 font-semibold text-zinc-900 dark:border-stone-800 dark:bg-stone-950/40 dark:text-stone-200",
 	pending_admin_approval:
-		"border-amber-300 bg-amber-100 font-semibold text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/35 dark:text-amber-200",
+		"border-amber-200 bg-amber-50 font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200",
 	approved:
-		"border-sky-300 bg-sky-100 font-semibold text-sky-900 dark:border-sky-400/30 dark:bg-sky-950/35 dark:text-sky-200",
+		"border-sky-200 bg-sky-50 font-semibold text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200",
 	rejected:
-		"border-rose-300 bg-rose-100 font-semibold text-rose-900 dark:border-rose-400/30 dark:bg-rose-950/35 dark:text-rose-200",
+		"border-rose-200 bg-rose-50 font-semibold text-rose-900 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200",
 	sent:
-		"border-emerald-300 bg-emerald-100 font-semibold text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-950/35 dark:text-emerald-200",
+		"border-emerald-200 bg-emerald-50 font-semibold text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200",
 };
 
 const letterStatusClasses: Record<ProjectLetter["status"], string> = {
 	draft:
-		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-500/30 dark:bg-stone-900/45 dark:text-stone-200",
+		"border-zinc-200 bg-zinc-50 font-semibold text-zinc-900 dark:border-stone-800 dark:bg-stone-950/40 dark:text-stone-200",
 	ready:
-		"border-sky-300 bg-sky-100 font-semibold text-sky-900 dark:border-sky-400/30 dark:bg-sky-950/35 dark:text-sky-200",
+		"border-sky-200 bg-sky-50 font-semibold text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200",
 };
 
 const activityItemTypeLabel: Record<ActivityInboxItem["type"], string> = {
@@ -1985,7 +1985,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 												{summary.lastNote ? truncate(summary.lastNote.content) : "لا توجد ملاحظات بعد"}
 											</div>
 											{summary.pendingApprovalCount > 0 && (
-												<div className="mt-3 inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-[11px] font-medium text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/35 dark:text-amber-200">
+												<div className="mt-3 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
 													{summary.pendingApprovalCount} تقرير بانتظار المراجعة
 												</div>
 											)}
