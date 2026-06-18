@@ -2331,7 +2331,7 @@ export default function AdminDashboard() {
 				)}
 
 				<TabsContent value="activity" className="space-y-4">
-					<ActivityCenter currentUser={user ?? {}} />
+					{activeTab === "activity" ? <ActivityCenter currentUser={user ?? {}} /> : null}
 					{false && (
 						<>
 					<Card>
