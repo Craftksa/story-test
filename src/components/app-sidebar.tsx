@@ -32,7 +32,7 @@ export const getNavigationData = (
     navMain: [
       {
         title: t("Dashboard"),
-        url: "/?tab=activity",
+        url: "/",
         icon: LayoutDashboardIcon,
         isActive: true,
       },
@@ -46,7 +46,7 @@ export const getNavigationData = (
           },
           {
             title: t("activityCenterTitle"),
-            url: "/",
+            url: "/?tab=activity",
             icon: ActivityIcon,
           },
           {
