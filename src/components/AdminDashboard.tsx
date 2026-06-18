@@ -468,15 +468,15 @@ const getTaskStatusLabel = (status?: string | null) => {
 const getTaskStatusBadgeClassName = (status?: string | null) => {
 	switch (status) {
 		case 'completed':
-			return 'border-emerald-500/25 bg-emerald-500/12 text-emerald-300';
+			return 'border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-950/35 dark:text-emerald-200';
 		case 'in_progress':
-			return 'border-sky-500/25 bg-sky-500/12 text-sky-300';
+			return 'border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-400/30 dark:bg-sky-950/35 dark:text-sky-200';
 		case 'not_started':
-			return 'border-slate-500/25 bg-slate-500/12 text-slate-300';
+			return 'border-slate-300 bg-slate-100 text-slate-900 dark:border-slate-400/30 dark:bg-slate-900/45 dark:text-slate-200';
 		case 'on_hold':
-			return 'border-amber-500/25 bg-amber-500/12 text-amber-300';
+			return 'border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/35 dark:text-amber-200';
 		case 'needs_review':
-			return 'border-violet-500/25 bg-violet-500/12 text-violet-300';
+			return 'border-violet-300 bg-violet-100 text-violet-900 dark:border-violet-400/30 dark:bg-violet-950/35 dark:text-violet-200';
 		default:
 			return 'border-border/60 bg-muted/30 text-muted-foreground';
 	}
@@ -1229,9 +1229,9 @@ export default function AdminDashboard() {
 
 	const getPriorityClasses = (priority: ActionPriority) => {
 		const classes: Record<ActionPriority, string> = {
-			high: 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200',
-			medium: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200',
-			low: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200',
+			high: 'border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-400/30 dark:bg-rose-950/35 dark:text-rose-200',
+			medium: 'border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/35 dark:text-amber-200',
+			low: 'border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-950/35 dark:text-emerald-200',
 		};
 
 		return classes[priority];
@@ -1615,19 +1615,19 @@ export default function AdminDashboard() {
 	const getDashboardTaskStatusClassName = (status?: string | null) => {
 		switch (status?.trim().toLowerCase()) {
 			case "completed":
-				return "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200";
+				return "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-950/35 dark:text-emerald-200";
 			case "on_hold":
 			case "blocked":
 			case "paused":
-				return "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200";
+				return "border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-400/30 dark:bg-rose-950/35 dark:text-rose-200";
 			case "in_progress":
 			case "needs_review":
 			case "working":
 			case "active":
-				return "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200";
+				return "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/35 dark:text-amber-200";
 			case "not_started":
 			case "pending":
-				return "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-500/30 dark:bg-slate-500/10 dark:text-slate-200";
+				return "border-slate-300 bg-slate-100 text-slate-900 dark:border-slate-400/30 dark:bg-slate-900/45 dark:text-slate-200";
 			default:
 				return "border-border/60 bg-muted/40 text-muted-foreground";
 		}

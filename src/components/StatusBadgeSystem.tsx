@@ -17,29 +17,29 @@ const StatusBadge = ({
   Icon?: LucideIcon;
 }) => {
   const statusColors: Record<any, string> = {
-    admin: "bg-rose-200 text-rose-700 border-rose-500/40 print:text-rose-500 dark:bg-rose-700/30 dark:text-rose-200 dark:border-rose-300/20",
-    employee: "bg-green-200 text-green-700 border-green-500/40 print:text-green-500 dark:bg-green-700/30 dark:text-green-200 dark:border-green-300/20",
-    moderator: "bg-amber-200 text-amber-700 border-amber-500/40 print:text-amber-500 dark:bg-amber-700/30 dark:text-amber-200 dark:border-amber-300/20",
-    client: "bg-blue-200 text-blue-700 border-blue-500/40 print:text-blue-500 dark:bg-blue-700/30 dark:text-blue-200 dark:border-blue-300/20",
+    admin: "bg-rose-100 text-rose-900 border-rose-300 print:text-rose-700 dark:bg-rose-950/35 dark:text-rose-200 dark:border-rose-400/30",
+    employee: "bg-green-100 text-green-900 border-green-300 print:text-green-700 dark:bg-green-950/35 dark:text-green-200 dark:border-green-400/30",
+    moderator: "bg-amber-100 text-amber-900 border-amber-300 print:text-amber-700 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-400/30",
+    client: "bg-blue-100 text-blue-900 border-blue-300 print:text-blue-700 dark:bg-blue-950/35 dark:text-blue-200 dark:border-blue-400/30",
 
-    Designer: "bg-green-200 text-green-700 border-green-500/40 print:text-green-500 dark:bg-green-700/30 dark:text-green-200 dark:border-green-300/20",
-    Client: "bg-blue-200 text-blue-700 border-blue-500/40 print:text-blue-500 dark:bg-blue-700/30 dark:text-blue-200 dark:border-blue-300/20",
+    Designer: "bg-green-100 text-green-900 border-green-300 print:text-green-700 dark:bg-green-950/35 dark:text-green-200 dark:border-green-400/30",
+    Client: "bg-blue-100 text-blue-900 border-blue-300 print:text-blue-700 dark:bg-blue-950/35 dark:text-blue-200 dark:border-blue-400/30",
 
-    Foundations: "bg-amber-200 text-amber-700 border-amber-500/40 print:text-amber-500 dark:bg-amber-700/30 dark:text-amber-200 dark:border-amber-300/20",
-    Structural: "bg-amber-200 text-amber-700 border-amber-500/40 print:text-amber-500 dark:bg-amber-700/30 dark:text-amber-200 dark:border-amber-300/20",
+    Foundations: "bg-amber-100 text-amber-900 border-amber-300 print:text-amber-700 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-400/30",
+    Structural: "bg-amber-100 text-amber-900 border-amber-300 print:text-amber-700 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-400/30",
 
-    Finishes: "bg-lime-200 text-lime-700 border-lime-500/40 print:text-lime-500 dark:bg-lime-700/30 dark:text-lime-200 dark:border-lime-300/20",
-    Architectural: "bg-lime-200 text-lime-700 border-lime-500/40 print:text-lime-500 dark:bg-lime-700/30 dark:text-lime-200 dark:border-lime-300/20",
+    Finishes: "bg-lime-100 text-lime-900 border-lime-300 print:text-lime-700 dark:bg-lime-950/35 dark:text-lime-200 dark:border-lime-400/30",
+    Architectural: "bg-lime-100 text-lime-900 border-lime-300 print:text-lime-700 dark:bg-lime-950/35 dark:text-lime-200 dark:border-lime-400/30",
 
-    palace: "bg-violet-200 text-violet-700 border-violet-500/40 print:text-violet-500 dark:bg-violet-700/30 dark:text-violet-200 dark:border-violet-300/20",
-    villa: "bg-teal-200 text-teal-700 border-teal-500/40 print:text-teal-500 dark:bg-teal-700/30 dark:text-teal-200 dark:border-teal-300/20",
+    palace: "bg-violet-100 text-violet-900 border-violet-300 print:text-violet-700 dark:bg-violet-950/35 dark:text-violet-200 dark:border-violet-400/30",
+    villa: "bg-teal-100 text-teal-900 border-teal-300 print:text-teal-700 dark:bg-teal-950/35 dark:text-teal-200 dark:border-teal-400/30",
     black: "bg-black/80 text-white border-white/30 print:text-black dark:bg-black/70 dark:text-white dark:border-white/20",
 
-    'Not Started' : "bg-slate-200 text-slate-700 border-slate-500/40 print:text-slate-500 dark:bg-slate-700/30 dark:text-slate-200 dark:border-slate-300/20",
-    'In Progress': "bg-blue-200 text-blue-700 border-blue-500/40 print:text-blue-500 dark:bg-blue-700/30 dark:text-blue-200 dark:border-blue-300/20",
-    'Completed': "bg-green-200 text-green-700 border-green-500/40 print:text-green-500 dark:bg-green-700/30 dark:text-green-200 dark:border-green-300/20",
-    'On Hold': "bg-rose-200 text-rose-700 border-rose-500/40 print:text-rose-500 dark:bg-rose-700/30 dark:text-rose-200 dark:border-rose-300/20",
-    'Needs Review' : "bg-purple-200 text-purple-700 border-purple-500/40 print:text-purple-500 dark:bg-purple-700/30 dark:text-purple-200 dark:border-purple-300/20"
+    'Not Started' : "bg-slate-100 text-slate-900 border-slate-300 print:text-slate-700 dark:bg-slate-900/45 dark:text-slate-200 dark:border-slate-400/30",
+    'In Progress': "bg-blue-100 text-blue-900 border-blue-300 print:text-blue-700 dark:bg-blue-950/35 dark:text-blue-200 dark:border-blue-400/30",
+    'Completed': "bg-green-100 text-green-900 border-green-300 print:text-green-700 dark:bg-green-950/35 dark:text-green-200 dark:border-green-400/30",
+    'On Hold': "bg-rose-100 text-rose-900 border-rose-300 print:text-rose-700 dark:bg-rose-950/35 dark:text-rose-200 dark:border-rose-400/30",
+    'Needs Review' : "bg-purple-100 text-purple-900 border-purple-300 print:text-purple-700 dark:bg-purple-950/35 dark:text-purple-200 dark:border-purple-400/30"
   };
 
   const t = useTranslations();
@@ -68,7 +68,7 @@ const StatusBadge = ({
         print:bg-white
         print:border-muted-foreground/50
       ${
-        statusColors[status] || statusColors[color] || "bg-slate-200 text-slate-700 border-slate-500/40 print:text-slate-500 dark:bg-slate-700/30 dark:text-slate-200 dark:border-slate-300/20"
+        statusColors[status] || statusColors[color] || "bg-slate-100 text-slate-900 border-slate-300 print:text-slate-700 dark:bg-slate-900/45 dark:text-slate-200 dark:border-slate-400/30"
       }`}
     >
       {Icon && <Icon className="w-3 h-3 animate-spin leading-[0px]" />}

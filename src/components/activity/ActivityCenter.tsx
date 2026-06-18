@@ -717,9 +717,9 @@ const getReportDeliveryOptionForAction = (
 };
 
 const priorityClasses: Record<"high" | "medium" | "low", string> = {
-	high: "border-rose-500/20 bg-rose-500/10 text-rose-300",
-	medium: "border-amber-500/20 bg-amber-500/10 text-amber-200",
-	low: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+	high: "border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-400/30 dark:bg-rose-950/35 dark:text-rose-200",
+	medium: "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/35 dark:text-amber-200",
+	low: "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-950/35 dark:text-emerald-200",
 };
 
 const reportStatusClasses: Record<ProjectReport["status"], string> = {
