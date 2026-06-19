@@ -1855,18 +1855,11 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 					<Button type="button" size="sm" variant="outline" onClick={() => void handleActivityEdit(item)}>
 						فتح وتعديل
 					</Button>
-					<Button type="button" size="sm" variant="ghost" onClick={() => void handleActivityDetails(item)}>
-						Details
-					</Button>
 				</>
 			);
 		}
 
-		return (
-			<Button type="button" size="sm" variant="ghost" onClick={() => void handleActivityDetails(item)}>
-				Details
-			</Button>
-		);
+		return null;
 	};
 
 	return (
