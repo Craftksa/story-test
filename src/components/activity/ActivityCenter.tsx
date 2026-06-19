@@ -784,6 +784,53 @@ const activityItemStatusClasses: Record<ActivityInboxItem["type"], string> = {
 		"border-violet-300 bg-violet-100 text-violet-950 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-100",
 };
 
+const activityInboxTypeBadgeClasses: Record<ActivityInboxItem["type"], string> = {
+	report_pending_approval:
+		"bg-emerald-50 !text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:!text-emerald-200 dark:border-emerald-800",
+	report_resubmitted:
+		"bg-emerald-50 !text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:!text-emerald-200 dark:border-emerald-800",
+	report_needs_changes:
+		"bg-orange-50 !text-orange-900 border-orange-200 dark:bg-orange-950/40 dark:!text-orange-200 dark:border-orange-800",
+	report_sent:
+		"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800",
+	report_send_failed:
+		"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800",
+	letter_pending_approval:
+		"bg-amber-50 !text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:!text-amber-200 dark:border-amber-800",
+	letter_resubmitted:
+		"bg-amber-50 !text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:!text-amber-200 dark:border-amber-800",
+	letter_needs_changes:
+		"bg-orange-50 !text-orange-900 border-orange-200 dark:bg-orange-950/40 dark:!text-orange-200 dark:border-orange-800",
+	letter_sent:
+		"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800",
+	letter_send_failed:
+		"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800",
+	internal_note:
+		"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800",
+	task_follow_up:
+		"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800",
+};
+
+const activityInboxStatusBadgeClasses: Record<string, string> = {
+	"تم الإرسال":
+		"bg-emerald-50 !text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:!text-emerald-200 dark:border-emerald-800",
+	"بانتظار الموافقة":
+		"bg-neutral-50 !text-neutral-800 border-neutral-200 dark:bg-neutral-800 dark:!text-neutral-100 dark:border-neutral-700",
+	"بحاجة إلى تعديل":
+		"bg-orange-50 !text-orange-900 border-orange-200 dark:bg-orange-950/40 dark:!text-orange-200 dark:border-orange-800",
+	"فشل الإرسال":
+		"bg-rose-50 !text-rose-900 border-rose-200 dark:bg-rose-950/40 dark:!text-rose-200 dark:border-rose-800",
+	جديد:
+		"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800",
+	متأخرة:
+		"bg-rose-50 !text-rose-900 border-rose-200 dark:bg-rose-950/40 dark:!text-rose-200 dark:border-rose-800",
+	"تحتاج متابعة":
+		"bg-sky-50 !text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:!text-sky-200 dark:border-sky-800",
+};
+
+const activityInboxStatusBadgeFallbackClass =
+	"bg-neutral-50 !text-neutral-800 border-neutral-200 dark:bg-neutral-800 dark:!text-neutral-100 dark:border-neutral-700";
+
 const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
 const activityPanelScrollContainerClass =
 	"overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-color:rgba(218,197,143,0.55)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.05] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9f8a58] hover:[&::-webkit-scrollbar-thumb]:bg-[#dac58f]";
@@ -1889,25 +1936,16 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 														<Icon className="h-4 w-4" />
 													</span>
 													<Badge
-														className={cn(
-															activityItemStatusClasses[item.type],
-															activityItemTypeLabel[item.type] === "تقرير" &&
-																"bg-emerald-50 !text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:!text-emerald-200 dark:border-emerald-800",
-															activityItemTypeLabel[item.type] === "خطاب" &&
-																"bg-amber-50 !text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:!text-amber-200 dark:border-amber-800"
-														)}
+														className={activityInboxTypeBadgeClasses[item.type]}
 													>
 														{activityItemTypeLabel[item.type]}
 													</Badge>
 													<Badge
 														variant="outline"
-														className={cn(
-															"text-zinc-700 dark:text-stone-200",
-															item.statusLabel === "تم الإرسال" &&
-																"bg-emerald-50 !text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:!text-emerald-200 dark:border-emerald-800",
-															item.statusLabel === "بانتظار الموافقة" &&
-																"bg-neutral-50 !text-neutral-800 border-neutral-200 dark:bg-neutral-800 dark:!text-neutral-100 dark:border-neutral-700"
-														)}
+														className={
+															activityInboxStatusBadgeClasses[item.statusLabel] ??
+															activityInboxStatusBadgeFallbackClass
+														}
 													>
 														{item.statusLabel}
 													</Badge>
