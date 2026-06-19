@@ -830,6 +830,8 @@ const activityInboxStatusBadgeClasses: Record<string, string> = {
 
 const activityInboxStatusBadgeFallbackClass =
 	"bg-neutral-50 !text-neutral-800 border-neutral-200 dark:bg-neutral-800 dark:!text-neutral-100 dark:border-neutral-700";
+const activityInboxBadgeBaseClass =
+	"inline-flex h-7 items-center rounded-full border px-3 py-1 text-xs font-medium leading-none shadow-none";
 
 const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
 const activityPanelScrollContainerClass =
@@ -1936,16 +1938,19 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 														<Icon className="h-4 w-4" />
 													</span>
 													<Badge
-														className={activityInboxTypeBadgeClasses[item.type]}
+														className={cn(
+															activityInboxBadgeBaseClass,
+															activityInboxTypeBadgeClasses[item.type]
+														)}
 													>
 														{activityItemTypeLabel[item.type]}
 													</Badge>
 													<Badge
-														variant="outline"
-														className={
+														className={cn(
+															activityInboxBadgeBaseClass,
 															activityInboxStatusBadgeClasses[item.statusLabel] ??
-															activityInboxStatusBadgeFallbackClass
-														}
+																activityInboxStatusBadgeFallbackClass
+														)}
 													>
 														{item.statusLabel}
 													</Badge>
