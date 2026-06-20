@@ -42,6 +42,8 @@ export type TimelineTask = {
 	placementDate: Date;
 	hasStartDate: boolean;
 	hasExplicitEndDate: boolean;
+	isScheduled: boolean;
+	isMilestone: boolean;
 	createdAt: Date | null;
 	updatedAt: Date | null;
 	notes: string | null;
@@ -250,23 +252,27 @@ export function createTimelineTasks(
 		.map<TimelineTask>((task, index) => {
 			const createdAt = toDate(task.createdAt);
 			const updatedAt = toDate(task.updatedAt);
-			const startDate = toDate(task.startDate) ?? createdAt;
+			const startDate = toDate(task.startDate);
 			const explicitEndDate = toDate(task.endDate) ?? toDate(task.dueDate);
 			const safeEndDate =
 				startDate && explicitEndDate && explicitEndDate.getTime() < startDate.getTime()
 					? startDate
 					: explicitEndDate;
-			const placementDate = startDate ?? safeEndDate ?? createdAt ?? referenceDate;
+			const placementDate = startDate ?? safeEndDate ?? updatedAt ?? createdAt ?? referenceDate;
 			const status = normalizeTaskStatus(task.taskStatus);
 			const typeMeta = normalizeTaskType(task.taskType);
 			const isOverdue =
 				Boolean(safeEndDate) &&
 				status !== "completed" &&
 				safeEndDate.getTime() < referenceDate.getTime();
+			const isScheduled = Boolean(startDate && safeEndDate);
 			const durationDays =
-				startDate && safeEndDate
+				isScheduled && startDate && safeEndDate
 					? Math.max(1, differenceInCalendarDays(safeEndDate, startDate) + 1)
 					: 1;
+			const isMilestone =
+				Boolean(startDate && safeEndDate) &&
+				differenceInCalendarDays(safeEndDate, startDate) === 0;
 			const ownerLabel = getOwnerLabel(task, projectTeam);
 
 			return {
@@ -283,6 +289,8 @@ export function createTimelineTasks(
 				placementDate,
 				hasStartDate: Boolean(startDate),
 				hasExplicitEndDate: Boolean(safeEndDate),
+				isScheduled,
+				isMilestone,
 				createdAt,
 				updatedAt,
 				notes: typeof task.notes === "string" ? task.notes : null,
@@ -310,11 +318,16 @@ export function createTimelineTasks(
 
 export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date()): TimelineRange {
 	const safeReferenceDate = startOfDay(referenceDate);
-	const datedTasks = tasks.filter((task) => task.hasStartDate || task.hasExplicitEndDate);
+	const startCandidates = tasks
+		.map((task) => task.startDate)
+		.filter((date): date is Date => Boolean(date));
+	const endCandidates = tasks
+		.map((task) => task.endDate ?? task.startDate)
+		.filter((date): date is Date => Boolean(date));
 
-	if (datedTasks.length === 0) {
-		const start = safeReferenceDate;
-		const end = addDays(start, 13);
+	if (startCandidates.length === 0 && endCandidates.length === 0) {
+		const start = addDays(safeReferenceDate, -7);
+		const end = addDays(start, 27);
 		return {
 			start,
 			end,
@@ -322,29 +335,23 @@ export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date
 		};
 	}
 
-	let start = datedTasks[0].placementDate;
-	let end = datedTasks[0].endDate ?? datedTasks[0].placementDate;
+	let start = startCandidates[0] ?? endCandidates[0] ?? safeReferenceDate;
+	let end = endCandidates[0] ?? startCandidates[0] ?? start;
 
-	for (const task of datedTasks) {
-		if (task.placementDate.getTime() < start.getTime()) start = task.placementDate;
-
-		const taskEnd = task.endDate ?? task.placementDate;
-		if (taskEnd.getTime() > end.getTime()) end = taskEnd;
+	for (const candidate of startCandidates) {
+		if (candidate.getTime() < start.getTime()) start = candidate;
 	}
 
-	start = addDays(start, -2);
-	end = addDays(end, 2);
-
-	if (safeReferenceDate.getTime() < start.getTime()) {
-		start = addDays(safeReferenceDate, -2);
+	for (const candidate of endCandidates) {
+		if (candidate.getTime() > end.getTime()) end = candidate;
 	}
 
-	if (safeReferenceDate.getTime() > end.getTime()) {
-		end = addDays(safeReferenceDate, 2);
+	if (end.getTime() < start.getTime()) {
+		end = start;
 	}
 
-	if (differenceInCalendarDays(end, start) < 10) {
-		end = addDays(start, 10);
+	if (differenceInCalendarDays(end, start) < 13) {
+		end = addDays(start, 13);
 	}
 
 	return {

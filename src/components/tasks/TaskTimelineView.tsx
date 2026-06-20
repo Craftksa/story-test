@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
-import { differenceInCalendarDays, format } from "date-fns";
+import { useEffect, useMemo } from "react";
+import {
+	addDays,
+	differenceInCalendarDays,
+	endOfMonth,
+	endOfWeek,
+	format,
+	startOfMonth,
+	startOfWeek,
+} from "date-fns";
 import { ar, enUS } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "use-intl";
@@ -31,33 +39,118 @@ type TimelineLayoutMetrics = {
 };
 
 const DEFAULT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 320,
-	dayColumnWidth: 72,
-	headerHeight: 72,
-	groupRowHeight: 28,
-	taskRowHeight: 72,
-	barHeight: 30,
+	leftColumnWidth: 360,
+	dayColumnWidth: 24,
+	headerHeight: 88,
+	groupRowHeight: 36,
+	taskRowHeight: 84,
+	barHeight: 20,
 	maxBodyHeight: "none",
 };
 
 const COMPACT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 284,
-	dayColumnWidth: 58,
-	headerHeight: 64,
-	groupRowHeight: 28,
-	taskRowHeight: 68,
-	barHeight: 28,
+	leftColumnWidth: 320,
+	dayColumnWidth: 18,
+	headerHeight: 84,
+	groupRowHeight: 36,
+	taskRowHeight: 80,
+	barHeight: 18,
 	maxBodyHeight: "none",
 };
 
 type TimelineTaskLayout = {
 	rowTop: number;
 	rowHeight: number;
-	barLeft: number;
-	barWidth: number;
-	barRight: number;
+	barLeft: number | null;
+	barWidth: number | null;
+	barRight: number | null;
+	markerCenter: number | null;
 	durationDays: number;
+	isRenderable: boolean;
+	isMilestone: boolean;
 };
+
+type TimelineHeaderSegment = {
+	key: string;
+	label: string;
+	subLabel?: string;
+	startOffsetDays: number;
+	days: number;
+};
+
+function getResolvedLayout(totalDays: number, compact: boolean): TimelineLayoutMetrics {
+	const base = compact ? COMPACT_LAYOUT : DEFAULT_LAYOUT;
+	let dayColumnWidth = base.dayColumnWidth;
+
+	if (totalDays > 365) {
+		dayColumnWidth = compact ? 8 : 10;
+	} else if (totalDays > 240) {
+		dayColumnWidth = compact ? 10 : 12;
+	} else if (totalDays > 180) {
+		dayColumnWidth = compact ? 12 : 14;
+	} else if (totalDays > 120) {
+		dayColumnWidth = compact ? 14 : 16;
+	} else if (totalDays > 90) {
+		dayColumnWidth = compact ? 16 : 18;
+	} else if (totalDays > 60) {
+		dayColumnWidth = compact ? 18 : 20;
+	}
+
+	return {
+		...base,
+		dayColumnWidth,
+	};
+}
+
+function buildMonthSegments(start: Date, end: Date, locale: typeof enUS): TimelineHeaderSegment[] {
+	const segments: TimelineHeaderSegment[] = [];
+	let cursor = startOfMonth(start);
+
+	while (cursor.getTime() <= end.getTime()) {
+		const segmentStart = cursor.getTime() < start.getTime() ? start : cursor;
+		const rawSegmentEnd = endOfMonth(segmentStart);
+		const segmentEnd = rawSegmentEnd.getTime() > end.getTime() ? end : rawSegmentEnd;
+
+		segments.push({
+			key: `${segmentStart.toISOString()}-${segmentEnd.toISOString()}`,
+			label: format(segmentStart, "MMMM yyyy", { locale }),
+			startOffsetDays: differenceInCalendarDays(segmentStart, start),
+			days: differenceInCalendarDays(segmentEnd, segmentStart) + 1,
+		});
+
+		cursor = addDays(segmentEnd, 1);
+	}
+
+	return segments;
+}
+
+function buildWeekSegments(start: Date, end: Date, locale: typeof enUS): TimelineHeaderSegment[] {
+	const segments: TimelineHeaderSegment[] = [];
+	let cursor = startOfWeek(start, { weekStartsOn: 1 });
+
+	while (cursor.getTime() <= end.getTime()) {
+		const segmentStart = cursor.getTime() < start.getTime() ? start : cursor;
+		const rawSegmentEnd = endOfWeek(segmentStart, { weekStartsOn: 1 });
+		const segmentEnd = rawSegmentEnd.getTime() > end.getTime() ? end : rawSegmentEnd;
+		const startLabel = format(segmentStart, "d MMM", { locale });
+		const endLabel =
+			segmentStart.getMonth() === segmentEnd.getMonth()
+				? format(segmentEnd, "d", { locale })
+				: format(segmentEnd, "d MMM", { locale });
+
+		segments.push({
+			key: `${segmentStart.toISOString()}-${segmentEnd.toISOString()}`,
+			label: startLabel,
+			subLabel: endLabel,
+			startOffsetDays: differenceInCalendarDays(segmentStart, start),
+			days: differenceInCalendarDays(segmentEnd, segmentStart) + 1,
+		});
+
+		cursor = addDays(segmentEnd, 1);
+	}
+
+	return segments;
+}
 
 function getTaskVisualState(status: string) {
 	const normalizedStatus = status.trim().toLowerCase();
@@ -78,6 +171,10 @@ function getTaskVisualState(status: string) {
 }
 
 function getTaskBarClasses(task: TimelineTask) {
+	if (task.isOverdue && task.status !== "completed") {
+		return "border-rose-300/85 bg-rose-100 text-rose-950 dark:border-rose-500/35 dark:bg-rose-500/18 dark:text-rose-100";
+	}
+
 	switch (getTaskVisualState(task.status)) {
 		case "completed":
 			return "border-emerald-300/70 bg-emerald-100 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-500/18 dark:text-emerald-100";
@@ -118,8 +215,12 @@ function getProgressIndicatorClasses(task: TimelineTask) {
 }
 
 function getDurationLabel(task: TimelineTask, locale: typeof enUS) {
-	const startDate = task.startDate ?? task.placementDate;
+	const startDate = task.startDate;
 	const endDate = task.endDate ?? startDate;
+
+	if (!startDate || !endDate) {
+		return locale === ar ? "غير مجدولة" : "Unscheduled";
+	}
 
 	return `${format(startDate, "d MMM", { locale })} - ${format(endDate, "d MMM", {
 		locale,
@@ -201,27 +302,38 @@ function getTaskLayouts(
 		currentTop += layout.groupRowHeight;
 
 		for (const task of group.tasks) {
-			const effectiveStartDate = task.startDate ?? timelineStart;
-			const startOffset = Math.max(
-				0,
-				differenceInCalendarDays(effectiveStartDate, timelineStart)
-			);
+			const isRenderable = task.isScheduled && Boolean(task.startDate && task.endDate);
 			const durationDays =
 				task.startDate && task.endDate
 					? Math.max(1, differenceInCalendarDays(task.endDate, task.startDate) + 1)
 					: 1;
-			const minimumShortWidth = Math.max(layout.dayColumnWidth - 16, 84);
-			const barWidth = task.startDate && task.endDate
-				? Math.max(layout.dayColumnWidth - 14, durationDays * layout.dayColumnWidth - 14)
-				: minimumShortWidth;
+			let barLeft: number | null = null;
+			let barWidth: number | null = null;
+			let markerCenter: number | null = null;
+
+			if (isRenderable && task.startDate) {
+				const startOffset = Math.max(0, differenceInCalendarDays(task.startDate, timelineStart));
+
+				if (task.isMilestone) {
+					markerCenter = startOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
+					barWidth = Math.max(layout.barHeight - 2, 14);
+					barLeft = markerCenter - barWidth / 2;
+				} else {
+					barLeft = startOffset * layout.dayColumnWidth + 3;
+					barWidth = Math.max(12, durationDays * layout.dayColumnWidth - 6);
+				}
+			}
 
 			taskLayouts.set(task.id, {
 				rowTop: currentTop,
 				rowHeight: layout.taskRowHeight,
-				barLeft: startOffset * layout.dayColumnWidth + 8,
 				barWidth,
-				barRight: startOffset * layout.dayColumnWidth + 8 + barWidth,
+				barLeft,
+				barRight: barLeft !== null && barWidth !== null ? barLeft + barWidth : null,
+				markerCenter,
 				durationDays,
+				isRenderable,
+				isMilestone: task.isMilestone,
 			});
 
 			currentTop += layout.taskRowHeight;
@@ -259,9 +371,18 @@ export default function TaskTimelineView({
 	const { lang, isRTL } = useCheckedLocale();
 	const locale = lang === "ar" ? ar : enUS;
 	const today = new Date();
-	const layout = compact ? COMPACT_LAYOUT : DEFAULT_LAYOUT;
 	const timelineTitle = title ?? t("Construction Roadmap");
 	const visibleTaskRows = 6;
+	const untranslatedLabels = useMemo(
+		() => ({
+			activity: lang === "ar" ? "الأنشطة" : "Activities",
+			duration: lang === "ar" ? "المدة" : "Duration",
+			window: lang === "ar" ? "الفترة" : "Window",
+			milestone: lang === "ar" ? "نقطة إنجاز" : "Milestone",
+			unscheduled: lang === "ar" ? "غير مجدولة" : "Unscheduled",
+		}),
+		[lang]
+	);
 
 	const resolveTaskHref = (taskId: string) =>
 		getTaskHref?.(taskId) ?? (projectId ? `/projects/${projectId}/tasks/${taskId}` : null);
@@ -314,7 +435,19 @@ export default function TaskTimelineView({
 	}));
 
 	const timelineRange = getTimelineRange(timelineTasks, today);
+	const layout = useMemo(
+		() => getResolvedLayout(timelineRange.totalDays, compact),
+		[compact, timelineRange.totalDays]
+	);
 	const thisWeekTasks = getThisWeekTasks(timelineTasks, today);
+	const monthSegments = useMemo(
+		() => buildMonthSegments(timelineRange.start, timelineRange.end, locale),
+		[locale, timelineRange.end, timelineRange.start]
+	);
+	const weekSegments = useMemo(
+		() => buildWeekSegments(timelineRange.start, timelineRange.end, locale),
+		[locale, timelineRange.end, timelineRange.start]
+	);
 	const timelineDays = Array.from({ length: timelineRange.totalDays }, (_, index) => {
 		const day = new Date(timelineRange.start);
 		day.setDate(day.getDate() + index);
@@ -372,8 +505,7 @@ export default function TaskTimelineView({
 		totalRenderedRows,
 	]);
 
-	const timelineGridBackground = "linear-gradient(to right, hsl(var(--border) / 0.24) 1px, transparent 1px)";
-	const timelineHeaderSurface = "bg-muted/30 dark:bg-muted/20";
+	const timelineHeaderSurface = "bg-muted/25 dark:bg-muted/15";
 	const timelinePinnedSurface = "bg-card/95 dark:bg-card/90 backdrop-blur-sm";
 
 	return (
@@ -434,11 +566,20 @@ export default function TaskTimelineView({
 										)}
 										style={{ height: layout.headerHeight }}
 									>
-										<div className="flex h-full items-center justify-between gap-3">
-											<p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-												{t("Tasks")}
-											</p>
-											<div className="h-px flex-1 bg-border/60" />
+										<div className="flex h-full flex-col justify-between">
+											<div className="flex items-center justify-between gap-3">
+												<p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+													{untranslatedLabels.activity}
+												</p>
+												<span className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+													{timelineTasks.length}
+												</span>
+											</div>
+											<div className="grid grid-cols-[minmax(0,1fr)_92px_108px] gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+												<span>{t("Task Name")}</span>
+												<span>{untranslatedLabels.duration}</span>
+												<span>{untranslatedLabels.window}</span>
+											</div>
 										</div>
 									</div>
 
@@ -447,28 +588,53 @@ export default function TaskTimelineView({
 											"relative border-b border-border/60",
 											timelineHeaderSurface
 										)}
-										style={{
-											height: layout.headerHeight,
-											backgroundImage: timelineGridBackground,
-											backgroundSize: `${layout.dayColumnWidth}px 100%`,
-										}}
+										style={{ height: layout.headerHeight }}
 									>
-										<div className="flex h-full">
-											{timelineDays.map((day) => (
-												<div
-													key={day.toISOString()}
-													className="flex shrink-0 flex-col justify-center border-r border-border/40 px-2 text-center"
-													style={{ width: layout.dayColumnWidth }}
-												>
-													<span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-														{format(day, "EEE", { locale })}
-													</span>
-													<span className="mt-1 text-sm font-semibold text-foreground">
-														{format(day, "d MMM", { locale })}
-													</span>
-												</div>
-											))}
+										<div className="flex h-full flex-col">
+											<div className="flex h-[42px] border-b border-border/60">
+												{monthSegments.map((segment) => (
+													<div
+														key={segment.key}
+														className="flex shrink-0 items-center border-r border-border/60 px-3"
+														style={{ width: segment.days * layout.dayColumnWidth }}
+													>
+														<span className="text-xs font-semibold text-foreground">
+															{segment.label}
+														</span>
+													</div>
+												))}
+											</div>
+											<div className="flex h-[calc(100%-42px)]">
+												{weekSegments.map((segment) => (
+													<div
+														key={segment.key}
+														className="flex shrink-0 flex-col justify-center border-r border-border/40 px-2"
+														style={{ width: segment.days * layout.dayColumnWidth }}
+													>
+														<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+															{segment.label}
+														</span>
+														<span className="mt-1 text-xs font-medium text-foreground">
+															{segment.subLabel ? `${segment.label} - ${segment.subLabel}` : segment.label}
+														</span>
+													</div>
+												))}
+											</div>
 										</div>
+										{monthSegments.slice(1).map((segment) => (
+											<div
+												key={`month-boundary-${segment.key}`}
+												className="pointer-events-none absolute inset-y-0 z-10 border-l border-border/70"
+												style={{ left: segment.startOffsetDays * layout.dayColumnWidth }}
+											/>
+										))}
+										{weekSegments.slice(1).map((segment) => (
+											<div
+												key={`week-boundary-${segment.key}`}
+												className="pointer-events-none absolute inset-y-0 z-[5] border-l border-border/35"
+												style={{ left: segment.startOffsetDays * layout.dayColumnWidth }}
+											/>
+										))}
 										{todayOffset >= 0 && todayOffset < timelineRange.totalDays && (
 											<div
 												className="absolute inset-y-0 z-20"
@@ -505,7 +671,7 @@ export default function TaskTimelineView({
 												return (
 													<div key={group.key}>
 														<div
-															className="absolute inset-x-0 border-b border-border/50 bg-muted/35 px-5"
+															className="absolute inset-x-0 border-b border-border/50 bg-muted/30 px-5"
 															style={{
 																top: groupLayout.top,
 																height: groupLayout.height,
@@ -533,6 +699,12 @@ export default function TaskTimelineView({
 															const taskLayout = taskLayouts.get(task.id);
 															if (!taskLayout) return null;
 
+															const durationText = !task.isScheduled
+																? untranslatedLabels.unscheduled
+																: task.isMilestone
+																	? untranslatedLabels.milestone
+																	: `${task.durationDays} ${lang === "ar" ? "يوم" : task.durationDays === 1 ? "day" : "days"}`;
+
 															return (
 																<div
 																	key={task.id}
@@ -542,16 +714,14 @@ export default function TaskTimelineView({
 																		height: taskLayout.rowHeight,
 																	}}
 																>
-																	<div className="flex h-full min-w-0 items-center">
-																		<div className="flex h-full items-stretch pr-3">
-																			<div className="w-px rounded-full bg-border/60" />
-																		</div>
-																		<div className="min-w-0 flex-1">
+																	<div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_92px_108px] items-center gap-3">
+																		<div className="min-w-0">
 																			<p
 																				className={cn(
 																					"truncate text-sm font-semibold text-foreground",
 																					isRTL && "text-right"
 																				)}
+																				title={task.name}
 																			>
 																				{task.name}
 																			</p>
@@ -567,7 +737,16 @@ export default function TaskTimelineView({
 																				<span className="rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
 																					{task.ownerLabel || t("Not set")}
 																				</span>
+																				<span className="rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
+																					{getTranslatedTaskTypeLabel(task, t)}
+																				</span>
 																			</div>
+																		</div>
+																		<div className="text-xs font-medium text-muted-foreground">
+																			{durationText}
+																		</div>
+																		<div className="text-xs font-medium text-muted-foreground">
+																			{getDurationLabel(task, locale)}
 																		</div>
 																	</div>
 																</div>
@@ -583,10 +762,22 @@ export default function TaskTimelineView({
 											style={{
 												height: bodyHeight,
 												width: timelineWidth,
-												backgroundImage: timelineGridBackground,
-												backgroundSize: `${layout.dayColumnWidth}px 100%`,
 											}}
 										>
+											{monthSegments.slice(1).map((segment) => (
+												<div
+													key={`month-line-${segment.key}`}
+													className="pointer-events-none absolute inset-y-0 z-[2] border-l border-border/60"
+													style={{ left: segment.startOffsetDays * layout.dayColumnWidth }}
+												/>
+											))}
+											{weekSegments.slice(1).map((segment) => (
+												<div
+													key={`week-line-${segment.key}`}
+													className="pointer-events-none absolute inset-y-0 z-[1] border-l border-border/30"
+													style={{ left: segment.startOffsetDays * layout.dayColumnWidth }}
+												/>
+											))}
 											{todayOffset >= 0 && todayOffset < timelineRange.totalDays && (
 												<div
 													className="pointer-events-none absolute inset-y-0 z-10"
@@ -626,16 +817,15 @@ export default function TaskTimelineView({
 
 														{group.tasks.map((task) => {
 															const taskLayout = taskLayouts.get(task.id);
-															if (!taskLayout) return null;
+															if (!taskLayout || !taskLayout.isRenderable) return null;
 
 															const barClasses = getTaskBarClasses(task);
-															const showInlineContent = taskLayout.barWidth >= 112;
+															const showInlineContent =
+																!taskLayout.isMilestone && Boolean(taskLayout.barWidth && taskLayout.barWidth >= 120);
 															const taskHref = resolveTaskHref(task.id);
-															const barTitle = task.hasStartDate && !task.hasExplicitEndDate
-																? `${task.name} - ${t("No fixed end date")}`
-																: task.hasStartDate
-																	? task.name
-																	: `${task.name} - ${t("Unscheduled")}`;
+															const barTitle = task.isScheduled
+																? task.name
+																: `${task.name} - ${untranslatedLabels.unscheduled}`;
 
 															return (
 																<div
@@ -646,34 +836,58 @@ export default function TaskTimelineView({
 																		height: taskLayout.rowHeight,
 																	}}
 																>
-																	<button
-																		type="button"
-																		onClick={() => openTask(task.id)}
-																		disabled={!taskHref}
-																		title={barTitle}
-																		aria-label={barTitle}
-																		className={cn(
-																			"absolute flex items-center overflow-hidden rounded-xl border px-3 text-left shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
-																			barClasses
-																		)}
-																		style={{
-																			left: taskLayout.barLeft,
-																			top: (taskLayout.rowHeight - layout.barHeight) / 2,
-																			width: taskLayout.barWidth,
-																			height: layout.barHeight,
-																		}}
-																	>
-																		{showInlineContent ? (
-																			<span
-																				className={cn(
-																					"block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.01em]",
-																					isRTL ? "text-right" : "text-left"
-																				)}
-																			>
-																				{task.name}
-																			</span>
-																		) : null}
-																	</button>
+																	{taskLayout.isMilestone ? (
+																		<button
+																			type="button"
+																			onClick={() => openTask(task.id)}
+																			disabled={!taskHref}
+																			title={barTitle}
+																			aria-label={barTitle}
+																			className={cn(
+																				"absolute flex items-center justify-center border shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
+																				barClasses
+																			)}
+																			style={{
+																				left: taskLayout.barLeft ?? 0,
+																				top: (taskLayout.rowHeight - Math.max(layout.barHeight, 16)) / 2,
+																				width: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
+																				height: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
+																				transform: "rotate(45deg)",
+																				borderRadius: "6px",
+																			}}
+																		>
+																			<span className="sr-only">{barTitle}</span>
+																		</button>
+																	) : (
+																		<button
+																			type="button"
+																			onClick={() => openTask(task.id)}
+																			disabled={!taskHref}
+																			title={barTitle}
+																			aria-label={barTitle}
+																			className={cn(
+																				"absolute flex items-center overflow-hidden rounded-full border px-3 text-left shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
+																				barClasses
+																			)}
+																			style={{
+																				left: taskLayout.barLeft ?? 0,
+																				top: (taskLayout.rowHeight - layout.barHeight) / 2,
+																				width: taskLayout.barWidth ?? 0,
+																				height: layout.barHeight,
+																			}}
+																		>
+																			{showInlineContent ? (
+																				<span
+																					className={cn(
+																						"block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.01em]",
+																						isRTL ? "text-right" : "text-left"
+																					)}
+																				>
+																					{task.name}
+																				</span>
+																			) : null}
+																		</button>
+																	)}
 																</div>
 															);
 														})}
