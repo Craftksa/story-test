@@ -49,11 +49,11 @@ const DEFAULT_LAYOUT: TimelineLayoutMetrics = {
 };
 
 const COMPACT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 320,
+	leftColumnWidth: 380,
 	dayColumnWidth: 18,
 	headerHeight: 84,
 	groupRowHeight: 36,
-	taskRowHeight: 80,
+	taskRowHeight: 84,
 	barHeight: 18,
 	maxBodyHeight: "none",
 };
@@ -69,6 +69,31 @@ type TimelineTaskLayout = {
 	isRenderable: boolean;
 	isMilestone: boolean;
 };
+
+type TimelineTaskGroup = {
+	key: string;
+	label: string;
+	tasks: TimelineTask[];
+};
+
+type TimelineRow =
+	| {
+			key: string;
+			type: "group";
+			groupKey: string;
+			label: string;
+			count: number;
+			top: number;
+			height: number;
+	  }
+	| {
+			key: string;
+			type: "task";
+			groupKey: string;
+			task: TimelineTask;
+			top: number;
+			height: number;
+	  };
 
 type TimelineHeaderSegment = {
 	key: string;
@@ -278,24 +303,22 @@ function getGroupAccentClasses(groupKey: string) {
 }
 
 function getTaskLayouts(
-	tasks: TimelineTask[],
 	timelineStart: Date,
 	layout: TimelineLayoutMetrics,
-	groupedTasks: Array<{ key: string; label: string; tasks: TimelineTask[] }>
+	groupedTasks: TimelineTaskGroup[]
 ) {
 	const taskLayouts = new Map<string, TimelineTaskLayout>();
-	const groupLayouts = new Map<
-		string,
-		{
-			top: number;
-			height: number;
-		}
-	>();
+	const rows: TimelineRow[] = [];
 
 	let currentTop = 0;
 
 	for (const group of groupedTasks) {
-		groupLayouts.set(group.key, {
+		rows.push({
+			key: `group-${group.key}`,
+			type: "group",
+			groupKey: group.key,
+			label: group.label,
+			count: group.tasks.length,
 			top: currentTop,
 			height: layout.groupRowHeight,
 		});
@@ -336,13 +359,22 @@ function getTaskLayouts(
 				isMilestone: task.isMilestone,
 			});
 
+			rows.push({
+				key: `task-${task.id}`,
+				type: "task",
+				groupKey: group.key,
+				task,
+				top: currentTop,
+				height: layout.taskRowHeight,
+			});
+
 			currentTop += layout.taskRowHeight;
 		}
 	}
 
 	return {
+		rows,
 		taskLayouts,
-		groupLayouts,
 		bodyHeight: Math.max(currentTop, layout.taskRowHeight),
 	};
 }
@@ -396,7 +428,7 @@ export default function TaskTimelineView({
 	const timelineTasks = createTimelineTasks(tasks, projectTeam, {
 		referenceDate: today,
 	});
-	const groupedTimelineTasks = Array.from(
+	const groupedTimelineTasks: TimelineTaskGroup[] = Array.from(
 		timelineTasks.reduce((map, task) => {
 			const existingGroup = map.get(task.groupKey);
 			if (existingGroup) {
@@ -448,18 +480,12 @@ export default function TaskTimelineView({
 		() => buildWeekSegments(timelineRange.start, timelineRange.end, locale),
 		[locale, timelineRange.end, timelineRange.start]
 	);
-	const timelineDays = Array.from({ length: timelineRange.totalDays }, (_, index) => {
-		const day = new Date(timelineRange.start);
-		day.setDate(day.getDate() + index);
-		return day;
-	});
 	const timelineWidth = timelineRange.totalDays * layout.dayColumnWidth;
 	const ganttWidth = layout.leftColumnWidth + timelineWidth;
 	const roadmapViewportHeight = layout.taskRowHeight * visibleTaskRows + 24;
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
 	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
-	const { taskLayouts, groupLayouts, bodyHeight } = getTaskLayouts(
-		timelineTasks,
+	const { rows: timelineRows, taskLayouts, bodyHeight } = getTaskLayouts(
 		timelineRange.start,
 		layout,
 		groupedTimelineTasks
@@ -664,97 +690,97 @@ export default function TaskTimelineView({
 											className={cn("sticky left-0 z-20", timelinePinnedSurface)}
 											style={{ height: bodyHeight }}
 										>
-											{groupedTimelineTasks.map((group) => {
-												const groupLayout = groupLayouts.get(group.key);
-												if (!groupLayout) return null;
-
-												return (
-													<div key={group.key}>
-														<div
-															className="absolute inset-x-0 border-b border-border/50 bg-muted/30 px-5"
-															style={{
-																top: groupLayout.top,
-																height: groupLayout.height,
-															}}
-														>
-															<div className="flex h-full items-center gap-3">
-																<span
-																	className={cn(
-																		"h-3 w-3 rounded-full shadow-sm",
-																		getGroupAccentClasses(group.key)
-																	)}
-																/>
-																<div className="min-w-0 flex-1">
-																	<p className="truncate text-sm font-semibold text-foreground">
-																		{group.label}
-																	</p>
-																</div>
-																<span className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-																	{group.tasks.length}
-																</span>
+											{timelineRows.map((row) =>
+												row.type === "group" ? (
+													<div
+														key={row.key}
+														className="absolute inset-x-0 border-b border-border/50 bg-muted/30 px-5"
+														style={{
+															top: row.top,
+															height: row.height,
+														}}
+													>
+														<div className="flex h-full items-center gap-3">
+															<span
+																className={cn(
+																	"h-3 w-3 rounded-full shadow-sm",
+																	getGroupAccentClasses(row.groupKey)
+																)}
+															/>
+															<div className="min-w-0 flex-1">
+																<p className="truncate text-sm font-semibold text-foreground">
+																	{row.label}
+																</p>
 															</div>
+															<span className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+																{row.count}
+															</span>
 														</div>
+													</div>
+												) : (
+													(() => {
+														const task = row.task;
+														const durationText = !task.isScheduled
+															? untranslatedLabels.unscheduled
+															: task.isMilestone
+																? untranslatedLabels.milestone
+																: `${task.durationDays} ${lang === "ar" ? "يوم" : task.durationDays === 1 ? "day" : "days"}`;
 
-														{group.tasks.map((task) => {
-															const taskLayout = taskLayouts.get(task.id);
-															if (!taskLayout) return null;
-
-															const durationText = !task.isScheduled
-																? untranslatedLabels.unscheduled
-																: task.isMilestone
-																	? untranslatedLabels.milestone
-																	: `${task.durationDays} ${lang === "ar" ? "يوم" : task.durationDays === 1 ? "day" : "days"}`;
-
-															return (
-																<div
-																	key={task.id}
-																	className="absolute inset-x-0 border-b border-border/40 px-5 py-3"
-																	style={{
-																		top: taskLayout.rowTop,
-																		height: taskLayout.rowHeight,
-																	}}
-																>
-																	<div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_92px_108px] items-center gap-3">
-																		<div className="min-w-0">
-																			<p
-																				className={cn(
-																					"truncate text-sm font-semibold text-foreground",
-																					isRTL && "text-right"
-																				)}
-																				title={task.name}
+														return (
+															<div
+																key={row.key}
+																className="absolute inset-x-0 border-b border-border/40 px-5 py-3"
+																style={{
+																	top: row.top,
+																	height: row.height,
+																}}
+															>
+																<div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_92px_108px] items-start gap-3">
+																	<div className="min-w-0 self-center">
+																		<p
+																			className={cn(
+																				"truncate text-sm font-semibold text-foreground",
+																				isRTL && "text-right"
+																			)}
+																			title={task.name}
+																		>
+																			{task.name}
+																		</p>
+																		<div
+																			className={cn(
+																				"mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground",
+																				isRTL && "justify-end"
+																			)}
+																		>
+																			<span className="truncate rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
+																				{getTranslatedTaskStatusLabel(task, t)}
+																			</span>
+																			<span
+																				className="max-w-[120px] truncate rounded-full border border-border/60 bg-background/80 px-2 py-0.5"
+																				title={task.ownerLabel || t("Not set")}
 																			>
-																				{task.name}
-																			</p>
-																			<div
-																				className={cn(
-																					"mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground",
-																					isRTL && "justify-end"
-																				)}
-																			>
-																				<span className="rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
-																					{getTranslatedTaskStatusLabel(task, t)}
-																				</span>
-																				<span className="rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
-																					{task.ownerLabel || t("Not set")}
-																				</span>
-																				<span className="rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
-																					{getTranslatedTaskTypeLabel(task, t)}
-																				</span>
-																			</div>
+																				{task.ownerLabel || t("Not set")}
+																			</span>
 																		</div>
-																		<div className="text-xs font-medium text-muted-foreground">
-																			{durationText}
-																		</div>
-																		<div className="text-xs font-medium text-muted-foreground">
-																			{getDurationLabel(task, locale)}
-																		</div>
+																		<p
+																			className="mt-2 truncate text-[11px] text-muted-foreground"
+																			title={getTranslatedTaskTypeLabel(task, t)}
+																		>
+																			{getTranslatedTaskTypeLabel(task, t)}
+																		</p>
+																	</div>
+																	<div className="self-center text-xs font-medium text-muted-foreground">
+																		{durationText}
+																	</div>
+																	<div className="self-center text-xs font-medium text-muted-foreground">
+																		{getDurationLabel(task, locale)}
 																	</div>
 																</div>
-															);
-														})}
-													</div>
-												);
-											})}
+															</div>
+														);
+													})()
+												)
+											)}
 										</div>
 
 										<div
@@ -787,113 +813,108 @@ export default function TaskTimelineView({
 												</div>
 											)}
 
-											{groupedTimelineTasks.map((group) => {
-												const groupLayout = groupLayouts.get(group.key);
-												if (!groupLayout) return null;
-
-												return (
-													<div key={group.key}>
-														<div
-															className="absolute inset-x-0 border-b border-border/40 bg-muted/20"
-															style={{
-																top: groupLayout.top,
-																height: groupLayout.height,
-															}}
-														>
-															<div className="flex h-full items-center px-4">
-																<div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1">
-																	<span
-																		className={cn(
-																			"h-2.5 w-2.5 rounded-full",
-																			getGroupAccentClasses(group.key)
-																		)}
-																	/>
-																	<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-																		{group.label}
-																	</span>
-																</div>
+											{timelineRows.map((row) =>
+												row.type === "group" ? (
+													<div
+														key={row.key}
+														className="absolute inset-x-0 border-b border-border/40 bg-muted/20"
+														style={{
+															top: row.top,
+															height: row.height,
+														}}
+													>
+														<div className="flex h-full items-center px-4">
+															<div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1">
+																<span
+																	className={cn(
+																		"h-2.5 w-2.5 rounded-full",
+																		getGroupAccentClasses(row.groupKey)
+																	)}
+																/>
+																<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+																	{row.label}
+																</span>
 															</div>
 														</div>
-
-														{group.tasks.map((task) => {
-															const taskLayout = taskLayouts.get(task.id);
-															if (!taskLayout || !taskLayout.isRenderable) return null;
-
-															const barClasses = getTaskBarClasses(task);
-															const showInlineContent =
-																!taskLayout.isMilestone && Boolean(taskLayout.barWidth && taskLayout.barWidth >= 120);
-															const taskHref = resolveTaskHref(task.id);
-															const barTitle = task.isScheduled
-																? task.name
-																: `${task.name} - ${untranslatedLabels.unscheduled}`;
-
-															return (
-																<div
-																	key={task.id}
-																	className="absolute inset-x-0 border-b border-border/30"
-																	style={{
-																		top: taskLayout.rowTop,
-																		height: taskLayout.rowHeight,
-																	}}
-																>
-																	{taskLayout.isMilestone ? (
-																		<button
-																			type="button"
-																			onClick={() => openTask(task.id)}
-																			disabled={!taskHref}
-																			title={barTitle}
-																			aria-label={barTitle}
-																			className={cn(
-																				"absolute flex items-center justify-center border shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
-																				barClasses
-																			)}
-																			style={{
-																				left: taskLayout.barLeft ?? 0,
-																				top: (taskLayout.rowHeight - Math.max(layout.barHeight, 16)) / 2,
-																				width: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
-																				height: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
-																				transform: "rotate(45deg)",
-																				borderRadius: "6px",
-																			}}
-																		>
-																			<span className="sr-only">{barTitle}</span>
-																		</button>
-																	) : (
-																		<button
-																			type="button"
-																			onClick={() => openTask(task.id)}
-																			disabled={!taskHref}
-																			title={barTitle}
-																			aria-label={barTitle}
-																			className={cn(
-																				"absolute flex items-center overflow-hidden rounded-full border px-3 text-left shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
-																				barClasses
-																			)}
-																			style={{
-																				left: taskLayout.barLeft ?? 0,
-																				top: (taskLayout.rowHeight - layout.barHeight) / 2,
-																				width: taskLayout.barWidth ?? 0,
-																				height: layout.barHeight,
-																			}}
-																		>
-																			{showInlineContent ? (
-																				<span
-																					className={cn(
-																						"block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.01em]",
-																						isRTL ? "text-right" : "text-left"
-																					)}
-																				>
-																					{task.name}
-																				</span>
-																			) : null}
-																		</button>
-																	)}
-																</div>
-															);
-														})}
 													</div>
-												);
-											})}
+												) : (
+													(() => {
+														const task = row.task;
+														const taskLayout = taskLayouts.get(task.id);
+														if (!taskLayout || !taskLayout.isRenderable) return null;
+
+														const barClasses = getTaskBarClasses(task);
+														const showInlineContent =
+															!taskLayout.isMilestone && Boolean(taskLayout.barWidth && taskLayout.barWidth >= 120);
+														const taskHref = resolveTaskHref(task.id);
+														const barTitle = task.name;
+
+														return (
+															<div
+																key={row.key}
+																className="absolute inset-x-0 border-b border-border/30"
+																style={{
+																	top: row.top,
+																	height: row.height,
+																}}
+															>
+																{taskLayout.isMilestone ? (
+																	<button
+																		type="button"
+																		onClick={() => openTask(task.id)}
+																		disabled={!taskHref}
+																		title={barTitle}
+																		aria-label={barTitle}
+																		className={cn(
+																			"absolute flex items-center justify-center border shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
+																			barClasses
+																		)}
+																		style={{
+																			left: taskLayout.barLeft ?? 0,
+																			top: (row.height - Math.max(layout.barHeight, 16)) / 2,
+																			width: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
+																			height: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
+																			transform: "rotate(45deg)",
+																			borderRadius: "6px",
+																		}}
+																	>
+																		<span className="sr-only">{barTitle}</span>
+																	</button>
+																) : (
+																	<button
+																		type="button"
+																		onClick={() => openTask(task.id)}
+																		disabled={!taskHref}
+																		title={barTitle}
+																		aria-label={barTitle}
+																		className={cn(
+																			"absolute flex items-center overflow-hidden rounded-full border px-3 text-left shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
+																			barClasses
+																		)}
+																		style={{
+																			left: taskLayout.barLeft ?? 0,
+																			top: (row.height - layout.barHeight) / 2,
+																			width: taskLayout.barWidth ?? 0,
+																			height: layout.barHeight,
+																		}}
+																	>
+																		{showInlineContent ? (
+																			<span
+																				className={cn(
+																					"block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold tracking-[0.01em]",
+																					isRTL ? "text-right" : "text-left"
+																				)}
+																			>
+																				{task.name}
+																			</span>
+																		) : null}
+																	</button>
+																)}
+															</div>
+														);
+													})()
+												)
+											)}
 										</div>
 									</div>
 								</div>

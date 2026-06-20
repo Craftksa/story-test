@@ -3,6 +3,7 @@ import {
 	differenceInCalendarDays,
 	endOfWeek,
 	isValid,
+	parse,
 	startOfDay,
 	startOfWeek,
 } from "date-fns";
@@ -79,7 +80,30 @@ function toDate(value: unknown): Date | null {
 		return isValid(value) ? startOfDay(value) : null;
 	}
 
-	const parsed = new Date(String(value));
+	const rawValue = String(value).trim();
+	if (!rawValue) return null;
+
+	const explicitFormats = [
+		"yyyy-MM-dd",
+		"yyyy/MM/dd",
+		"dd/MM/yyyy",
+		"d/M/yyyy",
+		"dd-MM-yyyy",
+		"d-M-yyyy",
+		"dd.MM.yyyy",
+		"d.M.yyyy",
+		"yyyy-MM-dd'T'HH:mm:ss.SSSX",
+		"yyyy-MM-dd'T'HH:mm:ssX",
+	];
+
+	for (const formatPattern of explicitFormats) {
+		const parsedWithFormat = parse(rawValue, formatPattern, new Date());
+		if (isValid(parsedWithFormat)) {
+			return startOfDay(parsedWithFormat);
+		}
+	}
+
+	const parsed = new Date(rawValue);
 	return isValid(parsed) ? startOfDay(parsed) : null;
 }
 
