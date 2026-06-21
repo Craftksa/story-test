@@ -42,21 +42,21 @@ type TimelineLayoutMetrics = {
 };
 
 const DEFAULT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 560,
+	leftColumnWidth: 420,
 	dayColumnWidth: 24,
 	headerHeight: 118,
 	groupRowHeight: 52,
-	taskRowHeight: 88,
+	taskRowHeight: 96,
 	barHeight: 24,
 	maxBodyHeight: "none",
 };
 
 const COMPACT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 540,
+	leftColumnWidth: 392,
 	dayColumnWidth: 20,
 	headerHeight: 116,
 	groupRowHeight: 50,
-	taskRowHeight: 88,
+	taskRowHeight: 94,
 	barHeight: 24,
 	maxBodyHeight: "none",
 };
@@ -538,8 +538,6 @@ export default function TaskTimelineView({
 		translatedTimelineRows
 	);
 	const roadmapBodyHeight = Math.min(bodyHeight, roadmapViewportHeight);
-	const sidebarGridClass =
-		"grid grid-cols-[minmax(0,2.15fr)_88px_88px_112px_124px] items-center gap-3";
 	const groupSummaryLayouts = useMemo(() => {
 		const summaries = new Map<string, { left: number; width: number }>();
 		let activeGroupKey: string | null = null;
@@ -738,12 +736,15 @@ export default function TaskTimelineView({
 													{totalRenderedRows}
 												</span>
 											</div>
-											<div className={cn(sidebarGridClass, "text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-stone-400")}>
-												<span>{t("Task Name")}</span>
-												<span>{timelineDisplayLabels.start}</span>
-												<span>{timelineDisplayLabels.finish}</span>
-												<span>{timelineDisplayLabels.status}</span>
-												<span>{timelineDisplayLabels.owner}</span>
+											<div className="space-y-1.5">
+												<p className="text-sm font-semibold text-zinc-900 dark:text-stone-100">
+													{t("Task Name")}
+												</p>
+												<p className="text-xs text-zinc-500 dark:text-stone-400">
+													{lang === "ar"
+														? "اسم النشاط مع الحالة والمسؤول والمدة في سطر واضح"
+														: "Activity list with status, owner, and duration"}
+												</p>
 											</div>
 										</div>
 									</div>
@@ -763,7 +764,7 @@ export default function TaskTimelineView({
 														className="flex shrink-0 items-center border-r border-zinc-200/75 bg-zinc-50/90 px-4 dark:border-[#7f6c47]/20 dark:bg-[#1d1712]/80"
 														style={{ width: segment.days * layout.dayColumnWidth }}
 													>
-														<span className="text-sm font-semibold tracking-[0.01em] text-zinc-900 dark:text-stone-100">
+														<span className="whitespace-nowrap text-sm font-semibold tracking-[0.01em] text-zinc-900 dark:text-stone-100">
 															{segment.label}
 														</span>
 													</div>
@@ -776,10 +777,10 @@ export default function TaskTimelineView({
 														className="flex shrink-0 flex-col justify-center border-r border-zinc-200/65 bg-white/80 px-3 dark:border-[#7f6c47]/16 dark:bg-[#17120e]/88"
 														style={{ width: segment.days * layout.dayColumnWidth }}
 													>
-														<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-stone-400">
+														<span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-stone-400">
 															{segment.subLabel ? `${segment.label} - ${segment.subLabel}` : segment.label}
 														</span>
-														<span className="mt-1 text-[11px] font-medium text-zinc-800 dark:text-stone-200">
+														<span className="mt-1 whitespace-nowrap text-[11px] font-medium text-zinc-800 dark:text-stone-200">
 															{lang === "ar" ? "أسبوع" : "Week"}
 														</span>
 													</div>
@@ -839,8 +840,7 @@ export default function TaskTimelineView({
 															height: row.height,
 														}}
 													>
-														<div className={cn(sidebarGridClass, "h-full")}>
-															<div className="col-span-5 flex min-w-0 items-center gap-3">
+														<div className="flex h-full min-w-0 items-center gap-3">
 															<span
 																className={cn(
 																	"h-3 w-3 rounded-full shadow-sm",
@@ -855,7 +855,6 @@ export default function TaskTimelineView({
 															<span className="rounded-full border border-zinc-200 bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600 dark:border-[#7f6c47]/18 dark:bg-[#17120e] dark:text-stone-300">
 																{row.count}
 															</span>
-															</div>
 														</div>
 													</div>
 												) : (
@@ -884,11 +883,11 @@ export default function TaskTimelineView({
 																	height: row.height,
 																}}
 															>
-																<div className={cn(sidebarGridClass, "h-full")}>
-																	<div className="min-w-0 self-center">
+																<div className="flex h-full min-w-0 flex-col justify-center">
+																	<div className="min-w-0">
 																		<p
 																			className={cn(
-																				"truncate text-sm font-semibold leading-6 text-zinc-900 dark:text-stone-100",
+																				"line-clamp-2 text-sm font-semibold leading-6 text-zinc-900 dark:text-stone-100",
 																				isRTL && "text-right"
 																			)}
 																			title={task.name}
@@ -901,42 +900,45 @@ export default function TaskTimelineView({
 																				isRTL && "justify-end"
 																			)}
 																		>
-																			<span className="truncate rounded-full border border-zinc-200/80 bg-zinc-50/95 px-2 py-0.5 font-medium text-zinc-600 dark:border-[#7f6c47]/24 dark:bg-[#221b15] dark:text-stone-300">
+																			<span
+																				className="max-w-[180px] truncate rounded-full border border-zinc-200/80 bg-zinc-50/95 px-2 py-0.5 font-medium text-zinc-600 dark:border-[#7f6c47]/24 dark:bg-[#221b15] dark:text-stone-300"
+																				title={taskTypeLabel}
+																			>
 																				{taskTypeLabel}
 																			</span>
-																		</div>
-																	</div>
-																	<div className="text-xs font-medium text-zinc-600 dark:text-stone-300">
-																		{formatTimelineCellDate(row.startDate, locale)}
-																	</div>
-																	<div className="text-xs font-medium text-zinc-600 dark:text-stone-300">
-																		{formatTimelineCellDate(row.endDate, locale)}
-																	</div>
-																	<div>
-																		<span
-																			className={cn(
-																				"inline-flex max-w-full truncate rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-																				getTaskStatusBadgeClasses(task)
-																			)}
-																			title={taskStatusLabel}
-																		>
-																			{taskStatusLabel}
-																		</span>
-																	</div>
-																	<div className="flex items-center gap-2">
-																		<span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-[10px] font-semibold text-zinc-700 dark:border-[#7f6c47]/18 dark:bg-[#201914] dark:text-stone-200">
-																			{getOwnerInitials(taskOwnerLabel)}
-																		</span>
-																		<div className="min-w-0">
-																			<p
-																				className="truncate text-xs font-medium text-zinc-700 dark:text-stone-200"
+																			<span
+																				className={cn(
+																					"inline-flex max-w-[150px] truncate rounded-full border px-2 py-0.5 font-semibold",
+																					getTaskStatusBadgeClasses(task)
+																				)}
+																				title={taskStatusLabel}
+																			>
+																				{taskStatusLabel}
+																			</span>
+																			<span
+																				className="max-w-[160px] truncate text-zinc-700 dark:text-stone-200"
 																				title={taskOwnerLabel}
 																			>
 																				{taskOwnerLabel}
-																			</p>
-																			<p className="truncate text-[10px] text-zinc-500 dark:text-stone-400">
-																				{resolvedDurationText}
-																			</p>
+																			</span>
+																		</div>
+																	</div>
+																	<div
+																		className={cn(
+																			"mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-stone-400",
+																			isRTL && "justify-end"
+																		)}
+																	>
+																		<div className="flex items-center gap-2">
+																			<span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-[9px] font-semibold text-zinc-700 dark:border-[#7f6c47]/18 dark:bg-[#201914] dark:text-stone-200">
+																				{getOwnerInitials(taskOwnerLabel)}
+																			</span>
+																			<span>{resolvedDurationText}</span>
+																		</div>
+																		<div className="truncate">
+																			{row.startDate && row.endDate
+																				? `${formatTimelineCellDate(row.startDate, locale)} - ${formatTimelineCellDate(row.endDate, locale)}`
+																				: formatTimelineCellDate(row.startDate ?? row.endDate, locale)}
 																		</div>
 																	</div>
 																</div>
