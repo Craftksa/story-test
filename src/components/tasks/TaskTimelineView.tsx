@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
 	addDays,
 	differenceInCalendarDays,
@@ -11,9 +11,11 @@ import {
 	startOfWeek,
 } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+import { CalendarDays, Filter, MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "use-intl";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useCheckedLocale } from "@/lib/client-utils";
@@ -40,21 +42,21 @@ type TimelineLayoutMetrics = {
 };
 
 const DEFAULT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 460,
+	leftColumnWidth: 560,
 	dayColumnWidth: 24,
-	headerHeight: 104,
-	groupRowHeight: 44,
-	taskRowHeight: 92,
+	headerHeight: 118,
+	groupRowHeight: 52,
+	taskRowHeight: 88,
 	barHeight: 24,
 	maxBodyHeight: "none",
 };
 
 const COMPACT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 440,
+	leftColumnWidth: 540,
 	dayColumnWidth: 20,
-	headerHeight: 102,
-	groupRowHeight: 44,
-	taskRowHeight: 92,
+	headerHeight: 116,
+	groupRowHeight: 50,
+	taskRowHeight: 88,
 	barHeight: 24,
 	maxBodyHeight: "none",
 };
@@ -183,19 +185,19 @@ function getTaskVisualState(status: string) {
 
 function getTaskBarClasses(task: TimelineTask) {
 	if (task.isOverdue && task.status !== "completed") {
-		return "border-rose-300/85 bg-rose-100 text-rose-950 dark:border-rose-500/35 dark:bg-rose-500/18 dark:text-rose-100";
+		return "border-rose-300 bg-rose-100/95 text-rose-900 dark:border-rose-800 dark:bg-rose-950/45 dark:text-rose-100";
 	}
 
 	switch (getTaskVisualState(task.status)) {
 		case "completed":
-			return "border-emerald-300/70 bg-emerald-100 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-500/18 dark:text-emerald-100";
+			return "border-emerald-300 bg-emerald-100/95 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/45 dark:text-emerald-100";
 		case "blocked":
-			return "border-rose-300/80 bg-rose-100 text-rose-950 dark:border-rose-500/35 dark:bg-rose-500/18 dark:text-rose-100";
+			return "border-rose-300 bg-rose-100/95 text-rose-900 dark:border-rose-800 dark:bg-rose-950/45 dark:text-rose-100";
 		case "not_started":
-			return "border-border/80 bg-muted/90 text-foreground dark:bg-muted/55";
+			return "border-slate-300 bg-slate-100/95 text-slate-800 dark:border-slate-700 dark:bg-slate-900/65 dark:text-slate-100";
 		case "in_progress":
 		default:
-			return "border-amber-300/80 bg-amber-100 text-amber-950 dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-100";
+			return "border-amber-300 bg-amber-100/95 text-amber-900 dark:border-amber-800 dark:bg-amber-950/45 dark:text-amber-100";
 	}
 }
 
@@ -236,6 +238,41 @@ function getDurationLabel(task: TimelineTask, locale: typeof enUS) {
 	return `${format(startDate, "d MMM", { locale })} - ${format(endDate, "d MMM", {
 		locale,
 	})}`;
+}
+
+function formatTimelineCellDate(date: Date | null | undefined, locale: typeof enUS) {
+	if (!date) return "—";
+	return format(date, "d MMM", { locale });
+}
+
+function getOwnerInitials(owner: string | null | undefined) {
+	if (!owner?.trim()) return "—";
+
+	const tokens = owner
+		.trim()
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2);
+
+	return tokens.map((token) => token.charAt(0).toUpperCase()).join("");
+}
+
+function getTaskStatusBadgeClasses(task: TimelineTask) {
+	if (task.isOverdue && task.status !== "completed") {
+		return "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200";
+	}
+
+	switch (getTaskVisualState(task.status)) {
+		case "completed":
+			return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200";
+		case "blocked":
+			return "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200";
+		case "not_started":
+			return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/45 dark:text-slate-200";
+		case "in_progress":
+		default:
+			return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200";
+	}
 }
 
 function getTranslatedTaskStatusLabel(task: TimelineTask, t: ReturnType<typeof useTranslations>) {
@@ -386,6 +423,7 @@ export default function TaskTimelineView({
 	const { lang, isRTL } = useCheckedLocale();
 	const locale = lang === "ar" ? ar : enUS;
 	const today = new Date();
+	const ganttScrollRef = useRef<HTMLDivElement | null>(null);
 	const timelineTitle = title ?? t("Construction Roadmap");
 	const visibleTaskRows = 6;
 	const untranslatedLabels = useMemo(
@@ -395,6 +433,25 @@ export default function TaskTimelineView({
 			window: lang === "ar" ? "الفترة" : "Window",
 			milestone: lang === "ar" ? "نقطة إنجاز" : "Milestone",
 			unscheduled: lang === "ar" ? "غير مجدولة" : "Unscheduled",
+		}),
+		[lang]
+	);
+	const timelineDisplayLabels = useMemo(
+		() => ({
+			activity: lang === "ar" ? "الأنشطة" : "Activities",
+			start: lang === "ar" ? "البداية" : "Start",
+			finish: lang === "ar" ? "النهاية" : "Finish",
+			status: lang === "ar" ? "الحالة" : "Status",
+			owner: lang === "ar" ? "المسؤول" : "Owner",
+			filter: lang === "ar" ? "تصفية" : "Filter",
+			options: lang === "ar" ? "خيارات" : "Options",
+			today: lang === "ar" ? "اليوم" : "Today",
+			zoom: "100%",
+			timeline: lang === "ar" ? "الجدول الزمني" : "Timeline",
+			milestone: lang === "ar" ? "نقطة إنجاز" : "Milestone",
+			unscheduled: lang === "ar" ? "غير مجدولة" : "Unscheduled",
+			day: lang === "ar" ? "يوم" : "day",
+			days: lang === "ar" ? "أيام" : "days",
 		}),
 		[lang]
 	);
@@ -481,6 +538,55 @@ export default function TaskTimelineView({
 		translatedTimelineRows
 	);
 	const roadmapBodyHeight = Math.min(bodyHeight, roadmapViewportHeight);
+	const sidebarGridClass =
+		"grid grid-cols-[minmax(0,2.15fr)_88px_88px_112px_124px] items-center gap-3";
+	const groupSummaryLayouts = useMemo(() => {
+		const summaries = new Map<string, { left: number; width: number }>();
+		let activeGroupKey: string | null = null;
+		let minLeft = Number.POSITIVE_INFINITY;
+		let maxRight = Number.NEGATIVE_INFINITY;
+
+		const commitGroup = () => {
+			if (!activeGroupKey || !Number.isFinite(minLeft) || !Number.isFinite(maxRight)) return;
+			summaries.set(activeGroupKey, {
+				left: minLeft,
+				width: Math.max(18, maxRight - minLeft),
+			});
+		};
+
+		for (const row of positionedTimelineRows) {
+			if (row.rowType === "group") {
+				commitGroup();
+				activeGroupKey = row.key;
+				minLeft = Number.POSITIVE_INFINITY;
+				maxRight = Number.NEGATIVE_INFINITY;
+				continue;
+			}
+
+			const layoutForTask = taskLayouts.get(row.task.id);
+			if (!layoutForTask || !layoutForTask.isRenderable) continue;
+
+			if (layoutForTask.isMilestone && layoutForTask.markerCenter !== null) {
+				const markerHalfWidth = Math.max((layoutForTask.barWidth ?? layout.barHeight) / 2, 8);
+				minLeft = Math.min(minLeft, layoutForTask.markerCenter - markerHalfWidth);
+				maxRight = Math.max(maxRight, layoutForTask.markerCenter + markerHalfWidth);
+			} else if (layoutForTask.barLeft !== null && layoutForTask.barRight !== null) {
+				minLeft = Math.min(minLeft, layoutForTask.barLeft);
+				maxRight = Math.max(maxRight, layoutForTask.barRight);
+			}
+		}
+
+		commitGroup();
+		return summaries;
+	}, [layout.barHeight, positionedTimelineRows, taskLayouts]);
+
+	const handleScrollToToday = () => {
+		if (!ganttScrollRef.current) return;
+		ganttScrollRef.current.scrollTo({
+			left: Math.max(0, todayLeft - 320),
+			behavior: "smooth",
+		});
+	};
 
 	useEffect(() => {
 		if (process.env.NODE_ENV !== "development") return;
@@ -557,14 +663,55 @@ export default function TaskTimelineView({
 				</div>
 			</CardHeader>
 			<CardContent className={cn("min-w-0 max-w-full overflow-visible px-6 pb-6 sm:px-7", showWeeklyTable ? "space-y-6" : "space-y-0")}>
-				<div className="min-w-0 max-w-full overflow-hidden rounded-[22px] border border-zinc-200/80 bg-white shadow-[0_14px_34px_-30px_rgba(15,23,42,0.22)] dark:border-[#7f6c47]/24 dark:bg-[#17120e] dark:shadow-black/20">
+				<div className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_12px_30px_-26px_rgba(15,23,42,0.22)] dark:border-[#7f6c47]/24 dark:bg-[#17120e] dark:shadow-black/20">
 					{timelineTasks.length === 0 ? (
 						<div className="px-6 py-14 text-center text-sm text-muted-foreground">
 							{t("There are no tasks at this stage")}
 						</div>
 					) : (
 						<div className="min-w-0 max-w-full overflow-visible bg-white dark:bg-[#17120e]">
+							<div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200/75 px-5 py-3 dark:border-[#7f6c47]/18 sm:px-6">
+								<div className="flex flex-wrap items-center gap-2">
+									<span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:border-[#7f6c47]/20 dark:bg-[#201914] dark:text-stone-200">
+										<CalendarDays className="h-3.5 w-3.5" />
+										{timelineDisplayLabels.timeline}
+									</span>
+									<span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-500 dark:border-[#7f6c47]/18 dark:bg-[#17120e] dark:text-stone-400">
+										{timelineTasks.length} {lang === "ar" ? "عنصر" : "items"}
+									</span>
+								</div>
+								<div className="flex flex-wrap items-center gap-2">
+									<button
+										type="button"
+										className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-[#7f6c47]/18 dark:bg-[#17120e] dark:text-stone-300 dark:hover:bg-[#201914]"
+									>
+										<Filter className="h-3.5 w-3.5" />
+										{timelineDisplayLabels.filter}
+									</button>
+									<span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:border-[#7f6c47]/18 dark:bg-[#201914] dark:text-stone-200">
+										<SlidersHorizontal className="h-3.5 w-3.5" />
+										{timelineDisplayLabels.zoom}
+									</span>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={handleScrollToToday}
+										className="h-auto rounded-full border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200 dark:hover:bg-blue-950/50"
+									>
+										{timelineDisplayLabels.today}
+									</Button>
+									<button
+										type="button"
+										className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-[#7f6c47]/18 dark:bg-[#17120e] dark:text-stone-300 dark:hover:bg-[#201914]"
+									>
+										<MoreHorizontal className="h-3.5 w-3.5" />
+										{timelineDisplayLabels.options}
+									</button>
+								</div>
+							</div>
 							<div
+								ref={ganttScrollRef}
 								dir="ltr"
 								className="max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-zinc-100/70 dark:[&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-300 dark:[&::-webkit-scrollbar-thumb]:bg-white/15 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/25"
 							>
@@ -577,7 +724,7 @@ export default function TaskTimelineView({
 								>
 									<div
 										className={cn(
-											"sticky left-0 z-30 border-b border-zinc-200/85 px-6 py-4 shadow-[10px_0_28px_-22px_rgba(15,23,42,0.18)] dark:border-[#7f6c47]/26",
+											"sticky left-0 z-30 border-b border-zinc-200/85 px-5 py-4 shadow-[10px_0_28px_-22px_rgba(15,23,42,0.18)] dark:border-[#7f6c47]/26 sm:px-6",
 											timelinePinnedSurface
 										)}
 										style={{ height: layout.headerHeight }}
@@ -585,18 +732,18 @@ export default function TaskTimelineView({
 										<div className="flex h-full flex-col justify-between">
 											<div className="flex items-center justify-between gap-3">
 												<p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-													{untranslatedLabels.activity}
+													{timelineDisplayLabels.activity}
 												</p>
-												<span className="rounded-full border border-border/60 bg-zinc-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600 dark:bg-white/5 dark:text-stone-300">
-													{timelineTasks.length}
+												<span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600 dark:border-[#7f6c47]/18 dark:bg-white/5 dark:text-stone-300">
+													{totalRenderedRows}
 												</span>
 											</div>
-											<div className="grid grid-cols-[minmax(0,1fr)_160px] gap-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-stone-400">
+											<div className={cn(sidebarGridClass, "text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-stone-400")}>
 												<span>{t("Task Name")}</span>
-												<div className="grid grid-cols-2 gap-3">
-													<span>{untranslatedLabels.duration}</span>
-													<span>{untranslatedLabels.window}</span>
-												</div>
+												<span>{timelineDisplayLabels.start}</span>
+												<span>{timelineDisplayLabels.finish}</span>
+												<span>{timelineDisplayLabels.status}</span>
+												<span>{timelineDisplayLabels.owner}</span>
 											</div>
 										</div>
 									</div>
@@ -609,7 +756,7 @@ export default function TaskTimelineView({
 										style={{ height: layout.headerHeight }}
 									>
 										<div className="flex h-full flex-col">
-											<div className="flex h-[48px] border-b border-zinc-200/80 dark:border-[#7f6c47]/22">
+											<div className="flex h-[54px] border-b border-zinc-200/80 dark:border-[#7f6c47]/22">
 												{monthSegments.map((segment) => (
 													<div
 														key={segment.key}
@@ -622,7 +769,7 @@ export default function TaskTimelineView({
 													</div>
 												))}
 											</div>
-											<div className="flex h-[calc(100%-48px)]">
+											<div className="flex h-[calc(100%-54px)]">
 												{weekSegments.map((segment) => (
 													<div
 														key={segment.key}
@@ -630,10 +777,10 @@ export default function TaskTimelineView({
 														style={{ width: segment.days * layout.dayColumnWidth }}
 													>
 														<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-stone-400">
-															{segment.label}
-														</span>
-														<span className="mt-1 text-xs font-medium text-zinc-900 dark:text-stone-100">
 															{segment.subLabel ? `${segment.label} - ${segment.subLabel}` : segment.label}
+														</span>
+														<span className="mt-1 text-[11px] font-medium text-zinc-800 dark:text-stone-200">
+															{lang === "ar" ? "أسبوع" : "Week"}
 														</span>
 													</div>
 												))}
@@ -658,10 +805,10 @@ export default function TaskTimelineView({
 												className="absolute inset-y-0 z-20"
 												style={{ left: todayLeft }}
 											>
-												<div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-border/60 bg-card px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground shadow-sm">
-													{t("Today")}
+												<div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-700 shadow-sm dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+													{timelineDisplayLabels.today}
 												</div>
-												<div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary/65" />
+												<div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-blue-500/80 dark:bg-blue-400/80" />
 											</div>
 										)}
 									</div>
@@ -686,13 +833,14 @@ export default function TaskTimelineView({
 												row.rowType === "group" ? (
 													<div
 														key={row.key}
-														className="absolute inset-x-0 border-b border-zinc-200/70 bg-zinc-50/92 px-6 dark:border-[#7f6c47]/18 dark:bg-[#1a1511]/90"
+														className="absolute inset-x-0 border-b border-zinc-200/70 bg-zinc-50/92 px-5 dark:border-[#7f6c47]/18 dark:bg-[#1a1511]/90 sm:px-6"
 														style={{
 															top: row.top,
 															height: row.height,
 														}}
 													>
-														<div className="flex h-full items-center gap-3">
+														<div className={cn(sidebarGridClass, "h-full")}>
+															<div className="col-span-5 flex min-w-0 items-center gap-3">
 															<span
 																className={cn(
 																	"h-3 w-3 rounded-full shadow-sm",
@@ -704,14 +852,23 @@ export default function TaskTimelineView({
 																	{row.title}
 																</p>
 															</div>
-															<span className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+															<span className="rounded-full border border-zinc-200 bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600 dark:border-[#7f6c47]/18 dark:bg-[#17120e] dark:text-stone-300">
 																{row.count}
 															</span>
+															</div>
 														</div>
 													</div>
 												) : (
 													(() => {
 														const task = row.task;
+														const taskStatusLabel = getTranslatedTaskStatusLabel(task, t);
+														const taskTypeLabel = getTranslatedTaskTypeLabel(task, t);
+														const taskOwnerLabel = task.ownerLabel || t("Not set");
+														const resolvedDurationText = !task.isScheduled
+															? timelineDisplayLabels.unscheduled
+															: task.isMilestone
+																? timelineDisplayLabels.milestone
+																: `${task.durationDays} ${task.durationDays === 1 ? timelineDisplayLabels.day : timelineDisplayLabels.days}`;
 														const durationText = !task.isScheduled
 															? untranslatedLabels.unscheduled
 															: task.isMilestone
@@ -721,17 +878,17 @@ export default function TaskTimelineView({
 														return (
 															<div
 																key={row.key}
-																className="absolute inset-x-0 border-b border-zinc-200/60 bg-white px-6 py-3 dark:border-[#7f6c47]/14 dark:bg-[#17120e]"
+																className="absolute inset-x-0 border-b border-zinc-200/60 bg-white px-5 py-3 dark:border-[#7f6c47]/14 dark:bg-[#17120e] sm:px-6"
 																style={{
 																	top: row.top,
 																	height: row.height,
 																}}
 															>
-																<div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_160px] items-center gap-5">
+																<div className={cn(sidebarGridClass, "h-full")}>
 																	<div className="min-w-0 self-center">
 																		<p
 																			className={cn(
-																				"truncate text-[15px] font-semibold leading-6 text-zinc-900 dark:text-stone-100",
+																				"truncate text-sm font-semibold leading-6 text-zinc-900 dark:text-stone-100",
 																				isRTL && "text-right"
 																			)}
 																			title={task.name}
@@ -744,31 +901,42 @@ export default function TaskTimelineView({
 																				isRTL && "justify-end"
 																			)}
 																		>
-																			<span className="truncate rounded-full border border-zinc-200/80 bg-zinc-50/95 px-2.5 py-1 font-medium dark:border-[#7f6c47]/24 dark:bg-[#221b15]">
-																				{getTranslatedTaskStatusLabel(task, t)}
-																			</span>
-																			<span
-																				className="max-w-[168px] truncate rounded-full border border-zinc-200/80 bg-zinc-50/95 px-2.5 py-1 font-medium dark:border-[#7f6c47]/24 dark:bg-[#221b15]"
-																				title={task.ownerLabel || t("Not set")}
-																			>
-																				{task.ownerLabel || t("Not set")}
+																			<span className="truncate rounded-full border border-zinc-200/80 bg-zinc-50/95 px-2 py-0.5 font-medium text-zinc-600 dark:border-[#7f6c47]/24 dark:bg-[#221b15] dark:text-stone-300">
+																				{taskTypeLabel}
 																			</span>
 																		</div>
-																		<p
-																			className="mt-2 truncate text-[11px] leading-5 text-zinc-500 dark:text-stone-400"
-																			title={getTranslatedTaskTypeLabel(task, t)}
-																		>
-																			{getTranslatedTaskTypeLabel(task, t)}
-																		</p>
 																	</div>
-																	<div className="self-center">
-																		<div className="grid gap-2">
-																			<div className="rounded-2xl border border-zinc-200/75 bg-zinc-50/90 px-3 py-2 text-xs font-medium text-zinc-700 dark:border-[#7f6c47]/20 dark:bg-[#201914] dark:text-stone-200">
-																				{durationText}
-																			</div>
-																			<div className="rounded-2xl border border-zinc-200/75 bg-white/90 px-3 py-2 text-[11px] font-medium leading-5 text-zinc-500 dark:border-[#7f6c47]/16 dark:bg-[#18130f] dark:text-stone-400">
-																				{getDurationLabel(task, locale)}
-																			</div>
+																	<div className="text-xs font-medium text-zinc-600 dark:text-stone-300">
+																		{formatTimelineCellDate(row.startDate, locale)}
+																	</div>
+																	<div className="text-xs font-medium text-zinc-600 dark:text-stone-300">
+																		{formatTimelineCellDate(row.endDate, locale)}
+																	</div>
+																	<div>
+																		<span
+																			className={cn(
+																				"inline-flex max-w-full truncate rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+																				getTaskStatusBadgeClasses(task)
+																			)}
+																			title={taskStatusLabel}
+																		>
+																			{taskStatusLabel}
+																		</span>
+																	</div>
+																	<div className="flex items-center gap-2">
+																		<span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-[10px] font-semibold text-zinc-700 dark:border-[#7f6c47]/18 dark:bg-[#201914] dark:text-stone-200">
+																			{getOwnerInitials(taskOwnerLabel)}
+																		</span>
+																		<div className="min-w-0">
+																			<p
+																				className="truncate text-xs font-medium text-zinc-700 dark:text-stone-200"
+																				title={taskOwnerLabel}
+																			>
+																				{taskOwnerLabel}
+																			</p>
+																			<p className="truncate text-[10px] text-zinc-500 dark:text-stone-400">
+																				{resolvedDurationText}
+																			</p>
 																		</div>
 																	</div>
 																</div>
@@ -780,7 +948,7 @@ export default function TaskTimelineView({
 										</div>
 
 										<div
-											className="relative bg-[linear-gradient(to_bottom,rgba(255,255,255,0.96),rgba(248,250,252,0.98))] dark:bg-[linear-gradient(to_bottom,rgba(24,19,15,0.98),rgba(17,17,17,0.99))]"
+											className="relative bg-[linear-gradient(to_bottom,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] dark:bg-[linear-gradient(to_bottom,rgba(24,19,15,0.98),rgba(17,17,17,0.985))]"
 											style={{
 												height: bodyHeight,
 												width: timelineWidth,
@@ -805,7 +973,7 @@ export default function TaskTimelineView({
 													className="pointer-events-none absolute inset-y-0 z-10"
 													style={{ left: todayLeft }}
 												>
-													<div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary/65" />
+													<div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-blue-500/80 dark:bg-blue-400/80" />
 												</div>
 											)}
 
@@ -813,14 +981,28 @@ export default function TaskTimelineView({
 												row.rowType === "group" ? (
 													<div
 														key={row.key}
-														className="absolute inset-x-0 border-b border-zinc-200/60 bg-zinc-50/75 dark:border-[#7f6c47]/16 dark:bg-white/[0.025]"
+														className="absolute inset-x-0 border-b border-zinc-200/60 bg-zinc-50/80 dark:border-[#7f6c47]/16 dark:bg-white/[0.025]"
 														style={{
 															top: row.top,
 															height: row.height,
 														}}
 													>
-															<div className="flex h-full items-center px-4">
-																<div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-3 py-1 shadow-sm">
+														{(() => {
+															const summaryLayout = groupSummaryLayouts.get(row.key);
+
+															return (
+																<>
+																	{summaryLayout ? (
+																		<div
+																			className="pointer-events-none absolute top-1/2 h-3 -translate-y-1/2 rounded-full border border-sky-200/80 bg-sky-100/80 shadow-[0_8px_18px_-14px_rgba(14,116,144,0.55)] dark:border-sky-800/60 dark:bg-sky-950/35"
+																			style={{
+																				left: summaryLayout.left,
+																				width: summaryLayout.width,
+																			}}
+																		/>
+																	) : null}
+																	<div className="relative flex h-full items-center px-4">
+																		<div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/92 px-3 py-1 shadow-sm">
 																<span
 																	className={cn(
 																		"h-2.5 w-2.5 rounded-full",
@@ -830,8 +1012,11 @@ export default function TaskTimelineView({
 																<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
 																	{row.title}
 																</span>
-															</div>
-														</div>
+																		</div>
+																	</div>
+																</>
+															);
+														})()}
 													</div>
 												) : (
 													(() => {
@@ -845,35 +1030,35 @@ export default function TaskTimelineView({
 														const taskHref = resolveTaskHref(task.id);
 														const barTitle = task.name;
 
-														return (
-															<div
-																key={row.key}
-																className="absolute inset-x-0 border-b border-border/30"
-																style={{
-																	top: row.top,
-																	height: row.height,
-																}}
-															>
-																{taskLayout.isMilestone ? (
-																	<button
+															return (
+																<div
+																	key={row.key}
+																	className="absolute inset-x-0 border-b border-zinc-200/55 dark:border-[#7f6c47]/12"
+																	style={{
+																		top: row.top,
+																		height: row.height,
+																	}}
+																>
+																	{taskLayout.isMilestone ? (
+																		<button
 																		type="button"
 																		onClick={() => openTask(task.id)}
 																		disabled={!taskHref}
 																		title={barTitle}
-																		aria-label={barTitle}
-																		className={cn(
-																			"absolute flex items-center justify-center border shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
-																			barClasses
-																		)}
-																		style={{
-																			left: taskLayout.barLeft ?? 0,
-																			top: (row.height - Math.max(layout.barHeight, 16)) / 2,
-																			width: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
-																			height: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
-																			transform: "rotate(45deg)",
-																			borderRadius: "6px",
-																		}}
-																	>
+																			aria-label={barTitle}
+																			className={cn(
+																				"absolute flex items-center justify-center border shadow-[0_8px_20px_-14px_rgba(15,23,42,0.45)] ring-2 ring-white/70 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm dark:ring-[#17120e]",
+																				barClasses
+																			)}
+																			style={{
+																				left: taskLayout.barLeft ?? 0,
+																				top: (row.height - Math.max(layout.barHeight + 2, 18)) / 2,
+																				width: taskLayout.barWidth ?? Math.max(layout.barHeight, 16),
+																				height: taskLayout.barWidth ?? Math.max(layout.barHeight + 2, 18),
+																				transform: "rotate(45deg)",
+																				borderRadius: "6px",
+																			}}
+																		>
 																		<span className="sr-only">{barTitle}</span>
 																	</button>
 																) : (
@@ -882,18 +1067,18 @@ export default function TaskTimelineView({
 																		onClick={() => openTask(task.id)}
 																		disabled={!taskHref}
 																		title={barTitle}
-																		aria-label={barTitle}
-																		className={cn(
-																			"absolute flex items-center overflow-hidden rounded-full border px-3.5 text-left shadow-sm ring-1 ring-background/60 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
-																			barClasses
-																		)}
-																		style={{
-																			left: taskLayout.barLeft ?? 0,
-																			top: (row.height - layout.barHeight) / 2,
-																			width: taskLayout.barWidth ?? 0,
-																			height: layout.barHeight,
-																		}}
-																	>
+																			aria-label={barTitle}
+																			className={cn(
+																				"absolute flex items-center overflow-hidden rounded-full border px-3.5 text-left shadow-[0_12px_24px_-18px_rgba(15,23,42,0.5)] ring-2 ring-white/70 transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm dark:ring-[#17120e]",
+																				barClasses
+																			)}
+																			style={{
+																				left: taskLayout.barLeft ?? 0,
+																				top: (row.height - layout.barHeight) / 2,
+																				width: taskLayout.barWidth ?? 0,
+																				height: layout.barHeight,
+																			}}
+																		>
 																		{showInlineContent ? (
 																			<span
 																				className={cn(
