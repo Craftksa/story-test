@@ -30,7 +30,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProjectStore } from "@/store/projectStore";
 import { useUserStore } from "@/store/userStore";
 import TaskTimelineView from "@/components/tasks/TaskTimelineView";
-import { type TimelineSourceTask } from "@/components/tasks/task-timeline-utils";
+import { createTimelineRows, type TimelineSourceTask } from "@/components/tasks/task-timeline-utils";
 import { ProjectVisibilityFilter } from "@/components/project-visibility-filter";
 import { useCheckedLocale } from "@/lib/client-utils";
 import {
@@ -1553,6 +1553,11 @@ export default function AdminDashboard() {
 	const dashboardTimelineTasks = safeSelectedTimelineProjectDetails
 		? buildDashboardTimelineTasks([safeSelectedTimelineProjectDetails])
 		: [];
+	const dashboardTimelineModel = createTimelineRows(
+		dashboardTimelineTasks,
+		safeSelectedTimelineProjectDetails?.employees ?? []
+	);
+	const dashboardTimelineRows = dashboardTimelineModel.timelineRows;
 	const selectedProjectTasks = dashboardTimelineTasks;
 	const availableProjectTasks = selectedProjectTasks.filter(
 		(task): task is DashboardTimelineTask & { taskId: string; taskName: string } =>
@@ -1903,6 +1908,7 @@ export default function AdminDashboard() {
 														: `${t("Project Timeline")}: ${selectedTimelineProjectName}`
 												}
 												tasks={dashboardTimelineTasks}
+												timelineRows={dashboardTimelineRows}
 												projectTeam={safeSelectedTimelineProjectDetails?.employees ?? []}
 												getTaskHref={(taskId) => dashboardTaskHrefById.get(taskId) ?? null}
 												showWeeklyTable={false}
@@ -1920,60 +1926,79 @@ export default function AdminDashboard() {
 													<thead className="bg-muted/30">
 														<tr className={cn("text-sm", dir === "rtl" ? "text-right" : "text-left")}>
 															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">اسم المهمة</th>
-															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">الحالة</th>
 															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">النوع</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">الحالة</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">المسؤول</th>
+															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">المدة</th>
 															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">تاريخ البداية</th>
 															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">تاريخ النهاية / الاستحقاق</th>
-															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">آخر تحديث</th>
 															<th className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">إجراء</th>
 														</tr>
 													</thead>
 													<tbody className="divide-y divide-border/60">
-														{availableProjectTasks.length === 0 ? (
+														{dashboardTimelineRows.length === 0 ? (
 															<tr>
-																<td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+																<td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
 																	{t("There are no tasks at this stage")}
 																</td>
 															</tr>
 														) : (
-															availableProjectTasks.map((task) => {
-																const taskHref = dashboardTaskHrefById.get(task.taskId) ?? null;
-																const taskStartDate = getDateValue(task.startDate);
-																const taskEndDate = getDateValue(task.endDate);
-																const taskUpdatedAt = getDateValue(task.updatedAt);
-																const taskTypeText =
-																	typeof task.taskType === "string" && task.taskType.trim()
-																		? task.taskType.trim()
-																		: "-";
+															dashboardTimelineRows.map((row) => {
+																if (row.rowType === "group") {
+																	return (
+																		<tr key={row.key} className="bg-muted/20">
+																			<td colSpan={8} className="px-4 py-3">
+																				<div className={cn("flex items-center justify-between gap-3", dir === "rtl" ? "flex-row-reverse" : "")}>
+																					<div className="text-sm font-semibold text-foreground">{row.title}</div>
+																					<span className="inline-flex rounded-full border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+																						{row.count}
+																					</span>
+																				</div>
+																			</td>
+																		</tr>
+																	);
+																}
+
+																const task = row.task;
+																const taskHref = dashboardTaskHrefById.get(task.id) ?? null;
+																const taskTypeText = row.taskType?.trim() ? row.taskType : "-";
+																const durationText = !row.hasValidSchedule
+																	? "-"
+																	: row.rowType === "milestone"
+																		? t("Milestone")
+																		: `${row.duration ?? 1}`;
 
 																return (
-																	<tr key={task.taskId} className="bg-background/40 transition-colors hover:bg-muted/20">
+																	<tr key={row.key} className="bg-background/40 transition-colors hover:bg-muted/20">
 																		<td className="px-4 py-4 text-sm font-medium text-foreground">
 																			<div className={cn("max-w-[20rem] truncate", dir === "rtl" ? "text-right" : "text-left")}>
-																				{task.taskName}
+																				{row.title}
 																			</div>
+																		</td>
+																		<td className="px-4 py-4">
+																			<span className="text-sm text-foreground">{taskTypeText}</span>
 																		</td>
 																		<td className="px-4 py-4">
 																			<span
 																				className={cn(
 																					"inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
-																					getDashboardTaskStatusClassName(task.taskStatus)
+																					getDashboardTaskStatusClassName(row.status)
 																				)}
 																			>
-																				{getDashboardTaskStatusText(task.taskStatus)}
+																				{getDashboardTaskStatusText(row.status)}
 																			</span>
 																		</td>
-																		<td className="px-4 py-4">
-																			<span className="text-sm text-foreground">{taskTypeText}</span>
+																		<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
+																			{row.assignee?.trim() || "-"}
 																		</td>
 																		<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
-																			{taskStartDate ? taskStartDate.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
+																			{durationText}
 																		</td>
 																		<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
-																			{taskEndDate ? taskEndDate.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
+																			{row.startDate ? row.startDate.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
 																		</td>
 																		<td className="whitespace-nowrap px-4 py-4 text-sm text-muted-foreground">
-																			{taskUpdatedAt ? taskUpdatedAt.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
+																			{row.endDate ? row.endDate.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "-"}
 																		</td>
 																		<td className="px-4 py-4">
 																			<Button

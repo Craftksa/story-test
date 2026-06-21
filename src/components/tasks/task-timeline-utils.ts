@@ -57,6 +57,40 @@ export type TimelineTask = {
 	originalTask: TimelineSourceTask;
 };
 
+export type TimelineRowType = "group" | "task" | "milestone";
+
+export type TimelineRow =
+	| {
+			id: string;
+			key: string;
+			rowType: "group";
+			title: string;
+			groupKey: string;
+			groupLabel: string;
+			count: number;
+			level: number;
+			parentId?: string;
+			hasValidSchedule: false;
+	  }
+	| {
+			id: string;
+			key: string;
+			rowType: "task" | "milestone";
+			title: string;
+			groupKey: string;
+			groupLabel: string;
+			task: TimelineTask;
+			startDate: Date | null;
+			endDate: Date | null;
+			duration: number | null;
+			status: string;
+			assignee: string | null;
+			taskType: string;
+			level: number;
+			parentId: string;
+			hasValidSchedule: boolean;
+	  };
+
 export type TimelineRange = {
 	start: Date;
 	end: Date;
@@ -340,13 +374,138 @@ export function createTimelineTasks(
 		});
 }
 
+export function buildTimelineRows(tasks: TimelineTask[]): TimelineRow[] {
+	const rows: TimelineRow[] = [];
+	const groupedTasks = new Map<string, { label: string; tasks: TimelineTask[] }>();
+
+	for (const task of tasks) {
+		const existingGroup = groupedTasks.get(task.groupKey);
+		if (existingGroup) {
+			existingGroup.tasks.push(task);
+			continue;
+		}
+
+		groupedTasks.set(task.groupKey, {
+			label: task.groupLabel,
+			tasks: [task],
+		});
+	}
+
+	for (const [groupKey, group] of groupedTasks.entries()) {
+		const groupRowId = `group-${groupKey}`;
+
+		rows.push({
+			id: groupRowId,
+			key: groupRowId,
+			rowType: "group",
+			title: group.label,
+			groupKey,
+			groupLabel: group.label,
+			count: group.tasks.length,
+			level: 0,
+			hasValidSchedule: false,
+		});
+
+		for (const task of group.tasks) {
+			rows.push({
+				id: task.id,
+				key: `task-${task.id}`,
+				rowType: task.isMilestone ? "milestone" : "task",
+				title: task.title,
+				groupKey,
+				groupLabel: group.label,
+				task,
+				startDate: task.startDate,
+				endDate: task.endDate,
+				duration: task.isScheduled ? task.durationDays : null,
+				status: task.status,
+				assignee: task.ownerLabel,
+				taskType: task.groupLabel,
+				level: 1,
+				parentId: groupRowId,
+				hasValidSchedule: Boolean(task.isScheduled && task.startDate && task.endDate),
+			});
+		}
+	}
+
+	return rows;
+}
+
+export function createTimelineRows(
+	tasks: TimelineSourceTask[],
+	projectTeam: TimelineTeamMember[] = [],
+	options?: {
+		referenceDate?: Date;
+	}
+) {
+	const timelineTasks = createTimelineTasks(tasks, projectTeam, options);
+	const timelineRows = buildTimelineRows(timelineTasks);
+
+	return {
+		timelineTasks,
+		timelineRows,
+	};
+}
+
 export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date()): TimelineRange {
 	const safeReferenceDate = startOfDay(referenceDate);
-	const startCandidates = tasks
+	const scheduledTasks = tasks.filter(
+		(task) => Boolean(task.isScheduled && task.startDate && task.endDate)
+	);
+	const startCandidates = scheduledTasks
 		.map((task) => task.startDate)
 		.filter((date): date is Date => Boolean(date));
-	const endCandidates = tasks
-		.map((task) => task.endDate ?? task.startDate)
+	const endCandidates = scheduledTasks
+		.map((task) => task.endDate)
+		.filter((date): date is Date => Boolean(date));
+
+	if (startCandidates.length === 0 && endCandidates.length === 0) {
+		const start = addDays(safeReferenceDate, -7);
+		const end = addDays(start, 27);
+		return {
+			start,
+			end,
+			totalDays: differenceInCalendarDays(end, start) + 1,
+		};
+	}
+
+	let start = startCandidates[0] ?? endCandidates[0] ?? safeReferenceDate;
+	let end = endCandidates[0] ?? startCandidates[0] ?? start;
+
+	for (const candidate of startCandidates) {
+		if (candidate.getTime() < start.getTime()) start = candidate;
+	}
+
+	for (const candidate of endCandidates) {
+		if (candidate.getTime() > end.getTime()) end = candidate;
+	}
+
+	if (end.getTime() < start.getTime()) {
+		end = start;
+	}
+
+	if (differenceInCalendarDays(end, start) < 13) {
+		end = addDays(start, 13);
+	}
+
+	return {
+		start,
+		end,
+		totalDays: differenceInCalendarDays(end, start) + 1,
+	};
+}
+
+export function getTimelineRangeFromRows(rows: TimelineRow[], referenceDate = new Date()): TimelineRange {
+	const safeReferenceDate = startOfDay(referenceDate);
+	const scheduledRows = rows.filter(
+		(row): row is Extract<TimelineRow, { rowType: "task" | "milestone" }> =>
+			row.rowType !== "group" && row.hasValidSchedule && Boolean(row.startDate && row.endDate)
+	);
+	const startCandidates = scheduledRows
+		.map((row) => row.startDate)
+		.filter((date): date is Date => Boolean(date));
+	const endCandidates = scheduledRows
+		.map((row) => row.endDate)
 		.filter((date): date is Date => Boolean(date));
 
 	if (startCandidates.length === 0 && endCandidates.length === 0) {
