@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -42,22 +42,22 @@ type TimelineLayoutMetrics = {
 };
 
 const DEFAULT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 420,
+	leftColumnWidth: 348,
 	dayColumnWidth: 24,
-	headerHeight: 88,
-	groupRowHeight: 52,
-	taskRowHeight: 86,
-	barHeight: 24,
+	headerHeight: 50,
+	groupRowHeight: 34,
+	taskRowHeight: 40,
+	barHeight: 12,
 	maxBodyHeight: "none",
 };
 
 const COMPACT_LAYOUT: TimelineLayoutMetrics = {
-	leftColumnWidth: 420,
+	leftColumnWidth: 348,
 	dayColumnWidth: 20,
-	headerHeight: 88,
-	groupRowHeight: 52,
-	taskRowHeight: 86,
-	barHeight: 24,
+	headerHeight: 50,
+	groupRowHeight: 34,
+	taskRowHeight: 40,
+	barHeight: 12,
 	maxBodyHeight: "none",
 };
 
@@ -185,19 +185,19 @@ function getTaskVisualState(status: string) {
 
 function getTaskBarClasses(task: TimelineTask) {
 	if (task.isOverdue && task.status !== "completed") {
-		return "border-rose-300 bg-rose-100/95 text-rose-900 dark:border-rose-800 dark:bg-rose-950/45 dark:text-rose-100";
+		return "border-[#F43F5E] bg-[#FFE4E6] text-[#9F1239] dark:border-rose-700 dark:bg-rose-950/45 dark:text-rose-100";
 	}
 
 	switch (getTaskVisualState(task.status)) {
 		case "completed":
-			return "border-emerald-300 bg-emerald-100/95 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/45 dark:text-emerald-100";
+			return "border-[#22C55E] bg-[#DCFCE7] text-[#166534] dark:border-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-100";
 		case "blocked":
-			return "border-rose-300 bg-rose-100/95 text-rose-900 dark:border-rose-800 dark:bg-rose-950/45 dark:text-rose-100";
+			return "border-[#F43F5E] bg-[#FFE4E6] text-[#9F1239] dark:border-rose-700 dark:bg-rose-950/45 dark:text-rose-100";
 		case "not_started":
-			return "border-slate-300 bg-slate-100/95 text-slate-800 dark:border-slate-700 dark:bg-slate-900/65 dark:text-slate-100";
+			return "border-[#94A3B8] bg-[#F1F5F9] text-[#334155] dark:border-slate-700 dark:bg-slate-900/65 dark:text-slate-100";
 		case "in_progress":
 		default:
-			return "border-amber-300 bg-amber-100/95 text-amber-900 dark:border-amber-800 dark:bg-amber-950/45 dark:text-amber-100";
+			return "border-[#F59E0B] bg-[#FEF3C7] text-[#92400E] dark:border-amber-700 dark:bg-amber-950/45 dark:text-amber-100";
 	}
 }
 
@@ -686,32 +686,32 @@ export default function TaskTimelineView({
 				</div>
 			</CardHeader>
 			<CardContent className={cn("min-w-0 max-w-full overflow-visible px-0 pb-0", showWeeklyTable ? "space-y-6" : "space-y-0")}>
-				<div className="min-w-0 max-w-full overflow-hidden rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] dark:border-[#2b241d] dark:bg-[#14100d]">
+				<div className="min-w-0 max-w-full overflow-hidden rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)] dark:border-[#2b241d] dark:bg-[#14100d]">
 					{timelineTasks.length === 0 ? (
 						<div className="px-6 py-14 text-center text-sm text-muted-foreground">
 							{t("There are no tasks at this stage")}
 						</div>
 					) : (
 						<div className="min-w-0 max-w-full overflow-visible bg-white dark:bg-[#17120e]">
-							<div className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] px-6 py-3 dark:border-[#2b241d]">
+							<div className="flex h-11 flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] px-3 dark:border-[#2b241d]">
 								<div className="flex flex-wrap items-center gap-2">
-									<span className="inline-flex h-9 items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-zinc-700 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-200">
+									<span className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-[12px] font-medium text-zinc-700 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-200">
 										<CalendarDays className="h-3.5 w-3.5" />
 										{labels.timeline}
 									</span>
-									<span className="inline-flex h-9 items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-zinc-500 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-400">
-										{timelineTasks.length} {lang === "ar" ? "عنصر" : "items"}
+									<span className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-[12px] font-medium text-zinc-500 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-400">
+														{timelineTasks.length} {labels.items}
 									</span>
 								</div>
 								<div className="flex flex-wrap items-center gap-2">
 									<button
 										type="button"
-										className="inline-flex h-9 items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-300 dark:hover:bg-[#201914]"
+										className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-[12px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-300 dark:hover:bg-[#201914]"
 									>
 										<Filter className="h-3.5 w-3.5" />
 										{labels.filter}
 									</button>
-									<span className="inline-flex h-9 items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-zinc-700 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-200">
+									<span className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-[12px] font-medium text-zinc-700 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-200">
 										<SlidersHorizontal className="h-3.5 w-3.5" />
 										100%
 									</span>
@@ -720,13 +720,13 @@ export default function TaskTimelineView({
 										variant="outline"
 										size="sm"
 										onClick={handleScrollToToday}
-										className="h-9 rounded-full border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-200 dark:hover:bg-[#201914]"
+										className="h-[30px] rounded-md border border-[#E5E7EB] bg-white px-2.5 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-200 dark:hover:bg-[#201914]"
 									>
 										{labels.today}
 									</Button>
 									<button
 										type="button"
-										className="inline-flex h-9 items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-300 dark:hover:bg-[#201914]"
+										className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-[12px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-300 dark:hover:bg-[#201914]"
 									>
 										<MoreHorizontal className="h-3.5 w-3.5" />
 										{labels.options}
@@ -747,33 +747,18 @@ export default function TaskTimelineView({
 								>
 									<div
 										className={cn(
-											"sticky left-0 z-30 border-b border-e border-[#E5E7EB] px-6 py-4 shadow-none dark:border-[#2b241d]",
+											"sticky left-0 z-30 border-b border-e border-[#E5E7EB] px-3 dark:border-[#2b241d]",
 											timelinePinnedSurface
 										)}
 										style={{ height: layout.headerHeight }}
 									>
-										<div className="flex h-full flex-col justify-between">
-											<div className="flex items-center justify-between gap-3">
-												<p className="text-[13px] font-semibold text-[#78716C] dark:text-stone-400">
-													{labels.activity}
-												</p>
-												<span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[13px] font-semibold text-zinc-600 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-300">
-													{totalRenderedRows}
-												</span>
-											</div>
-											<div className="space-y-1.5">
-												<p className="text-[15px] font-bold text-[#1F2937] dark:text-stone-100">
-													{labels.taskName}
-												</p>
-												<p className="hidden text-xs text-zinc-500 dark:text-stone-400">
-													{lang === "ar"
-														? "اسم النشاط مع الحالة والمسؤول والمدة في سطر واضح"
-														: "Activity list with status, owner, and duration"}
-												</p>
-												<p className="text-xs text-[#9CA3AF] dark:text-stone-500">
-													{labels.activityHint}
-												</p>
-											</div>
+										<div className="flex h-full items-center justify-between gap-3">
+											<p className="text-[12px] font-bold text-[#374151] dark:text-stone-300">
+												{labels.taskName}
+											</p>
+											<span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-[#E5E7EB] bg-white px-1.5 text-[11px] font-semibold text-zinc-600 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-300">
+												{totalRenderedRows}
+											</span>
 										</div>
 									</div>
 
@@ -785,31 +770,31 @@ export default function TaskTimelineView({
 										style={{ height: layout.headerHeight }}
 									>
 										<div className="flex h-full flex-col">
-											<div className="flex h-10 border-b border-[#E5E7EB] dark:border-[#2b241d]">
+											<div className="flex h-[26px] border-b border-[#E5E7EB] dark:border-[#2b241d]">
 												{monthSegments.map((segment) => (
 													<div
 														key={segment.key}
-														className="flex shrink-0 items-center justify-center border-r border-[#F1F5F9] bg-white px-4 text-center dark:border-[#2b241d] dark:bg-[#15110d]"
+														className="flex shrink-0 items-center justify-center border-r border-[#EEF2F7] bg-white px-3 text-center dark:border-[#2b241d] dark:bg-[#15110d]"
 														style={{ width: segment.days * layout.dayColumnWidth }}
 													>
-														<span className="whitespace-nowrap text-[15px] font-bold text-[#111827] dark:text-stone-100">
+														<span className="whitespace-nowrap text-[11px] font-bold text-[#374151] dark:text-stone-100">
 															{segment.label}
 														</span>
 													</div>
 												))}
 											</div>
-											<div className="flex h-12">
+											<div className="flex h-6">
 												{weekSegments.map((segment) => (
 													<div
 														key={segment.key}
-														className="flex shrink-0 flex-col justify-center border-r border-[#F1F5F9] bg-[#FAFAF9] px-3 dark:border-[#2b241d] dark:bg-[#1a1511]"
+														className="flex shrink-0 items-center justify-center border-r border-[#EEF2F7] bg-[#FAFAF9] px-2 dark:border-[#2b241d] dark:bg-[#1a1511]"
 														style={{ width: segment.days * layout.dayColumnWidth }}
 													>
-														<span className="whitespace-nowrap text-[12px] font-medium text-[#6B7280] dark:text-stone-400">
+														<span className="whitespace-nowrap text-[10px] font-medium text-[#6B7280] dark:text-stone-400">
 															{segment.subLabel ? `${segment.label} - ${segment.subLabel}` : segment.label}
 														</span>
 														<span className="hidden mt-1 whitespace-nowrap text-[12px] font-medium text-[#6B7280] dark:text-stone-400">
-															{lang === "ar" ? "أسبوع" : "Week"}
+															{lang === "ar" ? "Ø£Ø³Ø¨ÙˆØ¹" : "Week"}
 														</span>
 													</div>
 												))}
@@ -834,7 +819,7 @@ export default function TaskTimelineView({
 												className="absolute inset-y-0 z-20"
 												style={{ left: todayLeft }}
 											>
-												<div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-md bg-[#3B82F6] px-1.5 py-[3px] text-[11px] font-semibold text-white shadow-sm">
+												<div className="absolute left-1/2 top-1.5 -translate-x-1/2 rounded-[4px] bg-[#3B82F6] px-1.5 py-[2px] text-[10px] font-semibold text-white shadow-sm">
 													{labels.today}
 												</div>
 												<div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-[#3B82F6]" />
@@ -855,20 +840,20 @@ export default function TaskTimelineView({
 										}}
 									>
 										<div
-											className={cn("sticky left-0 z-20 border-r border-zinc-200/80 shadow-[12px_0_26px_-22px_rgba(15,23,42,0.18)] dark:border-[#7f6c47]/24", timelinePinnedSurface)}
+											className={cn("sticky left-0 z-20 border-r border-[#E5E7EB] shadow-none dark:border-[#2b241d]", timelinePinnedSurface)}
 											style={{ height: bodyHeight }}
 										>
 											{positionedTimelineRows.map((row) =>
 												row.rowType === "group" ? (
 													<div
 														key={row.key}
-														className="absolute inset-x-0 border-b border-[#E5E7EB] bg-[#F8FAFC] px-6 dark:border-[#2b241d] dark:bg-[#1a1511]"
+														className="absolute inset-x-0 border-b border-[#E5E7EB] bg-[#F8FAFC] px-3 dark:border-[#2b241d] dark:bg-[#1a1511]"
 														style={{
 															top: row.top,
 															height: row.height,
 														}}
 													>
-														<div className="flex h-full min-w-0 items-center gap-2.5">
+														<div className="flex h-full min-w-0 items-center gap-2">
 															<span
 																className={cn(
 																	"h-2.5 w-2.5 rounded-full",
@@ -876,11 +861,11 @@ export default function TaskTimelineView({
 																)}
 															/>
 															<div className="min-w-0 flex-1">
-																<p className="truncate text-[15px] font-bold text-[#1F2937] dark:text-stone-100">
+																<p className="truncate text-[12px] font-bold text-[#1F2937] dark:text-stone-100">
 																	{row.title}
 																</p>
 															</div>
-															<span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[13px] font-semibold text-zinc-600 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-300">
+															<span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[11px] font-semibold text-zinc-600 dark:border-[#3a3128] dark:bg-[#18130f] dark:text-stone-300">
 																{row.count}
 															</span>
 														</div>
@@ -899,22 +884,28 @@ export default function TaskTimelineView({
 															? untranslatedLabels.unscheduled
 															: task.isMilestone
 																? untranslatedLabels.milestone
-																: `${task.durationDays} ${lang === "ar" ? "يوم" : task.durationDays === 1 ? "day" : "days"}`;
+																: `${task.durationDays} ${lang === "ar" ? "ÙŠÙˆÙ…" : task.durationDays === 1 ? "day" : "days"}`;
 
 														return (
 															<div
 																key={row.key}
-																className="absolute inset-x-0 border-b border-[#F1F5F9] bg-white px-6 py-[14px] dark:border-[#201914] dark:bg-[#17120e]"
+																className="absolute inset-x-0 border-b border-[#F1F5F9] bg-white px-3 dark:border-[#201914] dark:bg-[#17120e]"
 																style={{
 																	top: row.top,
 																	height: row.height,
 																}}
 															>
-																<div className="flex h-full min-w-0 flex-col justify-center">
-																	<div className="min-w-0">
+																<div className="flex h-full min-w-0 items-center gap-2">
+																	<span
+																		className={cn(
+																			"h-1.5 w-1.5 shrink-0 rounded-full",
+																			getProgressIndicatorClasses(task)
+																		)}
+																	/>
+																	<div className="min-w-0 flex-1">
 																		<p
 																			className={cn(
-																				"line-clamp-2 text-[15px] font-bold leading-[1.4] text-[#111827] dark:text-stone-100",
+																				"truncate text-[12px] font-medium leading-4 text-[#111827] dark:text-stone-100",
 																				isRTL && "text-right"
 																			)}
 																			title={task.name}
@@ -923,33 +914,38 @@ export default function TaskTimelineView({
 																		</p>
 																		<div
 																			className={cn(
-																				"mt-2 flex flex-wrap items-center gap-2 text-xs text-[#6B7280] dark:text-stone-300",
+																				"mt-0.5 flex flex-nowrap items-center gap-1.5 overflow-hidden text-[10px] text-[#6B7280] dark:text-stone-300",
 																				isRTL && "justify-end"
 																			)}
 																		>
-																			<div className="flex items-center gap-2">
-																				<span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[#F3F4F6] text-[11px] font-bold text-zinc-700 dark:bg-[#211a14] dark:text-stone-200">
+																			<div className="flex shrink-0 items-center gap-1.5">
+																				<span
+																					className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F3F4F6] text-[9px] font-bold text-zinc-700 dark:bg-[#211a14] dark:text-stone-200"
+																					title={taskOwnerLabel}
+																				>
 																					{getOwnerInitials(taskOwnerLabel)}
-																				</span>
-																				<span className="max-w-[150px] truncate" title={taskOwnerLabel}>
-																					{taskOwnerLabel}
 																				</span>
 																			</div>
 																			<span
 																				className={cn(
-																					"inline-flex h-6 items-center rounded-full border px-2.5 text-[12px] font-semibold",
+																					"inline-flex h-5 max-w-[92px] items-center rounded-full border px-1.5 text-[10px] font-semibold",
 																					getTaskStatusBadgeClasses(task)
 																				)}
 																				title={taskStatusLabel}
 																			>
-																				{taskStatusLabel}
+																				<span className="truncate">{taskStatusLabel}</span>
 																			</span>
-																			<span>{resolvedDurationText}</span>
+																			<span
+																				className="max-w-[44px] truncate text-[10px] font-medium text-[#6B7280] dark:text-stone-400"
+																				title={resolvedDurationText}
+																			>
+																				{resolvedDurationText}
+																			</span>
 																		</div>
 																	</div>
 																	<div
 																		className={cn(
-																			"mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[#6B7280] dark:text-stone-400",
+																			"hidden mt-1 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[#6B7280] dark:text-stone-400",
 																			isRTL && "justify-end"
 																		)}
 																	>
@@ -1014,7 +1010,7 @@ export default function TaskTimelineView({
 																<>
 																	{summaryLayout ? (
 																		<div
-																			className="pointer-events-none absolute top-1/2 h-3.5 -translate-y-1/2 rounded-full border border-[#93C5FD] bg-[#DBEAFE] opacity-85 dark:border-sky-800 dark:bg-sky-950/35"
+																			className="pointer-events-none absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-[#334155] opacity-80 dark:bg-slate-500"
 																			style={{
 																				left: summaryLayout.left,
 																				width: summaryLayout.width,
@@ -1022,14 +1018,14 @@ export default function TaskTimelineView({
 																		/>
 																	) : null}
 																	<div className="relative flex h-full items-center px-4">
-																		<div className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3 py-1 shadow-sm dark:border-[#3a3128] dark:bg-[#18130f]">
+																		<div className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2 py-0.5 shadow-none dark:border-[#3a3128] dark:bg-[#18130f]">
 																<span
 																	className={cn(
 																		"h-2.5 w-2.5 rounded-full",
 																		getGroupAccentClasses(row.groupKey)
 																	)}
 																/>
-																<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280] dark:text-stone-400">
+																<span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#6B7280] dark:text-stone-400">
 																	{row.title}
 																</span>
 																		</div>
@@ -1072,9 +1068,9 @@ export default function TaskTimelineView({
 																			)}
 																			style={{
 																				left: taskLayout.barLeft ?? 0,
-																				top: (row.height - 14) / 2,
-																				width: 14,
-																				height: 14,
+																				top: (row.height - 10) / 2,
+																				width: 10,
+																				height: 10,
 																				transform: "rotate(45deg)",
 																				borderRadius: "2px",
 																			}}
@@ -1089,7 +1085,7 @@ export default function TaskTimelineView({
 																		title={barTitle}
 																			aria-label={barTitle}
 																			className={cn(
-																				"absolute flex items-center overflow-hidden rounded-full border px-3 text-left shadow-[0_4px_10px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
+																				"absolute flex items-center overflow-hidden rounded-full border px-2 text-left shadow-[0_4px_10px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-px hover:shadow-md disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-sm",
 																				barClasses
 																			)}
 																			style={{
@@ -1102,7 +1098,7 @@ export default function TaskTimelineView({
 																		{showInlineContent ? (
 																			<span
 																				className={cn(
-																					"block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-semibold leading-6 tracking-[0.01em]",
+																					"block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold leading-5 tracking-[0.01em]",
 																					isRTL ? "text-right" : "text-left"
 																				)}
 																			>
@@ -1254,3 +1250,5 @@ export default function TaskTimelineView({
 		</Card>
 	);
 }
+
+
