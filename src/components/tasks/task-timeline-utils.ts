@@ -109,6 +109,25 @@ export type TimelineRangeOptions = {
 	fallbackSpanDays?: number;
 };
 
+export type GroupedTimelineTasks = {
+	groupKey: string;
+	groupLabel: string;
+	tasks: TimelineTask[];
+};
+
+export type TaskDurationLabelOptions = {
+	dayLabel?: string;
+	daysLabel?: string;
+	unscheduledLabel?: string;
+};
+
+export type TaskStatusColorClasses = {
+	badge: string;
+	dot: string;
+	progress: string;
+	card: string;
+};
+
 const GROUP_ORDER: Record<string, number> = {
 	construction: 0,
 	foundations: 0,
@@ -316,6 +335,17 @@ function getOwnerLabel(task: TimelineSourceTask, projectTeam: TimelineTeamMember
 		.filter(Boolean);
 
 	return teamMembers.length > 0 ? teamMembers.join(", ") : null;
+}
+
+export function getTaskOwnerLabel(
+	task: TimelineSourceTask | TimelineTask,
+	projectTeam: TimelineTeamMember[] = []
+) {
+	if ("originalTask" in task) {
+		return task.ownerLabel ?? getOwnerLabel(task.originalTask as TimelineSourceTask, projectTeam);
+	}
+
+	return getOwnerLabel(task, projectTeam);
 }
 
 function getTaskName(task: TimelineSourceTask, index: number) {
@@ -618,4 +648,144 @@ export function getThisWeekTasks(tasks: TimelineTask[], referenceDate = new Date
 				(left.dueDate ?? left.placementDate).getTime() - (right.dueDate ?? right.placementDate).getTime() ||
 				left.placementDate.getTime() - right.placementDate.getTime()
 		);
+}
+
+export function isTaskInThisWeek(task: TimelineTask, referenceDate = new Date()) {
+	const weekStartsOn = 1 as const;
+	const weekStart = startOfWeek(referenceDate, { weekStartsOn });
+	const weekEnd = endOfWeek(referenceDate, { weekStartsOn });
+
+	if (!task.hasStartDate && !task.hasExplicitEndDate) {
+		return false;
+	}
+
+	const taskStart = task.startDate ?? task.placementDate;
+	const taskEnd = task.endDate ?? taskStart;
+	const startsThisWeek =
+		taskStart.getTime() >= weekStart.getTime() &&
+		taskStart.getTime() <= weekEnd.getTime();
+	const endsThisWeek =
+		taskEnd.getTime() >= weekStart.getTime() &&
+		taskEnd.getTime() <= weekEnd.getTime();
+	const spansThisWeek =
+		taskStart.getTime() <= weekEnd.getTime() &&
+		taskEnd.getTime() >= weekStart.getTime();
+
+	return startsThisWeek || endsThisWeek || spansThisWeek;
+}
+
+export function sortTasksByDate(tasks: TimelineTask[]) {
+	return [...tasks].sort((left, right) => {
+		const leftHasStart = Boolean(left.startDate);
+		const rightHasStart = Boolean(right.startDate);
+
+		if (leftHasStart && !rightHasStart) return -1;
+		if (!leftHasStart && rightHasStart) return 1;
+
+		const leftStart = left.startDate ?? left.endDate ?? left.placementDate;
+		const rightStart = right.startDate ?? right.endDate ?? right.placementDate;
+		const startDifference = leftStart.getTime() - rightStart.getTime();
+		if (startDifference !== 0) return startDifference;
+
+		const leftEnd = left.endDate ?? leftStart;
+		const rightEnd = right.endDate ?? rightStart;
+		const endDifference = leftEnd.getTime() - rightEnd.getTime();
+		if (endDifference !== 0) return endDifference;
+
+		return left.name.localeCompare(right.name);
+	});
+}
+
+export function groupTasksByType(tasks: TimelineTask[]) {
+	const grouped = new Map<string, GroupedTimelineTasks>();
+
+	for (const task of sortTasksByDate(tasks)) {
+		const groupKey = task.groupKey || "general";
+		const existing = grouped.get(groupKey);
+
+		if (existing) {
+			existing.tasks.push(task);
+			continue;
+		}
+
+		grouped.set(groupKey, {
+			groupKey,
+			groupLabel: task.groupLabel || task.type || "general",
+			tasks: [task],
+		});
+	}
+
+	return Array.from(grouped.values()).sort(
+		(left, right) =>
+			(GROUP_ORDER[left.groupKey] ?? 99) - (GROUP_ORDER[right.groupKey] ?? 99) ||
+			left.groupLabel.localeCompare(right.groupLabel)
+	);
+}
+
+export function getTaskDurationLabel(
+	task: TimelineTask,
+	options?: TaskDurationLabelOptions
+) {
+	const dayLabel = options?.dayLabel ?? "day";
+	const daysLabel = options?.daysLabel ?? "days";
+	const unscheduledLabel = options?.unscheduledLabel ?? "-";
+
+	if (!task.startDate && !task.endDate) {
+		return unscheduledLabel;
+	}
+
+	const safeDuration = Math.max(
+		1,
+		task.durationDays ||
+			(task.startDate && task.endDate
+				? differenceInCalendarDays(task.endDate, task.startDate) + 1
+				: 1)
+	);
+
+	return `${safeDuration} ${safeDuration === 1 ? dayLabel : daysLabel}`;
+}
+
+export function getTaskStatusColorClasses(status: string): TaskStatusColorClasses {
+	switch (normalizeTaskStatus(status)) {
+		case "completed":
+			return {
+				badge:
+					"border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100",
+				dot: "bg-emerald-500 ring-emerald-100 dark:ring-emerald-500/20",
+				progress: "bg-emerald-500",
+				card: "border-emerald-200/70 dark:border-emerald-500/20",
+			};
+		case "in_progress":
+		case "needs_review":
+		case "working":
+		case "active":
+			return {
+				badge:
+					"border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100",
+				dot: "bg-amber-500 ring-amber-100 dark:ring-amber-500/20",
+				progress: "bg-amber-500",
+				card: "border-amber-200/70 dark:border-amber-500/20",
+			};
+		case "on_hold":
+		case "paused":
+		case "stopped":
+		case "blocked":
+			return {
+				badge:
+					"border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100",
+				dot: "bg-rose-500 ring-rose-100 dark:ring-rose-500/20",
+				progress: "bg-rose-500",
+				card: "border-rose-200/70 dark:border-rose-500/20",
+			};
+		case "not_started":
+		case "pending":
+		default:
+			return {
+				badge:
+					"border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200",
+				dot: "bg-slate-400 ring-slate-100 dark:ring-stone-800",
+				progress: "bg-slate-400",
+				card: "border-slate-200/80 dark:border-stone-800",
+			};
+	}
 }
