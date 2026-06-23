@@ -28,8 +28,10 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "use-intl";
 
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCheckedLocale } from "@/lib/client-utils";
 import { cn, formatStatus } from "@/lib/utils";
 
@@ -93,12 +95,14 @@ type DependencyEdge = {
 	toId: string;
 };
 
+type ViewMode = "month" | "week";
+
 const ZOOM_LEVELS = [0.8, 1, 1.2, 1.45] as const;
 const TABLE_COLUMN_TEMPLATE = "minmax(0,2.1fr) minmax(108px,0.95fr) minmax(94px,0.88fr) 76px";
 const TOOLBAR_BUTTON_CLASS =
-	"h-8 rounded-[2px] border-[#D6DDE7] bg-white px-2.5 text-[12px] font-medium text-[#1E293B] shadow-none hover:bg-[#F8FAFC] dark:border-[#3A3128] dark:bg-[#17120E] dark:text-stone-100 dark:hover:bg-[#211A14]";
+	"h-8 rounded-sm border border-slate-200 bg-white px-2.5 text-[12px] font-medium text-slate-700 shadow-none hover:bg-slate-50 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900";
 const HEADER_CAPTION_CLASS =
-	"text-[10px] font-semibold uppercase tracking-[0.18em] text-[#66758A] dark:text-stone-500";
+	"text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-stone-500";
 
 const DEFAULT_LAYOUT: TimelineLayoutMetrics = {
 	leftColumnWidth: 420,
@@ -118,7 +122,12 @@ const DENSE_LAYOUT: TimelineLayoutMetrics = {
 	bodyViewportHeight: "min(74vh, 880px)",
 };
 
-function getResolvedLayout(totalDays: number, dense: boolean, zoomFactor: number): TimelineLayoutMetrics {
+function getResolvedLayout(
+	totalDays: number,
+	dense: boolean,
+	zoomFactor: number,
+	viewMode: ViewMode
+): TimelineLayoutMetrics {
 	const base = dense ? DENSE_LAYOUT : DEFAULT_LAYOUT;
 	let dayColumnWidth = base.dayColumnWidth;
 
@@ -136,6 +145,10 @@ function getResolvedLayout(totalDays: number, dense: boolean, zoomFactor: number
 		dayColumnWidth = 18;
 	} else if (totalDays > 30) {
 		dayColumnWidth = 22;
+	}
+
+	if (viewMode === "week") {
+		dayColumnWidth += totalDays > 90 ? 2 : 4;
 	}
 
 	return {
@@ -161,6 +174,24 @@ function buildMonthSegments(start: Date, end: Date, locale: typeof enUS): Timeli
 		});
 
 		cursor = addDays(segmentEnd, 1);
+	}
+
+	return segments;
+}
+
+function buildDaySegments(start: Date, end: Date, locale: typeof enUS): TimelineHeaderSegment[] {
+	const segments: TimelineHeaderSegment[] = [];
+	const totalDays = differenceInCalendarDays(end, start) + 1;
+
+	for (let dayOffset = 0; dayOffset < totalDays; dayOffset += 1) {
+		const date = addDays(start, dayOffset);
+		segments.push({
+			key: date.toISOString(),
+			label: format(date, "EEE", { locale }),
+			subLabel: format(date, "d", { locale }),
+			startOffsetDays: dayOffset,
+			days: 1,
+		});
 	}
 
 	return segments;
@@ -213,20 +244,16 @@ function getTaskVisualState(status: string) {
 }
 
 function getTaskBarClasses(task: TimelineTask) {
-	if (task.isOverdue && task.status !== "completed") {
-		return "border-[#D97706] bg-[#F59E0B] text-white";
-	}
-
 	switch (getTaskVisualState(task.status)) {
 		case "completed":
-			return "border-[#0F766E] bg-[#14B8A6] text-white";
+			return "border-emerald-700/70 bg-emerald-500 text-white dark:border-emerald-400/60 dark:bg-emerald-500/90";
 		case "blocked":
-			return "border-[#B45309] bg-[#F59E0B] text-white";
+			return "border-rose-700/70 bg-rose-500 text-white dark:border-rose-400/60 dark:bg-rose-500/90";
 		case "not_started":
-			return "border-[#94A3B8] bg-[#CBD5E1] text-[#334155]";
+			return "border-slate-300 bg-slate-300/95 text-slate-700 dark:border-stone-600 dark:bg-stone-600 dark:text-stone-100";
 		case "in_progress":
 		default:
-			return "border-[#1D4ED8] bg-[#60A5FA] text-white";
+			return "border-amber-700/70 bg-amber-500 text-white dark:border-amber-400/60 dark:bg-amber-500/90";
 	}
 }
 
@@ -240,25 +267,21 @@ function getProgressIndicatorClasses(task: TimelineTask) {
 			return "bg-slate-400";
 		case "in_progress":
 		default:
-			return "bg-blue-500";
+			return "bg-amber-500";
 	}
 }
 
 function getTaskStatusBadgeClasses(task: TimelineTask) {
-	if (task.isOverdue && task.status !== "completed") {
-		return "border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]";
-	}
-
 	switch (getTaskVisualState(task.status)) {
 		case "completed":
-			return "border-[#99F6E4] bg-[#F0FDFA] text-[#115E59]";
+			return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/12 dark:text-emerald-100";
 		case "blocked":
-			return "border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]";
+			return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/12 dark:text-rose-100";
 		case "not_started":
-			return "border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]";
+			return "border-slate-200 bg-slate-50 text-slate-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200";
 		case "in_progress":
 		default:
-			return "border-[#BFDBFE] bg-[#EFF6FF] text-[#1E40AF]";
+			return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/12 dark:text-amber-100";
 	}
 }
 
@@ -266,16 +289,16 @@ function getGroupAccentClasses(groupKey: string) {
 	switch (groupKey) {
 		case "foundations":
 		case "construction":
-			return "bg-[#C0841A]";
+			return "bg-amber-400";
 		case "finishes":
 		case "architectural":
-			return "bg-[#64748B]";
+			return "bg-slate-300";
 		case "mechanical":
-			return "bg-[#0F766E]";
+			return "bg-emerald-400";
 		case "electrical":
-			return "bg-[#2563EB]";
+			return "bg-sky-400";
 		default:
-			return "bg-[#475569]";
+			return "bg-slate-400";
 	}
 }
 
@@ -568,6 +591,7 @@ export default function TaskTimelineView({
 	const [searchValue, setSearchValue] = useState("");
 	const [filtersOpen, setFiltersOpen] = useState(false);
 	const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed" | "late" | "scheduled">("all");
+	const [viewMode, setViewMode] = useState<ViewMode>("month");
 	const [denseView, setDenseView] = useState(compact);
 	const [zoomIndex, setZoomIndex] = useState(compact ? 0 : 1);
 	const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -744,9 +768,9 @@ export default function TaskTimelineView({
 		return metrics;
 	}, [fallbackLabels.activities, fallbackLabels.noOwner, groupedSections]);
 
-	const visibleTimelineRows = useMemo(() => {
+	const filteredSections = useMemo(() => {
 		const query = searchValue.trim().toLowerCase();
-		const rows: TimelineRow[] = [];
+		const sections: GroupSection[] = [];
 
 		for (const section of groupedSections) {
 			const groupTitleMatches = query ? section.group.title.toLowerCase().includes(query) : false;
@@ -758,21 +782,45 @@ export default function TaskTimelineView({
 				continue;
 			}
 
+			sections.push({
+				group: section.group,
+				tasks: visibleTasks,
+			});
+		}
+
+		return sections;
+	}, [groupedSections, searchValue, statusFilter, t]);
+
+	const visibleTimelineRows = useMemo(() => {
+		const rows: TimelineRow[] = [];
+
+		for (const section of filteredSections) {
 			rows.push(section.group);
 
 			if (!collapsedGroups[section.group.key]) {
-				rows.push(...visibleTasks);
+				rows.push(...section.tasks);
 			}
 		}
 
 		return rows;
-	}, [collapsedGroups, groupedSections, searchValue, statusFilter, t]);
+	}, [collapsedGroups, filteredSections]);
 
-	const visibleTaskCount = visibleTimelineRows.filter((row) => row.rowType !== "group").length;
-	const timelineRange = getTimelineRangeFromRows(translatedTimelineRows, today);
+	const rangeSourceRows = useMemo(
+		() => filteredSections.flatMap((section) => section.tasks),
+		[filteredSections]
+	);
+	const timelineRange = useMemo(
+		() =>
+			getTimelineRangeFromRows(rangeSourceRows, today, {
+				paddingDays: 10,
+				minimumSpanDays: viewMode === "month" ? 28 : 20,
+				fallbackSpanDays: 30,
+			}),
+		[rangeSourceRows, today, viewMode]
+	);
 	const layout = useMemo(
-		() => getResolvedLayout(timelineRange.totalDays, denseView, ZOOM_LEVELS[zoomIndex]),
-		[denseView, timelineRange.totalDays, zoomIndex]
+		() => getResolvedLayout(timelineRange.totalDays, denseView, ZOOM_LEVELS[zoomIndex], viewMode),
+		[denseView, timelineRange.totalDays, viewMode, zoomIndex]
 	);
 	const thisWeekTasks = getThisWeekTasks(timelineTasks, today);
 	const monthSegments = useMemo(
@@ -783,6 +831,11 @@ export default function TaskTimelineView({
 		() => buildWeekSegments(timelineRange.start, timelineRange.end, locale),
 		[locale, timelineRange.end, timelineRange.start]
 	);
+	const daySegments = useMemo(
+		() => buildDaySegments(timelineRange.start, timelineRange.end, locale),
+		[locale, timelineRange.end, timelineRange.start]
+	);
+	const secondaryHeaderSegments = viewMode === "month" ? weekSegments : daySegments;
 	const rtlTimeline = isRTL;
 	const timelineWidth = timelineRange.totalDays * layout.dayColumnWidth;
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
@@ -918,6 +971,7 @@ export default function TaskTimelineView({
 	const timelineWindowLabel = `${format(timelineRange.start, "d MMM yyyy", {
 		locale,
 	})} - ${format(timelineRange.end, "d MMM yyyy", { locale })}`;
+	const todayBadgeLabel = `${fallbackLabels.today} - ${format(today, "d MMM yyyy", { locale })}`;
 	const hasAnyTasks = timelineTasks.length > 0;
 	const hasQueryOrFilter = searchValue.trim().length > 0 || statusFilter !== "all";
 	const emptyStateLabel = isLoading
@@ -930,8 +984,8 @@ export default function TaskTimelineView({
 	const shouldShowEmptyState = isLoading || !hasAnyTasks || visibleTimelineRows.length === 0;
 
 	return (
-		<div className="w-full min-w-0 overflow-hidden border-x-0 border-y border-[#D7DEE8] bg-[#FBFCFD] text-[#0F172A] shadow-none dark:border-[#2E261E] dark:bg-[#14110D] dark:text-stone-100">
-			<div className="border-b border-[#D7DEE8] bg-[#F8FAFC] px-4 py-2 sm:px-5 dark:border-[#2E261E] dark:bg-[#17120E]">
+		<div className="w-full min-w-0 overflow-hidden border-y border-slate-200 bg-slate-50 text-slate-900 shadow-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-100">
+			<div className="border-b border-slate-200 bg-slate-50 px-4 py-2 sm:px-5 dark:border-stone-800 dark:bg-stone-950">
 				<div className="flex min-h-[52px] flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
 					<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
 						<h2 className="text-[16px] font-semibold tracking-[-0.01em] text-[#0F172A] dark:text-stone-100">
@@ -953,13 +1007,13 @@ export default function TaskTimelineView({
 					<div className="flex w-full flex-col gap-2 xl:w-auto">
 						<div className="flex w-full flex-col gap-2 xl:flex-row xl:items-center xl:justify-end">
 							<div className="relative min-w-0 xl:w-[220px]">
-								<Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#64748B] dark:text-stone-400" />
+								<Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-stone-400" />
 								<Input
 									value={searchValue}
 									onChange={(event) => setSearchValue(event.target.value)}
 									placeholder={fallbackLabels.search}
 									className={cn(
-										"h-8 rounded-[2px] border-[#D6DDE7] bg-white pl-8 text-[12px] shadow-none dark:border-[#3A3128] dark:bg-[#17120E]",
+										"h-8 rounded-sm border-slate-200 bg-white pl-8 text-[12px] shadow-none dark:border-stone-800 dark:bg-stone-950",
 										isRTL && "text-right"
 									)}
 								/>
@@ -1000,6 +1054,28 @@ export default function TaskTimelineView({
 									<Filter className="me-1.5 h-3.5 w-3.5" />
 									{fallbackLabels.filters}
 								</Button>
+								<div className="flex h-8 items-center rounded-sm border border-slate-200 bg-white p-0.5 dark:border-stone-800 dark:bg-stone-950">
+									{(
+										[
+											["month", lang === "ar" ? "شهري" : "Month"],
+											["week", lang === "ar" ? "أسبوعي" : "Week"],
+										] as const
+									).map(([mode, label]) => (
+										<button
+											key={mode}
+											type="button"
+											onClick={() => setViewMode(mode)}
+											className={cn(
+												"inline-flex h-7 items-center rounded-sm px-2.5 text-[11px] font-semibold transition-colors",
+												viewMode === mode
+													? "bg-slate-900 text-white dark:bg-stone-200 dark:text-stone-950"
+													: "text-slate-600 hover:bg-slate-100 dark:text-stone-300 dark:hover:bg-stone-900"
+											)}
+										>
+											{label}
+										</button>
+									))}
+								</div>
 								<Button
 									type="button"
 									variant="outline"
@@ -1010,18 +1086,18 @@ export default function TaskTimelineView({
 									<Eye className="me-1.5 h-3.5 w-3.5" />
 									{fallbackLabels.view}
 								</Button>
-								<div className="flex h-8 items-center rounded-sm border border-[#D6DDE7] bg-white px-0.5 shadow-none dark:border-[#3A3128] dark:bg-[#17120E]">
+								<div className="flex h-8 items-center rounded-sm border border-slate-200 bg-white px-0.5 shadow-none dark:border-stone-800 dark:bg-stone-950">
 									<Button
 										type="button"
 										variant="ghost"
 										size="icon"
 										disabled={zoomIndex === 0}
 										onClick={() => setZoomIndex((current) => Math.max(0, current - 1))}
-										className="h-7 w-7 rounded-sm text-[#0F172A] hover:bg-[#EFF6FF] dark:text-stone-100 dark:hover:bg-[#221b15]"
+										className="h-7 w-7 rounded-sm text-slate-900 hover:bg-slate-100 dark:text-stone-100 dark:hover:bg-stone-900"
 									>
 										<ZoomOut className="h-3.5 w-3.5" />
 									</Button>
-									<span className="min-w-[48px] text-center text-[11px] font-semibold text-[#475569] dark:text-stone-300">
+									<span className="min-w-[48px] text-center text-[11px] font-semibold text-slate-600 dark:text-stone-300">
 										{Math.round(ZOOM_LEVELS[zoomIndex] * 100)}%
 									</span>
 									<Button
@@ -1032,7 +1108,7 @@ export default function TaskTimelineView({
 										onClick={() =>
 											setZoomIndex((current) => Math.min(ZOOM_LEVELS.length - 1, current + 1))
 										}
-										className="h-7 w-7 rounded-sm text-[#0F172A] hover:bg-[#EFF6FF] dark:text-stone-100 dark:hover:bg-[#221b15]"
+										className="h-7 w-7 rounded-sm text-slate-900 hover:bg-slate-100 dark:text-stone-100 dark:hover:bg-stone-900"
 									>
 										<ZoomIn className="h-3.5 w-3.5" />
 									</Button>
@@ -1042,7 +1118,7 @@ export default function TaskTimelineView({
 									size="sm"
 									disabled={!projectId}
 									onClick={openTasksPage}
-									className="h-8 rounded-sm bg-[#0F172A] px-3 text-[12px] font-medium text-white hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#E7D7BC] dark:text-[#1A140F] dark:hover:bg-[#F4E9D4]"
+									className="h-8 rounded-sm bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-stone-200 dark:text-stone-950 dark:hover:bg-stone-100"
 								>
 									<Plus className="me-1.5 h-3.5 w-3.5" />
 									{fallbackLabels.addActivity}
@@ -1051,7 +1127,7 @@ export default function TaskTimelineView({
 						</div>
 
 						{filtersOpen ? (
-							<div className="flex flex-wrap items-center gap-1.5 border-t border-[#E9EEF5] pt-2 dark:border-[#2A221B]">
+							<div className="flex flex-wrap items-center gap-1.5 border-t border-slate-200 pt-2 dark:border-stone-800">
 								{(
 									[
 										["all", fallbackLabels.all],
@@ -1068,14 +1144,14 @@ export default function TaskTimelineView({
 										className={cn(
 											"inline-flex h-7 items-center rounded-sm border px-2.5 text-[11px] font-semibold transition-colors",
 											statusFilter === value
-												? "border-[#0F172A] bg-[#0F172A] text-white dark:border-[#E7D7BC] dark:bg-[#E7D7BC] dark:text-[#1A140F]"
-												: "border-[#D7DEE8] bg-white text-[#334155] hover:border-[#94A3B8] dark:border-[#3A3128] dark:bg-[#1A1511] dark:text-stone-200"
+												? "border-slate-900 bg-slate-900 text-white dark:border-stone-200 dark:bg-stone-200 dark:text-stone-950"
+												: "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
 										)}
 									>
 										{label}
 									</button>
 								))}
-								<span className="text-[11px] text-[#64748B] dark:text-stone-400">
+								<span className="text-[11px] text-slate-500 dark:text-stone-400">
 									{denseView ? fallbackLabels.compactView : fallbackLabels.standardView}
 								</span>
 							</div>
@@ -1086,16 +1162,16 @@ export default function TaskTimelineView({
 
 			<div className="min-w-0 overflow-hidden" dir={isRTL ? "rtl" : "ltr"}>
 				<div
-					className="sticky top-0 z-30 grid border-b border-[#D7DEE8] bg-[#F7F9FC] dark:border-[#2E261E] dark:bg-[#17120E]"
+					className="sticky top-0 z-30 grid border-b border-slate-200 bg-slate-100 dark:border-stone-800 dark:bg-stone-950"
 					style={{ gridTemplateColumns: `${layout.leftColumnWidth}px minmax(0, 1fr)` }}
 				>
 					<div
 						className={cn(
-							"bg-[#F7F9FC] dark:bg-[#17120E]",
-							isRTL ? "border-l border-[#D7DEE8] dark:border-[#2E261E]" : "border-r border-[#D7DEE8] dark:border-[#2E261E]"
+							"bg-slate-100 dark:bg-stone-950",
+							isRTL ? "border-l border-slate-200 dark:border-stone-800" : "border-r border-slate-200 dark:border-stone-800"
 						)}
 					>
-						<div className="flex h-8 items-center border-b border-[#D7DEE8] px-4 dark:border-[#2E261E]">
+						<div className="flex h-8 items-center border-b border-slate-200 px-4 dark:border-stone-800">
 							<span className={HEADER_CAPTION_CLASS}>
 								{fallbackLabels.table}
 							</span>
@@ -1119,8 +1195,8 @@ export default function TaskTimelineView({
 						</div>
 					</div>
 
-					<div className="min-w-0 bg-[#F7F9FC] dark:bg-[#17120E]" dir="ltr">
-						<div className="flex h-8 items-center border-b border-[#D7DEE8] px-4 dark:border-[#2E261E]">
+					<div className="min-w-0 bg-slate-100 dark:bg-stone-950" dir="ltr">
+						<div className="flex h-8 items-center border-b border-slate-200 px-4 dark:border-stone-800">
 							<span className={HEADER_CAPTION_CLASS}>
 								{fallbackLabels.timeline}
 							</span>
@@ -1130,27 +1206,27 @@ export default function TaskTimelineView({
 							className="overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 						>
 							<div className="relative" style={{ width: timelineWidth }}>
-								<div className={cn("flex h-9 border-b border-[#D7DEE8] dark:border-[#2E261E]", rtlTimeline && "flex-row-reverse")}>
+								<div className={cn("flex h-9 border-b border-slate-200 dark:border-stone-800", rtlTimeline && "flex-row-reverse")}>
 									{monthSegments.map((segment) => (
 										<div
 											key={segment.key}
-											className="flex shrink-0 items-center justify-center border-r border-[#D7DEE8] bg-[#F7F9FC] px-2 dark:border-[#2E261E] dark:bg-[#17120E]"
+											className="flex shrink-0 items-center justify-center border-r border-slate-200 bg-slate-100 px-2 dark:border-stone-800 dark:bg-stone-950"
 											style={{ width: segment.days * layout.dayColumnWidth }}
 										>
-											<span className="whitespace-nowrap text-[11px] font-semibold text-[#334155] dark:text-stone-200">
+											<span className="whitespace-nowrap text-[11px] font-semibold text-slate-700 dark:text-stone-200">
 												{segment.label}
 											</span>
 										</div>
 									))}
 								</div>
 								<div className={cn("flex h-8", rtlTimeline && "flex-row-reverse")}>
-									{weekSegments.map((segment) => (
+									{secondaryHeaderSegments.map((segment) => (
 										<div
 											key={segment.key}
-											className="flex shrink-0 items-center justify-center border-r border-[#E2E8F0] bg-white px-2 dark:border-[#2E261E] dark:bg-[#15110D]"
+											className="flex shrink-0 items-center justify-center border-r border-slate-200 bg-white px-2 dark:border-stone-800 dark:bg-stone-950"
 											style={{ width: segment.days * layout.dayColumnWidth }}
 										>
-											<span className="whitespace-nowrap text-[10px] font-medium text-[#64748B] dark:text-stone-400">
+											<span className="whitespace-nowrap text-[10px] font-medium text-slate-500 dark:text-stone-400">
 												{segment.subLabel ? `${segment.label} - ${segment.subLabel}` : segment.label}
 											</span>
 										</div>
@@ -1158,10 +1234,10 @@ export default function TaskTimelineView({
 								</div>
 								{todayOffset >= 0 && todayOffset < timelineRange.totalDays ? (
 									<div className="pointer-events-none absolute inset-y-0 z-20" style={{ left: todayLeft }}>
-										<div className="absolute left-1/2 top-1 -translate-x-1/2 rounded-sm bg-[#2563EB] px-1 py-0.5 text-[9px] font-semibold text-white">
-											{fallbackLabels.today}
+										<div className="absolute left-1/2 top-1 -translate-x-1/2 rounded-sm border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-100">
+											{todayBadgeLabel}
 										</div>
-										<div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-[#2563EB]" />
+										<div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-rose-500" />
 									</div>
 								) : null}
 							</div>
@@ -1196,50 +1272,54 @@ export default function TaskTimelineView({
 										return (
 											<div
 												key={row.key}
-												className="absolute inset-x-0 border-b border-[#E2E8F0] bg-[#F3F6FA] px-4 dark:border-[#2E261E] dark:bg-[#19140F]"
+												className="absolute inset-x-0 border-b border-slate-950 bg-slate-900 px-4 text-white dark:border-stone-700 dark:bg-stone-900"
 												style={{ top: row.top, height: row.height }}
 											>
 												<div
 													className="grid h-full items-center gap-3"
 													style={{ gridTemplateColumns: TABLE_COLUMN_TEMPLATE }}
 												>
-													<button
-														type="button"
-														onClick={() =>
-															setCollapsedGroups((current) => ({
-																...current,
-																[row.key]: !current[row.key],
-															}))
-														}
-														className={cn(
-															"flex min-w-0 items-center gap-2 text-left",
-															isRTL && "justify-end text-right"
-														)}
-													>
-														{isCollapsed ? (
-															<ChevronRight className="h-3.5 w-3.5 shrink-0 text-[#475569] dark:text-stone-300" />
-														) : (
-															<ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#475569] dark:text-stone-300" />
-														)}
-														<span
-															className={cn(
-																"h-2 w-2 shrink-0 rounded-full",
-																getGroupAccentClasses(row.groupKey)
-															)}
-														/>
-														<div className="min-w-0">
-															<p className="truncate text-[12px] font-semibold text-[#0F172A] dark:text-stone-100">
-																{row.title}
-															</p>
-														</div>
-													</button>
-													<p className="truncate text-[11px] text-[#526173] dark:text-stone-300">
+													<Collapsible open={!isCollapsed}>
+														<CollapsibleTrigger asChild>
+															<button
+																type="button"
+																onClick={() =>
+																	setCollapsedGroups((current) => ({
+																		...current,
+																		[row.key]: !current[row.key],
+																	}))
+																}
+																className={cn(
+																	"flex min-w-0 items-center gap-2 text-left",
+																	isRTL && "justify-end text-right"
+																)}
+															>
+																{isCollapsed ? (
+																	<ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300 dark:text-stone-300" />
+																) : (
+																	<ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-300 dark:text-stone-300" />
+																)}
+																<span
+																	className={cn(
+																		"h-2 w-2 shrink-0 rounded-full",
+																		getGroupAccentClasses(row.groupKey)
+																	)}
+																/>
+																<div className="min-w-0">
+																	<p className="truncate text-[12px] font-semibold text-white dark:text-stone-100">
+																		{row.title}
+																	</p>
+																</div>
+															</button>
+														</CollapsibleTrigger>
+													</Collapsible>
+													<p className="truncate text-[11px] text-slate-200 dark:text-stone-300">
 														{metrics?.ownersLabel ?? fallbackLabels.noOwner}
 													</p>
-													<p className="truncate text-[11px] font-medium text-[#526173] dark:text-stone-300">
+													<p className="truncate text-[11px] font-medium text-slate-200 dark:text-stone-300">
 														{metrics ? `${metrics.completedCount}/${metrics.totalCount}` : "-"}
 													</p>
-													<p className="text-[11px] font-semibold text-[#334155] dark:text-stone-200">
+													<p className="text-[11px] font-semibold text-slate-100 dark:text-stone-200">
 														{metrics?.averageProgress ?? 0}%
 													</p>
 												</div>
@@ -1260,7 +1340,7 @@ export default function TaskTimelineView({
 										return (
 											<div
 												key={row.key}
-												className="absolute inset-x-0 border-b border-[#EEF2F7] bg-[#FCFDFE] px-4 dark:border-[#241D17] dark:bg-[#15110D]"
+												className="absolute inset-x-0 border-b border-slate-200 bg-slate-50/70 px-4 dark:border-stone-900 dark:bg-stone-950"
 												style={{ top: row.top, height: row.height }}
 											>
 												<div
@@ -1273,7 +1353,7 @@ export default function TaskTimelineView({
 															onClick={() => openTask(task.id)}
 															disabled={!taskHref}
 															className={cn(
-																"block max-w-full truncate text-[12px] font-medium leading-5 text-[#0F172A] transition-colors hover:text-[#2563EB] disabled:cursor-default disabled:hover:text-[#0F172A] dark:text-stone-100 dark:disabled:hover:text-stone-100",
+																"block max-w-full truncate text-[12px] font-medium leading-5 text-slate-900 transition-colors hover:text-sky-600 disabled:cursor-default disabled:hover:text-slate-900 dark:text-stone-100 dark:disabled:hover:text-stone-100",
 																isRTL && "ms-auto text-right"
 															)}
 														>
@@ -1281,22 +1361,22 @@ export default function TaskTimelineView({
 														</button>
 														<div
 															className={cn(
-																"mt-0.5 flex items-center gap-1.5 text-[10px] text-[#6B7A8C] dark:text-stone-400",
+																"mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-stone-400",
 																isRTL && "justify-end"
 															)}
 														>
 															<span>{formatTimelineCellDate(task.startDate, locale)}</span>
-															<span className="text-[#CBD5E1] dark:text-stone-600">/</span>
+															<span className="text-slate-300 dark:text-stone-600">/</span>
 															<span>{durationLabel}</span>
 														</div>
 													</div>
 
 													<div className="min-w-0">
 														<div className="flex items-center gap-1.5">
-															<span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF3F8] text-[9px] font-bold text-[#334155] dark:bg-[#211A14] dark:text-stone-100">
+															<span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-700 dark:bg-stone-900 dark:text-stone-100">
 																{getOwnerInitials(task.ownerLabel || fallbackLabels.noOwner)}
 															</span>
-															<span className="truncate text-[11px] text-[#334155] dark:text-stone-200">
+															<span className="truncate text-[11px] text-slate-700 dark:text-stone-200">
 																{task.ownerLabel || fallbackLabels.noOwner}
 															</span>
 														</div>
@@ -1314,13 +1394,13 @@ export default function TaskTimelineView({
 													</div>
 
 													<div className="min-w-0">
-														<div className="flex items-center justify-between gap-2 text-[10px] font-semibold text-[#334155] dark:text-stone-200">
+														<div className="flex items-center justify-between gap-2 text-[10px] font-semibold text-slate-700 dark:text-stone-200">
 															<span>{task.progress}%</span>
 														</div>
 														<Progress
 															value={task.progress}
 															showValueLabel={false}
-															className="mt-1 h-1 bg-[#E2E8F0] dark:bg-[#2E261E]"
+															className="mt-1 h-1 bg-slate-200 dark:bg-stone-800"
 															indicatorClassName={getProgressIndicatorClasses(task)}
 														/>
 													</div>
@@ -1332,7 +1412,7 @@ export default function TaskTimelineView({
 							)}
 						</div>
 
-						<div className="min-w-0 overflow-hidden bg-white dark:bg-[#15110D]" dir="ltr">
+						<div className="min-w-0 overflow-hidden bg-white dark:bg-stone-950" dir="ltr">
 							<div
 								ref={bodyScrollRef}
 								className="overflow-x-auto overflow-y-hidden"
@@ -1344,19 +1424,21 @@ export default function TaskTimelineView({
 										height: bodyHeight,
 										backgroundImage:
 											layout.dayColumnWidth >= 18
-												? `repeating-linear-gradient(to right, rgba(148,163,184,0.03) 0, rgba(148,163,184,0.03) ${layout.dayColumnWidth - 1}px, rgba(148,163,184,0.16) ${layout.dayColumnWidth - 1}px, rgba(148,163,184,0.16) ${layout.dayColumnWidth}px)`
+												? viewMode === "week"
+													? `repeating-linear-gradient(to right, rgba(148,163,184,0.06) 0, rgba(148,163,184,0.06) ${layout.dayColumnWidth - 1}px, rgba(148,163,184,0.22) ${layout.dayColumnWidth - 1}px, rgba(148,163,184,0.22) ${layout.dayColumnWidth}px)`
+													: `repeating-linear-gradient(to right, rgba(148,163,184,0.03) 0, rgba(148,163,184,0.03) ${layout.dayColumnWidth - 1}px, rgba(148,163,184,0.14) ${layout.dayColumnWidth - 1}px, rgba(148,163,184,0.14) ${layout.dayColumnWidth}px)`
 												: undefined,
 									}}
 								>
 									{shouldShowEmptyState ? (
-										<div className="absolute inset-0 z-20 flex items-center justify-center px-6 text-center text-sm text-[#64748B] dark:text-stone-400">
+										<div className="absolute inset-0 z-20 flex items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-stone-400">
 											{emptyStateLabel}
 										</div>
 									) : null}
 									{monthSegments.slice(1).map((segment) => (
 										<div
 											key={`month-line-${segment.key}`}
-											className="pointer-events-none absolute inset-y-0 z-[2] border-l border-[#B9C5D3] dark:border-[#3A3128]"
+											className="pointer-events-none absolute inset-y-0 z-[2] border-l border-slate-300 dark:border-stone-700"
 											style={{
 												left: getTimelineAxisPosition(
 													segment.startOffsetDays * layout.dayColumnWidth,
@@ -1369,7 +1451,7 @@ export default function TaskTimelineView({
 									{weekSegments.slice(1).map((segment) => (
 										<div
 											key={`week-line-${segment.key}`}
-											className="pointer-events-none absolute inset-y-0 z-[1] border-l border-[#E6ECF3] dark:border-[#2E261E]"
+											className="pointer-events-none absolute inset-y-0 z-[1] border-l border-slate-200 dark:border-stone-800"
 											style={{
 												left: getTimelineAxisPosition(
 													segment.startOffsetDays * layout.dayColumnWidth,
@@ -1381,7 +1463,7 @@ export default function TaskTimelineView({
 									))}
 									{todayOffset >= 0 && todayOffset < timelineRange.totalDays ? (
 										<div className="pointer-events-none absolute inset-y-0 z-20" style={{ left: todayLeft }}>
-											<div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-[#2563EB]" />
+											<div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-rose-500" />
 										</div>
 									) : null}
 
@@ -1389,14 +1471,14 @@ export default function TaskTimelineView({
 										row.rowType === "group" ? (
 											<div
 												key={`timeline-row-${row.key}`}
-												className="absolute inset-x-0 border-b border-[#E2E8F0] bg-[#F4F7FA] dark:border-[#2E261E] dark:bg-[#19140F]"
+												className="absolute inset-x-0 border-b border-slate-950 bg-slate-900 dark:border-stone-700 dark:bg-stone-900"
 												style={{ top: row.top, height: row.height }}
 											>
 												{(() => {
 													const summaryLayout = groupSummaryLayouts.get(row.key);
 													return summaryLayout ? (
 														<div
-															className="absolute top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-[#475569] opacity-80 dark:bg-stone-400"
+															className="absolute top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-slate-300/90 dark:bg-stone-300"
 															style={{
 																left: summaryLayout.left,
 																width: summaryLayout.width,
@@ -1408,7 +1490,7 @@ export default function TaskTimelineView({
 										) : (
 											<div
 												key={`timeline-row-${row.key}`}
-												className="absolute inset-x-0 border-b border-[#EEF2F7] bg-white dark:border-[#241D17] dark:bg-[#15110D]"
+												className="absolute inset-x-0 border-b border-slate-200 bg-white dark:border-stone-900 dark:bg-stone-950"
 												style={{ top: row.top, height: row.height }}
 											/>
 										)
@@ -1431,7 +1513,7 @@ export default function TaskTimelineView({
 												markerHeight="6"
 												orient="auto-start-reverse"
 											>
-												<path d="M 0 0 L 6 3 L 0 6 z" fill="#A8B4C4" />
+												<path d="M 0 0 L 6 3 L 0 6 z" fill="#94A3B8" />
 											</marker>
 										</defs>
 
@@ -1457,7 +1539,7 @@ export default function TaskTimelineView({
 												<path
 													key={edge.key}
 													d={getDependencyPath(fromX, fromY, toX, toY)}
-													stroke="#A8B4C4"
+													stroke="#94A3B8"
 													strokeWidth="1"
 													strokeLinecap="round"
 													strokeLinejoin="round"
@@ -1482,6 +1564,22 @@ export default function TaskTimelineView({
 											12,
 											(taskLayout.barRight ?? taskLayout.markerCenter ?? 0) + 8
 										);
+										const tooltipContent = (
+											<div className="min-w-[180px] space-y-1 text-[11px]">
+												<p className="font-semibold">{task.name}</p>
+												<p>
+													{fallbackLabels.start}: {formatTimelineCellDate(task.startDate, locale)}
+												</p>
+												<p>
+													{fallbackLabels.finish}: {formatTimelineCellDate(task.endDate, locale)}
+												</p>
+												<p>{fallbackLabels.status}: {getTranslatedTaskStatusLabel(task, t)}</p>
+												{task.ownerLabel ? (
+													<p>{lang === "ar" ? "المسؤول" : "Owner"}: {task.ownerLabel}</p>
+												) : null}
+												<p>{lang === "ar" ? "الإنجاز" : "Progress"}: {task.progress}%</p>
+											</div>
+										);
 
 										return (
 											<div
@@ -1491,28 +1589,35 @@ export default function TaskTimelineView({
 											>
 												{taskLayout.isMilestone ? (
 													<>
-														<button
-															type="button"
-															onClick={() => openTask(task.id)}
-															disabled={!taskHref}
-															title={task.name}
-															aria-label={task.name}
-															className={cn(
-																"absolute border shadow-none transition-transform hover:-translate-y-px disabled:cursor-default disabled:hover:translate-y-0",
-																barClasses
-															)}
-															style={{
-																left: taskLayout.barLeft ?? 0,
-																top: (row.height - 10) / 2,
-																width: 10,
-																height: 10,
-																transform: "rotate(45deg)",
-															}}
-														/>
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<button
+																	type="button"
+																	onClick={() => openTask(task.id)}
+																	disabled={!taskHref}
+																	title={task.name}
+																	aria-label={task.name}
+																	className={cn(
+																		"absolute border shadow-none transition-transform hover:-translate-y-px disabled:cursor-default disabled:hover:translate-y-0",
+																		barClasses
+																	)}
+																	style={{
+																		left: taskLayout.barLeft ?? 0,
+																		top: (row.height - 10) / 2,
+																		width: 10,
+																		height: 10,
+																		transform: "rotate(45deg)",
+																	}}
+																/>
+															</TooltipTrigger>
+															<TooltipContent side="top" className="rounded-sm border border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100">
+																{tooltipContent}
+															</TooltipContent>
+														</Tooltip>
 														<span
 															dir={isRTL ? "rtl" : "ltr"}
 															className={cn(
-																"absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-[#475569] dark:text-stone-300",
+																"absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-slate-600 dark:text-stone-300",
 																isRTL && "text-right"
 															)}
 															style={{ left: labelPosition }}
@@ -1522,37 +1627,44 @@ export default function TaskTimelineView({
 													</>
 												) : (
 													<>
-														<button
-															type="button"
-															onClick={() => openTask(task.id)}
-															disabled={!taskHref}
-															title={task.name}
-															aria-label={task.name}
-															className={cn(
-																"absolute flex items-center overflow-hidden rounded-[2px] border px-1.5 text-left shadow-none transition-transform hover:-translate-y-px disabled:cursor-default disabled:hover:translate-y-0",
-																barClasses
-															)}
-															style={{
-																left: taskLayout.barLeft ?? 0,
-																top: (row.height - layout.barHeight) / 2,
-																width: taskLayout.barWidth ?? 0,
-																height: layout.barHeight,
-															}}
-														>
-															{showInlineLabel ? (
-																<span
-																	dir={isRTL ? "rtl" : "ltr"}
-																	className={cn("block min-w-0 truncate text-[10px] font-semibold", isRTL && "text-right")}
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<button
+																	type="button"
+																	onClick={() => openTask(task.id)}
+																	disabled={!taskHref}
+																	title={task.name}
+																	aria-label={task.name}
+																	className={cn(
+																		"absolute flex items-center overflow-hidden rounded-sm border px-1.5 text-left shadow-sm shadow-slate-200/40 transition-transform hover:-translate-y-px disabled:cursor-default disabled:hover:translate-y-0 dark:shadow-none",
+																		barClasses
+																	)}
+																	style={{
+																		left: taskLayout.barLeft ?? 0,
+																		top: (row.height - layout.barHeight) / 2,
+																		width: taskLayout.barWidth ?? 0,
+																		height: layout.barHeight,
+																	}}
 																>
-																	{task.name}
-																</span>
-															) : null}
-														</button>
+																	{showInlineLabel ? (
+																		<span
+																			dir={isRTL ? "rtl" : "ltr"}
+																			className={cn("block min-w-0 truncate text-[10px] font-semibold", isRTL && "text-right")}
+																		>
+																			{task.name}
+																		</span>
+																	) : null}
+																</button>
+															</TooltipTrigger>
+															<TooltipContent side="top" className="rounded-sm border border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100">
+																{tooltipContent}
+															</TooltipContent>
+														</Tooltip>
 														{!showInlineLabel ? (
 															<span
 																dir={isRTL ? "rtl" : "ltr"}
 																className={cn(
-																	"absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-[#475569] dark:text-stone-300",
+																	"absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-slate-600 dark:text-stone-300",
 																	isRTL && "text-right"
 																)}
 																style={{ left: labelPosition }}

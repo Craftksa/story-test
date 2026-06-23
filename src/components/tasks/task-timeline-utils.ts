@@ -9,18 +9,24 @@ import {
 } from "date-fns";
 
 export type TimelineSourceTask = Record<string, unknown> & {
+	id?: string | number | null;
 	taskId?: string;
 	taskName?: string;
 	taskStatus?: string;
 	taskType?: string;
 	title?: string;
 	name?: string;
+	status?: string | null;
+	type?: string | null;
 	startDate?: string | Date | null;
 	endDate?: string | Date | null;
 	dueDate?: string | Date | null;
 	createdAt?: string | Date | null;
 	updatedAt?: string | Date | null;
 	notes?: string | null;
+	progress?: number | string | null;
+	percentComplete?: number | string | null;
+	completion?: number | string | null;
 };
 
 export type TimelineTeamMember = {
@@ -95,6 +101,12 @@ export type TimelineRange = {
 	start: Date;
 	end: Date;
 	totalDays: number;
+};
+
+export type TimelineRangeOptions = {
+	paddingDays?: number;
+	minimumSpanDays?: number;
+	fallbackSpanDays?: number;
 };
 
 const GROUP_ORDER: Record<string, number> = {
@@ -216,7 +228,38 @@ function normalizeTaskStatus(status: unknown) {
 	return status.trim().toLowerCase();
 }
 
-function getTaskProgress(status: string, hasStartDate: boolean, startDate: Date | null, endDate: Date | null, referenceDate: Date) {
+function toProgressValue(value: unknown) {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return clamp(Math.round(value), 0, 100);
+	}
+
+	if (typeof value === "string" && value.trim()) {
+		const normalized = Number.parseFloat(value.replace("%", "").trim());
+		if (Number.isFinite(normalized)) {
+			return clamp(Math.round(normalized), 0, 100);
+		}
+	}
+
+	return null;
+}
+
+function getTaskProgress(
+	task: TimelineSourceTask,
+	status: string,
+	hasStartDate: boolean,
+	startDate: Date | null,
+	endDate: Date | null,
+	referenceDate: Date
+) {
+	const explicitProgress =
+		toProgressValue(task.progress) ??
+		toProgressValue(task.percentComplete) ??
+		toProgressValue(task.completion);
+
+	if (explicitProgress !== null) {
+		return explicitProgress;
+	}
+
 	if (status === "completed") return 100;
 	if (status === "not_started" || status === "pending") return 0;
 	if (["on_hold", "paused", "stopped", "blocked"].includes(status)) return 38;
@@ -290,6 +333,14 @@ function getTaskName(task: TimelineSourceTask, index: number) {
 }
 
 function getTaskId(task: TimelineSourceTask, index: number) {
+	if (typeof task.id === "string" && task.id.trim()) {
+		return task.id.trim();
+	}
+
+	if (typeof task.id === "number" && Number.isFinite(task.id)) {
+		return String(task.id);
+	}
+
 	if (typeof task.taskId === "string" && task.taskId.trim()) {
 		return task.taskId.trim();
 	}
@@ -312,25 +363,29 @@ export function createTimelineTasks(
 			const updatedAt = toDate(task.updatedAt);
 			const startDate = toDate(task.startDate);
 			const explicitEndDate = toDate(task.endDate) ?? toDate(task.dueDate);
+			const derivedEndDate = startDate && !explicitEndDate ? addDays(startDate, 2) : explicitEndDate;
 			const safeEndDate =
-				startDate && explicitEndDate && explicitEndDate.getTime() < startDate.getTime()
+				startDate && derivedEndDate && derivedEndDate.getTime() < startDate.getTime()
 					? startDate
-					: explicitEndDate;
+					: derivedEndDate;
 			const placementDate = startDate ?? safeEndDate ?? updatedAt ?? createdAt ?? referenceDate;
-			const status = normalizeTaskStatus(task.taskStatus);
-			const typeMeta = normalizeTaskType(task.taskType);
+			const status = normalizeTaskStatus(task.taskStatus ?? task.status);
+			const typeMeta = normalizeTaskType(task.taskType ?? task.type);
+			const scheduledStartDate = startDate;
+			const scheduledEndDate = safeEndDate;
 			const isOverdue =
-				Boolean(safeEndDate) &&
+				Boolean(scheduledEndDate) &&
 				status !== "completed" &&
-				safeEndDate.getTime() < referenceDate.getTime();
-			const isScheduled = Boolean(startDate && safeEndDate);
+				(scheduledEndDate ? scheduledEndDate.getTime() < referenceDate.getTime() : false);
+			const isScheduled = Boolean(scheduledStartDate && scheduledEndDate);
 			const durationDays =
-				isScheduled && startDate && safeEndDate
-					? Math.max(1, differenceInCalendarDays(safeEndDate, startDate) + 1)
+				scheduledStartDate && scheduledEndDate
+					? Math.max(1, differenceInCalendarDays(scheduledEndDate, scheduledStartDate) + 1)
 					: 1;
 			const isMilestone =
-				Boolean(startDate && safeEndDate) &&
-				differenceInCalendarDays(safeEndDate, startDate) === 0;
+				scheduledStartDate && scheduledEndDate
+					? differenceInCalendarDays(scheduledEndDate, scheduledStartDate) === 0
+					: false;
 			const ownerLabel = getOwnerLabel(task, projectTeam);
 
 			return {
@@ -354,7 +409,7 @@ export function createTimelineTasks(
 				notes: typeof task.notes === "string" ? task.notes : null,
 				owner: ownerLabel,
 				ownerLabel,
-				progress: getTaskProgress(status, Boolean(startDate), startDate, safeEndDate, referenceDate),
+				progress: getTaskProgress(task, status, Boolean(startDate), startDate, safeEndDate, referenceDate),
 				priority: getTaskPriority(status, isOverdue),
 				isOverdue,
 				durationDays,
@@ -448,20 +503,36 @@ export function createTimelineRows(
 }
 
 export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date()): TimelineRange {
-	const safeReferenceDate = startOfDay(referenceDate);
-	const scheduledTasks = tasks.filter(
-		(task) => Boolean(task.isScheduled && task.startDate && task.endDate)
+	return getTimelineRangeWithOptions(
+		tasks
+			.filter((task) => Boolean(task.isScheduled && task.startDate && task.endDate))
+			.map((task) => ({
+				startDate: task.startDate,
+				endDate: task.endDate,
+			})),
+		referenceDate
 	);
-	const startCandidates = scheduledTasks
-		.map((task) => task.startDate)
+}
+
+function getTimelineRangeWithOptions(
+	items: Array<{ startDate: Date | null; endDate: Date | null }>,
+	referenceDate = new Date(),
+	options?: TimelineRangeOptions
+): TimelineRange {
+	const safeReferenceDate = startOfDay(referenceDate);
+	const paddingDays = options?.paddingDays ?? 10;
+	const minimumSpanDays = options?.minimumSpanDays ?? 20;
+	const fallbackSpanDays = options?.fallbackSpanDays ?? 30;
+	const startCandidates = items
+		.map((item) => item.startDate)
 		.filter((date): date is Date => Boolean(date));
-	const endCandidates = scheduledTasks
-		.map((task) => task.endDate)
+	const endCandidates = items
+		.map((item) => item.endDate)
 		.filter((date): date is Date => Boolean(date));
 
 	if (startCandidates.length === 0 && endCandidates.length === 0) {
 		const start = addDays(safeReferenceDate, -7);
-		const end = addDays(start, 27);
+		const end = addDays(start, fallbackSpanDays - 1);
 		return {
 			start,
 			end,
@@ -484,8 +555,11 @@ export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date
 		end = start;
 	}
 
-	if (differenceInCalendarDays(end, start) < 13) {
-		end = addDays(start, 13);
+	start = addDays(start, -paddingDays);
+	end = addDays(end, paddingDays);
+
+	if (differenceInCalendarDays(end, start) + 1 < minimumSpanDays) {
+		end = addDays(start, minimumSpanDays - 1);
 	}
 
 	return {
@@ -495,53 +569,23 @@ export function getTimelineRange(tasks: TimelineTask[], referenceDate = new Date
 	};
 }
 
-export function getTimelineRangeFromRows(rows: TimelineRow[], referenceDate = new Date()): TimelineRange {
-	const safeReferenceDate = startOfDay(referenceDate);
+export function getTimelineRangeFromRows(
+	rows: TimelineRow[],
+	referenceDate = new Date(),
+	options?: TimelineRangeOptions
+): TimelineRange {
 	const scheduledRows = rows.filter(
 		(row): row is Extract<TimelineRow, { rowType: "task" | "milestone" }> =>
 			row.rowType !== "group" && row.hasValidSchedule && Boolean(row.startDate && row.endDate)
 	);
-	const startCandidates = scheduledRows
-		.map((row) => row.startDate)
-		.filter((date): date is Date => Boolean(date));
-	const endCandidates = scheduledRows
-		.map((row) => row.endDate)
-		.filter((date): date is Date => Boolean(date));
-
-	if (startCandidates.length === 0 && endCandidates.length === 0) {
-		const start = addDays(safeReferenceDate, -7);
-		const end = addDays(start, 27);
-		return {
-			start,
-			end,
-			totalDays: differenceInCalendarDays(end, start) + 1,
-		};
-	}
-
-	let start = startCandidates[0] ?? endCandidates[0] ?? safeReferenceDate;
-	let end = endCandidates[0] ?? startCandidates[0] ?? start;
-
-	for (const candidate of startCandidates) {
-		if (candidate.getTime() < start.getTime()) start = candidate;
-	}
-
-	for (const candidate of endCandidates) {
-		if (candidate.getTime() > end.getTime()) end = candidate;
-	}
-
-	if (end.getTime() < start.getTime()) {
-		end = start;
-	}
-
-	if (differenceInCalendarDays(end, start) < 13) {
-		end = addDays(start, 13);
-	}
-
-	return {
-		start,
-		end,
-		totalDays: differenceInCalendarDays(end, start) + 1,
-	};
+	return getTimelineRangeWithOptions(
+		scheduledRows.map((row) => ({
+			startDate: row.startDate,
+			endDate: row.endDate,
+		})),
+		referenceDate,
+		options
+	);
 }
 
 export function getThisWeekTasks(tasks: TimelineTask[], referenceDate = new Date()) {
