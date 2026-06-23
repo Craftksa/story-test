@@ -329,7 +329,17 @@ function formatTimelineCellDate(date: Date | null | undefined, locale: typeof en
 	return format(date, "d MMM", { locale });
 }
 
-function getTaskLayouts(timelineStart: Date, layout: TimelineLayoutMetrics, timelineRows: TimelineRow[]) {
+function getTimelineAxisPosition(position: number, timelineWidth: number, rtlTimeline: boolean) {
+	return rtlTimeline ? timelineWidth - position : position;
+}
+
+function getTaskLayouts(
+	timelineStart: Date,
+	layout: TimelineLayoutMetrics,
+	timelineRows: TimelineRow[],
+	timelineWidth: number,
+	rtlTimeline: boolean
+) {
 	const taskLayouts = new Map<string, TimelineTaskLayout>();
 	const rows: PositionedTimelineRow[] = [];
 	let currentTop = 0;
@@ -356,14 +366,21 @@ function getTaskLayouts(timelineStart: Date, layout: TimelineLayoutMetrics, time
 
 		if (isRenderable && row.startDate) {
 			const startOffset = Math.max(0, differenceInCalendarDays(row.startDate, timelineStart));
+			const logicalStartLeft = startOffset * layout.dayColumnWidth;
 
 			if (row.rowType === "milestone") {
 				barWidth = Math.max(layout.barHeight + 2, 12);
-				markerCenter = startOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
+				markerCenter = getTimelineAxisPosition(
+					logicalStartLeft + layout.dayColumnWidth / 2,
+					timelineWidth,
+					rtlTimeline
+				);
 				barLeft = markerCenter - barWidth / 2;
 			} else {
-				barLeft = startOffset * layout.dayColumnWidth + 4;
 				barWidth = Math.max(14, durationDays * layout.dayColumnWidth - 8);
+				barLeft = rtlTimeline
+					? timelineWidth - logicalStartLeft - barWidth - 4
+					: logicalStartLeft + 4;
 			}
 		}
 
@@ -766,12 +783,17 @@ export default function TaskTimelineView({
 		() => buildWeekSegments(timelineRange.start, timelineRange.end, locale),
 		[locale, timelineRange.end, timelineRange.start]
 	);
+	const rtlTimeline = isRTL;
 	const timelineWidth = timelineRange.totalDays * layout.dayColumnWidth;
 	const todayOffset = differenceInCalendarDays(today, timelineRange.start);
-	const todayLeft = todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2;
+	const todayLeft = getTimelineAxisPosition(
+		todayOffset * layout.dayColumnWidth + layout.dayColumnWidth / 2,
+		timelineWidth,
+		rtlTimeline
+	);
 	const { rows: positionedTimelineRows, taskLayouts, bodyHeight } = useMemo(
-		() => getTaskLayouts(timelineRange.start, layout, visibleTimelineRows),
-		[layout, timelineRange.start, visibleTimelineRows]
+		() => getTaskLayouts(timelineRange.start, layout, visibleTimelineRows, timelineWidth, rtlTimeline),
+		[layout, rtlTimeline, timelineRange.start, timelineWidth, visibleTimelineRows]
 	);
 
 	const groupSummaryLayouts = useMemo(() => {
@@ -1062,12 +1084,17 @@ export default function TaskTimelineView({
 				</div>
 			</div>
 
-			<div className="min-w-0 overflow-hidden" dir="ltr">
+			<div className="min-w-0 overflow-hidden" dir={isRTL ? "rtl" : "ltr"}>
 				<div
 					className="sticky top-0 z-30 grid border-b border-[#D7DEE8] bg-[#F7F9FC] dark:border-[#2E261E] dark:bg-[#17120E]"
 					style={{ gridTemplateColumns: `${layout.leftColumnWidth}px minmax(0, 1fr)` }}
 				>
-					<div className="border-r border-[#D7DEE8] bg-[#F7F9FC] dark:border-[#2E261E] dark:bg-[#17120E]">
+					<div
+						className={cn(
+							"bg-[#F7F9FC] dark:bg-[#17120E]",
+							isRTL ? "border-l border-[#D7DEE8] dark:border-[#2E261E]" : "border-r border-[#D7DEE8] dark:border-[#2E261E]"
+						)}
+					>
 						<div className="flex h-8 items-center border-b border-[#D7DEE8] px-4 dark:border-[#2E261E]">
 							<span className={HEADER_CAPTION_CLASS}>
 								{fallbackLabels.table}
@@ -1092,7 +1119,7 @@ export default function TaskTimelineView({
 						</div>
 					</div>
 
-					<div className="min-w-0 bg-[#F7F9FC] dark:bg-[#17120E]">
+					<div className="min-w-0 bg-[#F7F9FC] dark:bg-[#17120E]" dir="ltr">
 						<div className="flex h-8 items-center border-b border-[#D7DEE8] px-4 dark:border-[#2E261E]">
 							<span className={HEADER_CAPTION_CLASS}>
 								{fallbackLabels.timeline}
@@ -1103,7 +1130,7 @@ export default function TaskTimelineView({
 							className="overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 						>
 							<div className="relative" style={{ width: timelineWidth }}>
-								<div className="flex h-9 border-b border-[#D7DEE8] dark:border-[#2E261E]">
+								<div className={cn("flex h-9 border-b border-[#D7DEE8] dark:border-[#2E261E]", rtlTimeline && "flex-row-reverse")}>
 									{monthSegments.map((segment) => (
 										<div
 											key={segment.key}
@@ -1116,7 +1143,7 @@ export default function TaskTimelineView({
 										</div>
 									))}
 								</div>
-								<div className="flex h-8">
+								<div className={cn("flex h-8", rtlTimeline && "flex-row-reverse")}>
 									{weekSegments.map((segment) => (
 										<div
 											key={segment.key}
@@ -1148,7 +1175,10 @@ export default function TaskTimelineView({
 						style={{ gridTemplateColumns: `${layout.leftColumnWidth}px minmax(0, 1fr)` }}
 					>
 						<div
-							className="relative border-r border-[#D7DEE8] bg-[#FCFDFE] dark:border-[#2E261E] dark:bg-[#15110D]"
+							className={cn(
+								"relative bg-[#FCFDFE] dark:bg-[#15110D]",
+								isRTL ? "border-l border-[#D7DEE8] dark:border-[#2E261E]" : "border-r border-[#D7DEE8] dark:border-[#2E261E]"
+							)}
 							style={{ height: bodyHeight }}
 						>
 							{shouldShowEmptyState ? (
@@ -1302,7 +1332,7 @@ export default function TaskTimelineView({
 							)}
 						</div>
 
-						<div className="min-w-0 overflow-hidden bg-white dark:bg-[#15110D]">
+						<div className="min-w-0 overflow-hidden bg-white dark:bg-[#15110D]" dir="ltr">
 							<div
 								ref={bodyScrollRef}
 								className="overflow-x-auto overflow-y-hidden"
@@ -1327,14 +1357,26 @@ export default function TaskTimelineView({
 										<div
 											key={`month-line-${segment.key}`}
 											className="pointer-events-none absolute inset-y-0 z-[2] border-l border-[#B9C5D3] dark:border-[#3A3128]"
-											style={{ left: segment.startOffsetDays * layout.dayColumnWidth }}
+											style={{
+												left: getTimelineAxisPosition(
+													segment.startOffsetDays * layout.dayColumnWidth,
+													timelineWidth,
+													rtlTimeline
+												),
+											}}
 										/>
 									))}
 									{weekSegments.slice(1).map((segment) => (
 										<div
 											key={`week-line-${segment.key}`}
 											className="pointer-events-none absolute inset-y-0 z-[1] border-l border-[#E6ECF3] dark:border-[#2E261E]"
-											style={{ left: segment.startOffsetDays * layout.dayColumnWidth }}
+											style={{
+												left: getTimelineAxisPosition(
+													segment.startOffsetDays * layout.dayColumnWidth,
+													timelineWidth,
+													rtlTimeline
+												),
+											}}
 										/>
 									))}
 									{todayOffset >= 0 && todayOffset < timelineRange.totalDays ? (
