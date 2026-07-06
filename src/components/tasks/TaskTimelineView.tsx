@@ -41,6 +41,7 @@ import {
 	createTimelineTasks,
 	formatTimelineDate,
 	getCurrentWeekRange,
+	getTaskOperationalColorClasses,
 	getSprintBuckets,
 	getTaskDurationLabel,
 	getTaskStatusColorClasses,
@@ -425,6 +426,10 @@ export default function TaskTimelineView({
 	const thisWeekTasks = useMemo(
 		() => getThisWeekTasks(sortedTasks, today),
 		[sortedTasks, today]
+	);
+	const thisWeekTaskIds = useMemo(
+		() => new Set(thisWeekTasks.map((task) => task.id)),
+		[thisWeekTasks]
 	);
 
 	const sprintBuckets = useMemo(
@@ -814,6 +819,7 @@ export default function TaskTimelineView({
 										<div className="space-y-4 p-4">
 											{scheduledTasks.map((task) => {
 												const statusClasses = getTaskStatusColorClasses(task.status);
+												const operationalClasses = getTaskOperationalColorClasses(task, today);
 												const taskHref = resolveTaskHref(task.id);
 												const taskStatusLabel = getTranslatedTaskStatusLabel(task.status, t);
 												const note = task.notes?.trim();
@@ -835,7 +841,7 @@ export default function TaskTimelineView({
 														key={task.id}
 														className={cn(
 															"rounded-2xl border p-4 shadow-sm dark:bg-stone-950",
-															statusClasses.card
+															operationalClasses.card
 														)}
 													>
 														<div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,1fr)] xl:items-start">
@@ -870,7 +876,7 @@ export default function TaskTimelineView({
 																					{labels.overdue}
 																				</Badge>
 																			) : null}
-																			{thisWeekTasks.some((item) => item.id === task.id) ? (
+																			{thisWeekTaskIds.has(task.id) ? (
 																				<Badge className="border border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
 																					{labels.thisWeek}
 																				</Badge>
@@ -933,7 +939,7 @@ export default function TaskTimelineView({
 																		value={task.progress}
 																		showValueLabel={false}
 																		className="h-2 bg-slate-200 dark:bg-stone-800"
-																		indicatorClassName={statusClasses.progress}
+																		indicatorClassName={operationalClasses.progress}
 																	/>
 																</div>
 
@@ -974,7 +980,7 @@ export default function TaskTimelineView({
 																	<div
 																		className={cn(
 																			"absolute top-1/2 h-7 -translate-y-1/2 rounded-xl shadow-sm",
-																			statusClasses.bar,
+																			operationalClasses.bar,
 																			task.isOverdue && "ring-2 ring-rose-300/60 dark:ring-rose-500/40"
 																		)}
 																		style={getRangePositionStyle(taskStartOffset, Math.max(taskWidth, 2.2), isRTL)}
@@ -1001,13 +1007,14 @@ export default function TaskTimelineView({
 													<div className="grid gap-3 md:grid-cols-2">
 														{unscheduledTasks.map((task) => {
 															const statusClasses = getTaskStatusColorClasses(task.status);
+															const operationalClasses = getTaskOperationalColorClasses(task, today);
 															const taskHref = resolveTaskHref(task.id);
 															return (
 																<div
 																	key={task.id}
 																	className={cn(
 																		"rounded-xl border bg-white p-4 dark:bg-stone-950",
-																		statusClasses.card
+																		operationalClasses.card
 																	)}
 																>
 																	<div className="flex items-start justify-between gap-3">

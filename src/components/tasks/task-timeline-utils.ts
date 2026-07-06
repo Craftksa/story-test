@@ -131,6 +131,23 @@ export type TaskStatusColorClasses = {
 	bar: string;
 };
 
+export type TaskOperationalTone =
+	| "overdue"
+	| "this_week"
+	| "completed"
+	| "in_progress"
+	| "upcoming";
+
+export type TaskOperationalColorClasses = {
+	tone: TaskOperationalTone;
+	dot: string;
+	progress: string;
+	card: string;
+	bar: string;
+	bucket: string;
+	bucketBadge: string;
+};
+
 export type TimelineSortKey =
 	| "startDate"
 	| "endDate"
@@ -846,6 +863,97 @@ export function isTaskInThisWeek(task: TimelineTask, referenceDate = new Date())
 		taskEnd.getTime() >= range.start.getTime();
 
 	return startsThisWeek || endsThisWeek || spansThisWeek;
+}
+
+export function getTaskOperationalTone(
+	task: TimelineTask,
+	referenceDate = new Date()
+): TaskOperationalTone {
+	if (isTaskOverdue(task, referenceDate)) {
+		return "overdue";
+	}
+
+	if (isTaskInThisWeek(task, referenceDate)) {
+		return "this_week";
+	}
+
+	if (isTaskCompleted(task)) {
+		return "completed";
+	}
+
+	if (ACTIVE_TASK_STATUSES.includes(task.status)) {
+		return "in_progress";
+	}
+
+	if (isTaskUpcoming(task, referenceDate)) {
+		return "upcoming";
+	}
+
+	return "upcoming";
+}
+
+export function getTaskOperationalColorClasses(
+	task: TimelineTask,
+	referenceDate = new Date()
+): TaskOperationalColorClasses {
+	switch (getTaskOperationalTone(task, referenceDate)) {
+		case "overdue":
+			return {
+				tone: "overdue",
+				dot: "bg-rose-500 ring-rose-100 dark:ring-rose-500/20",
+				progress: "bg-rose-500",
+				card: "border-rose-300 bg-rose-50/30 dark:border-rose-500/35 dark:bg-rose-500/6",
+				bar: "bg-rose-500/90",
+				bucket: "border-rose-200 bg-rose-50/70 dark:border-rose-500/30 dark:bg-rose-500/10",
+				bucketBadge:
+					"border-rose-200 bg-white text-rose-700 dark:border-rose-500/30 dark:bg-stone-950 dark:text-rose-100",
+			};
+		case "this_week":
+			return {
+				tone: "this_week",
+				dot: "bg-sky-500 ring-sky-100 dark:ring-sky-500/20",
+				progress: "bg-sky-500",
+				card: "border-sky-300 bg-sky-50/30 dark:border-sky-500/35 dark:bg-sky-500/8",
+				bar: "bg-sky-500/90",
+				bucket: "border-sky-200 bg-sky-50/75 dark:border-sky-500/30 dark:bg-sky-500/10",
+				bucketBadge:
+					"border-sky-200 bg-white text-sky-700 dark:border-sky-500/30 dark:bg-stone-950 dark:text-sky-100",
+			};
+		case "completed":
+			return {
+				tone: "completed",
+				dot: "bg-emerald-500 ring-emerald-100 dark:ring-emerald-500/20",
+				progress: "bg-emerald-500",
+				card: "border-emerald-300 bg-emerald-50/30 dark:border-emerald-500/35 dark:bg-emerald-500/8",
+				bar: "bg-emerald-500/90",
+				bucket: "border-emerald-200 bg-emerald-50/75 dark:border-emerald-500/30 dark:bg-emerald-500/10",
+				bucketBadge:
+					"border-emerald-200 bg-white text-emerald-700 dark:border-emerald-500/30 dark:bg-stone-950 dark:text-emerald-100",
+			};
+		case "in_progress":
+			return {
+				tone: "in_progress",
+				dot: "bg-amber-500 ring-amber-100 dark:ring-amber-500/20",
+				progress: "bg-amber-500",
+				card: "border-amber-300 bg-amber-50/30 dark:border-amber-500/35 dark:bg-amber-500/8",
+				bar: "bg-amber-500/90",
+				bucket: "border-amber-200 bg-amber-50/75 dark:border-amber-500/30 dark:bg-amber-500/10",
+				bucketBadge:
+					"border-amber-200 bg-white text-amber-700 dark:border-amber-500/30 dark:bg-stone-950 dark:text-amber-100",
+			};
+		case "upcoming":
+		default:
+			return {
+				tone: "upcoming",
+				dot: "bg-slate-400 ring-slate-100 dark:ring-stone-800",
+				progress: "bg-slate-400",
+				card: "border-slate-300 bg-slate-50/35 dark:border-stone-700 dark:bg-stone-900/55",
+				bar: "bg-slate-400/85",
+				bucket: "border-slate-200 bg-slate-50/80 dark:border-stone-800 dark:bg-stone-900/40",
+				bucketBadge:
+					"border-slate-200 bg-white text-slate-700 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-200",
+			};
+	}
 }
 
 export function getTimelineSummary(tasks: TimelineTask[], referenceDate = new Date()): TimelineSummary {

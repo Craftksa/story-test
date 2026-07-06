@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import {
 	formatTimelineDate,
 	getTaskDurationLabel,
+	getTaskOperationalColorClasses,
 	getTaskStatusColorClasses,
 	type SprintBuckets,
 	type TimelineTask,
@@ -65,6 +66,42 @@ type SprintColumnConfig = {
 	emptyLabel: string;
 };
 
+function getSprintBucketClasses(key: keyof SprintBuckets) {
+	switch (key) {
+		case "overdue":
+			return {
+				section:
+					"border-rose-200 bg-rose-50/65 dark:border-rose-500/30 dark:bg-rose-500/10",
+				count:
+					"border-rose-200 bg-white text-rose-700 dark:border-rose-500/30 dark:bg-stone-950 dark:text-rose-100",
+			};
+		case "completed":
+			return {
+				section:
+					"border-emerald-200 bg-emerald-50/65 dark:border-emerald-500/30 dark:bg-emerald-500/10",
+				count:
+					"border-emerald-200 bg-white text-emerald-700 dark:border-emerald-500/30 dark:bg-stone-950 dark:text-emerald-100",
+			};
+		case "active":
+		case "starting":
+		case "ending":
+			return {
+				section:
+					"border-sky-200 bg-sky-50/65 dark:border-sky-500/30 dark:bg-sky-500/10",
+				count:
+					"border-sky-200 bg-white text-sky-700 dark:border-sky-500/30 dark:bg-stone-950 dark:text-sky-100",
+			};
+		case "upcoming":
+		default:
+			return {
+				section:
+					"border-slate-200 bg-slate-50/80 dark:border-stone-800 dark:bg-stone-900/40",
+				count:
+					"border-slate-200 bg-white text-slate-700 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-200",
+			};
+	}
+}
+
 function getPriorityTone(priority: TimelineTask["priority"]) {
 	switch (priority) {
 		case "high":
@@ -107,13 +144,14 @@ function TaskSprintCard({
 	translateType: (task: TimelineTask) => string;
 }) {
 	const statusClasses = getTaskStatusColorClasses(task.status);
+	const operationalClasses = getTaskOperationalColorClasses(task);
 	const taskHref = getTaskHref(task.id);
 
 	return (
 		<div
 			className={cn(
 				"rounded-xl border bg-white p-4 shadow-sm transition-colors dark:bg-stone-950",
-				statusClasses.card
+				operationalClasses.card
 			)}
 		>
 			<div className="flex items-start justify-between gap-3">
@@ -147,7 +185,7 @@ function TaskSprintCard({
 						) : null}
 					</div>
 				</div>
-				<div className={cn("mt-0.5 size-3 rounded-full", statusClasses.dot)} />
+				<div className={cn("mt-0.5 size-3 rounded-full", operationalClasses.dot)} />
 			</div>
 
 			<div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2 dark:text-stone-300">
@@ -246,11 +284,12 @@ export default function TaskSprintBoard({
 		>
 			{columns.map((column) => {
 				const tasks = buckets[column.key];
+				const bucketClasses = getSprintBucketClasses(column.key);
 
 				return (
 					<section
 						key={column.key}
-						className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-stone-800 dark:bg-stone-900/40"
+						className={cn("rounded-2xl border p-4", bucketClasses.section)}
 					>
 						<div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-3 dark:border-stone-800">
 							<div>
@@ -263,7 +302,7 @@ export default function TaskSprintBoard({
 							</div>
 							<Badge
 								variant="outline"
-								className="border-slate-200 bg-white text-slate-700 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-200"
+								className={bucketClasses.count}
 							>
 								{tasks.length}
 							</Badge>
