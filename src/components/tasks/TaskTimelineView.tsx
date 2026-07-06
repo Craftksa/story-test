@@ -143,6 +143,14 @@ type GanttVisualRow =
 			height: number;
 	  };
 
+type GanttFlowConnector = {
+	key: string;
+	fromX: number;
+	fromY: number;
+	toX: number;
+	toY: number;
+};
+
 function extractProjectName(title: string | undefined, fallbackLabel: string) {
 	if (!title?.trim()) {
 		return fallbackLabel;
@@ -208,6 +216,14 @@ function getOwnerInitials(owner: string | null | undefined) {
 		.slice(0, 2)
 		.map((token) => token.charAt(0).toUpperCase())
 		.join("");
+}
+
+function buildGanttConnectorPath(fromX: number, fromY: number, toX: number, toY: number) {
+	const elbowOffset = Math.max(16, Math.min(36, Math.abs(toX - fromX) / 2));
+	const elbowX = fromX + elbowOffset;
+	const targetX = toX - 6;
+
+	return `M ${fromX} ${fromY} L ${elbowX} ${fromY} L ${elbowX} ${toY} L ${targetX} ${toY}`;
 }
 
 function getPriorityLabel(
@@ -710,6 +726,34 @@ export default function TaskTimelineView({
 		return metrics;
 	}, [ganttRows.rows, pixelsPerDay, timelineRange.start]);
 
+	const ganttFlowConnectors = useMemo<GanttFlowConnector[]>(() => {
+		const visibleTaskRows = ganttRows.rows.filter(
+			(row): row is Extract<GanttVisualRow, { kind: "task" }> => row.kind === "task"
+		);
+		const connectors: GanttFlowConnector[] = [];
+
+		for (let index = 1; index < visibleTaskRows.length; index += 1) {
+			const previousRow = visibleTaskRows[index - 1];
+			const currentRow = visibleTaskRows[index];
+			const previousMetrics = ganttTaskMetrics.get(previousRow.task.id);
+			const currentMetrics = ganttTaskMetrics.get(currentRow.task.id);
+
+			if (!previousMetrics || !currentMetrics) {
+				continue;
+			}
+
+			connectors.push({
+				key: `${previousRow.task.id}-${currentRow.task.id}`,
+				fromX: previousMetrics.barStart + previousMetrics.barWidth,
+				fromY: previousMetrics.barCenterY,
+				toX: currentMetrics.barStart,
+				toY: currentMetrics.barCenterY,
+			});
+		}
+
+		return connectors;
+	}, [ganttRows.rows, ganttTaskMetrics]);
+
 	const resolveTaskHref = (taskId: string) =>
 		getTaskHref?.(taskId) ?? (projectId ? `/projects/${projectId}/tasks/${taskId}` : null);
 
@@ -1171,6 +1215,54 @@ export default function TaskTimelineView({
 											className="absolute inset-y-0 w-px bg-slate-900 dark:bg-stone-100"
 											style={{ left: todayPositionPx }}
 										/>
+										{ganttFlowConnectors.length > 0 ? (
+											<svg
+												className="absolute inset-0 h-full w-full text-slate-300 dark:text-stone-700"
+												aria-hidden="true"
+											>
+												<defs>
+													<marker
+														id="gantt-flow-arrow"
+														markerWidth="8"
+														markerHeight="8"
+														refX="6"
+														refY="4"
+														orient="auto"
+														markerUnits="strokeWidth"
+													>
+														<path d="M 0 0 L 8 4 L 0 8 z" fill="currentColor" />
+													</marker>
+												</defs>
+												{ganttFlowConnectors.map((connector) => {
+													if (
+														!Number.isFinite(connector.fromX) ||
+														!Number.isFinite(connector.fromY) ||
+														!Number.isFinite(connector.toX) ||
+														!Number.isFinite(connector.toY)
+													) {
+														return null;
+													}
+
+													return (
+														<path
+															key={connector.key}
+															d={buildGanttConnectorPath(
+																connector.fromX,
+																connector.fromY,
+																connector.toX,
+																connector.toY
+															)}
+															fill="none"
+															stroke="currentColor"
+															strokeWidth="1.5"
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															markerEnd="url(#gantt-flow-arrow)"
+														/>
+													);
+												})}
+											</svg>
+										) : null}
 									</div>
 
 									<div className="relative">
