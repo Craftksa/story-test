@@ -59,7 +59,6 @@ import {
 	getTaskDurationLabel,
 	getTaskStatusColorClasses,
 	getThisWeekTasks,
-	getTimelineDependencies,
 	getTimelineRange,
 	getTimelineSummary,
 	groupTasksByType,
@@ -358,16 +357,6 @@ function buildGanttScaleCells(
 				(differenceInCalendarDays(rangeEnd, rangeStart) + 1) * pixelsPerDay,
 		};
 	}) satisfies GanttScaleCell[];
-}
-
-function buildDependencyPath(
-	fromX: number,
-	fromY: number,
-	toX: number,
-	toY: number
-) {
-	const turnX = fromX + Math.max(18, Math.min(42, (toX - fromX) / 2));
-	return `M ${fromX} ${fromY} L ${turnX} ${fromY} L ${turnX} ${toY} L ${toX} ${toY}`;
 }
 
 export default function TaskTimelineView({
@@ -707,7 +696,7 @@ export default function TaskTimelineView({
 				differenceInCalendarDays(row.task.endDate, row.task.startDate) + 1
 			);
 			const barStart = startDays * pixelsPerDay;
-			const barWidth = Math.max(durationDays * pixelsPerDay, 10);
+			const barWidth = Math.max(durationDays * pixelsPerDay, Math.max(22, pixelsPerDay));
 
 			metrics.set(row.task.id, {
 				rowTop: row.y,
@@ -720,16 +709,6 @@ export default function TaskTimelineView({
 
 		return metrics;
 	}, [ganttRows.rows, pixelsPerDay, timelineRange.start]);
-
-	const ganttDependencies = useMemo(
-		() =>
-			getTimelineDependencies(sortedTasks).filter(
-				(dependency) =>
-					ganttTaskMetrics.has(dependency.fromTaskId) &&
-					ganttTaskMetrics.has(dependency.toTaskId)
-			),
-		[ganttTaskMetrics, sortedTasks]
-	);
 
 	const resolveTaskHref = (taskId: string) =>
 		getTaskHref?.(taskId) ?? (projectId ? `/projects/${projectId}/tasks/${taskId}` : null);
@@ -1048,10 +1027,6 @@ export default function TaskTimelineView({
 											<span className="h-2.5 w-8 rounded-full bg-sky-100 dark:bg-sky-500/15" />
 											{labels.currentWeek}
 										</div>
-										<div className="inline-flex items-center gap-2">
-											<span className="h-2.5 w-8 rounded-full bg-slate-200 dark:bg-stone-700" />
-											{labels.dependencies}
-										</div>
 									</div>
 
 									<div className="flex flex-wrap items-center gap-2">
@@ -1099,12 +1074,6 @@ export default function TaskTimelineView({
 										>
 											{ganttRows.rows.filter((row) => row.kind === "task").length}{" "}
 											{labels.scheduledTasks}
-										</Badge>
-										<Badge
-											variant="outline"
-											className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
-										>
-											{ganttDependencies.length} {labels.dependencies}
 										</Badge>
 									</div>
 								</div>
@@ -1202,49 +1171,6 @@ export default function TaskTimelineView({
 											className="absolute inset-y-0 w-px bg-slate-900 dark:bg-stone-100"
 											style={{ left: todayPositionPx }}
 										/>
-										<svg className="absolute inset-0 h-full w-full" aria-hidden="true">
-											<defs>
-												<marker
-													id="task-timeline-arrow"
-													markerWidth="8"
-													markerHeight="8"
-													refX="6"
-													refY="4"
-													orient="auto"
-												>
-													<path d="M 0 0 L 8 4 L 0 8 z" fill="currentColor" />
-												</marker>
-											</defs>
-											{ganttDependencies.map((dependency) => {
-												const fromTask = ganttTaskMetrics.get(dependency.fromTaskId);
-												const toTask = ganttTaskMetrics.get(dependency.toTaskId);
-
-												if (!fromTask || !toTask) {
-													return null;
-												}
-
-												const startX = fromTask.barStart + fromTask.barWidth;
-												const endX = Math.max(toTask.barStart - 8, startX + 18);
-												const path = buildDependencyPath(
-													startX,
-													fromTask.barCenterY,
-													endX,
-													toTask.barCenterY
-												);
-
-												return (
-													<path
-														key={dependency.id}
-														d={path}
-														fill="none"
-														stroke="currentColor"
-														strokeWidth="1.5"
-														className="text-slate-300 dark:text-stone-600"
-														markerEnd="url(#task-timeline-arrow)"
-													/>
-												);
-											})}
-										</svg>
 									</div>
 
 									<div className="relative">
@@ -1397,7 +1323,7 @@ export default function TaskTimelineView({
 																formatPattern: "d MMM",
 															})}`}
 															className={cn(
-																"absolute top-1/2 flex h-10 -translate-y-1/2 items-center gap-3 overflow-hidden rounded-xl px-3 text-left text-sm font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-300/60",
+																"absolute top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded-full shadow-sm transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-300/60",
 																operationalClasses.bar,
 																row.task.isOverdue && "ring-2 ring-rose-300/60 dark:ring-rose-500/40"
 															)}
@@ -1406,10 +1332,12 @@ export default function TaskTimelineView({
 																width: rowMetrics.barWidth,
 															}}
 														>
-															<span className="truncate">{row.task.name}</span>
-															<span className="shrink-0 rounded-full bg-black/15 px-2 py-0.5 text-[11px] font-medium">
-																{row.task.progress}%
-															</span>
+															<span
+																className="absolute inset-y-0 left-0 rounded-full bg-black/15"
+																style={{
+																	width: `${Math.max(0, Math.min(100, row.task.progress))}%`,
+																}}
+															/>
 														</button>
 													</div>
 												</div>
