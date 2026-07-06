@@ -9,8 +9,16 @@ import {
 	extractFileKey,
 } from "@/app/api/uploadthing/delete-files";
 import { z } from "zod";
+import { authorizeProjectAccess } from "@/lib/project-permissions";
 
 const taskDateString = z.string().datetime({ offset: true }).optional();
+
+function projectAccessDeniedResponse(access: {
+	status: 401 | 403 | 404;
+	error: string;
+}) {
+	return NextResponse.json({ error: access.error }, { status: access.status });
+}
 
 const updateTaskSchema = z
 	.object({
@@ -57,8 +65,14 @@ export async function GET(
 	}
 
 	const { user } = await authenticate(req);
-	if (!user) {
-		return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+	const access = await authorizeProjectAccess({
+		user,
+		projectId,
+		action: "read",
+	});
+
+	if (!access.ok) {
+		return projectAccessDeniedResponse(access);
 	}
 
 	try {
@@ -106,6 +120,21 @@ export async function PUT(
 	const { user } = await authenticate(req);
 	if (!hasRole(user, ["admin", "moderator", "employee"])) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+	}
+	const userId = user?.id;
+
+	const access = await authorizeProjectAccess({
+		user,
+		projectId,
+		action: "read",
+	});
+
+	if (!access.ok) {
+		return projectAccessDeniedResponse(access);
+	}
+
+	if (!userId) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
 	try {
@@ -166,6 +195,7 @@ export async function PUT(
 						taskId,
 						url: img.url,
 						description: img.description,
+						uploadedBy: userId,
 						uploadedAt: new Date(),
 					}))
 				);

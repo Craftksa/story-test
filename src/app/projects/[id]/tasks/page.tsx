@@ -5,15 +5,12 @@ import TasksDetailsPage from "@/components/TasksDetailsPage"
 import { useTaskStore } from "@/store/taskStore"
 import { useProjectStore } from "@/store/projectStore"
 import Spinner from "@/components/Spinner"
-import CustomLink from "@/components/CustomLink"
-import React, { useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
 import {useTranslations} from "use-intl";
 
 const TasksMainPage = () => {
 	const router = useRouter()
 	const { id: rawParamId } = useParams()
-	const { data: session } = useSession()
 
 	const { tasks, fetchTasks, loading: tasksLoading, setProjectId } = useTaskStore()
 	const { projects, fetchProjects, loading: projectsLoading } = useProjectStore()
@@ -35,14 +32,14 @@ const TasksMainPage = () => {
 				setResolvingProjectId(false)
 			})
 		}
-	}, [paramId])
+	}, [fetchProjects, paramId, projects, router])
 
 	useEffect(() => {
 		if (paramId) {
 			setProjectId(paramId)
 			fetchTasks()
 		}
-	}, [paramId])
+	}, [fetchTasks, paramId, setProjectId])
 
 	const isLoading = tasksLoading || resolvingProjectId || (!paramId && projectsLoading)
 
@@ -52,17 +49,6 @@ const TasksMainPage = () => {
 			<div className="flex justify-center items-center min-h-[calc(100vh-8rem)]">
 				<Spinner className="h-6 w-6 text-muted-foreground" />
 				<span className="mx-2 text-muted-foreground">{t("Loading tasks")}...</span>
-			</div>
-		)
-	}
-
-	if (!tasksLoading && tasks.length === 0) {
-		return (
-			<div className="flex flex-col space-y-2 justify-center items-center min-h-[calc(100vh-8rem)]">
-				<h2 className="text-xl font-semibold">{t("You have no tasks yet")}</h2>
-				<p className="text-muted-foreground">
-					{t("Please contact")} <CustomLink href={"https://www.craftksa.com/contact"}>{t("craft")}</CustomLink> {t("team to get started")}.
-				</p>
 			</div>
 		)
 	}

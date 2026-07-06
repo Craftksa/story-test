@@ -3,8 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/drizzle/db";
 import { z } from "zod";
 import { authenticate } from "@/lib/authenticate";
-import { hasRole, isValidId } from "@/lib/utils";
+import { isValidId } from "@/lib/utils";
 import { eq, inArray } from "drizzle-orm";
+import { authorizeProjectAccess } from "@/lib/project-permissions";
+
+function projectAccessDeniedResponse(access: {
+	status: 401 | 403 | 404;
+	error: string;
+}) {
+	return NextResponse.json({ error: access.error }, { status: access.status });
+}
 
 const taskDateString = z.string().datetime({ offset: true }).optional();
 
@@ -51,8 +59,19 @@ export async function POST(
 	}
 
 	const { user } = await authenticate(req);
-	if (!hasRole(user, ["admin", "moderator"])) {
-		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+	const userId = user?.id;
+	const access = await authorizeProjectAccess({
+		user,
+		projectId,
+		action: "update",
+	});
+
+	if (!access.ok) {
+		return projectAccessDeniedResponse(access);
+	}
+
+	if (!userId) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
 	const body = await req.json();
@@ -90,8 +109,8 @@ export async function POST(
 				taskId,
 				url: img.url,
 				description: img.description || null,
+				uploadedBy: userId,
 				uploadedAt: new Date(),
-				createdAt: new Date(),
 			}))
 		);
 	}
@@ -103,8 +122,22 @@ export async function GET(
 	req: NextRequest,
 	{ params }: { params: { id: string } }
 ) {
-	await authenticate(req);
 	const projectId = params.id;
+
+	if (!isValidId(projectId)) {
+		return NextResponse.json({ error: "Invalid project ID" }, { status: 400 });
+	}
+
+	const { user } = await authenticate(req);
+	const access = await authorizeProjectAccess({
+		user,
+		projectId,
+		action: "read",
+	});
+
+	if (!access.ok) {
+		return projectAccessDeniedResponse(access);
+	}
 
 	const taskList = await db.select().from(tasks).where(eq(tasks.projectId, projectId));
 	const taskIds = taskList.map((task) => task.id);
