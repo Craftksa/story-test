@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ar, enUS } from "date-fns/locale";
-import { differenceInCalendarDays, startOfDay } from "date-fns";
+import {
+	differenceInCalendarDays,
+	eachDayOfInterval,
+	eachMonthOfInterval,
+	eachWeekOfInterval,
+	eachYearOfInterval,
+	endOfMonth,
+	endOfWeek,
+	endOfYear,
+	startOfDay,
+} from "date-fns";
 import {
 	ArrowDownWideNarrow,
 	ArrowUpWideNarrow,
@@ -20,13 +30,15 @@ import { useTranslations } from "use-intl";
 import TaskSprintBoard from "@/components/tasks/TaskSprintBoard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
 import {
 	Select,
 	SelectContent,
@@ -41,11 +53,13 @@ import {
 	createTimelineTasks,
 	formatTimelineDate,
 	getCurrentWeekRange,
+	getTaskDependencyIds,
 	getTaskOperationalColorClasses,
 	getSprintBuckets,
 	getTaskDurationLabel,
 	getTaskStatusColorClasses,
 	getThisWeekTasks,
+	getTimelineDependencies,
 	getTimelineRange,
 	getTimelineSummary,
 	groupTasksByType,
@@ -88,6 +102,47 @@ type TimelineFilterState = {
 	sortKey: TimelineSortKey;
 	sortDirection: TimelineSortDirection;
 };
+
+type GanttZoomLevel = "day" | "week" | "month";
+
+type GanttScaleCell = {
+	key: string;
+	label: string;
+	width: number;
+};
+
+type GanttBandCell = {
+	key: string;
+	label: string;
+	width: number;
+};
+
+type GanttSection = {
+	groupKey: string;
+	groupLabel: string;
+	tasks: TimelineTask[];
+	unscheduledTasks: TimelineTask[];
+};
+
+type GanttVisualRow =
+	| {
+			key: string;
+			kind: "group";
+			groupKey: string;
+			groupLabel: string;
+			taskCount: number;
+			overdueCount: number;
+			y: number;
+			height: number;
+	  }
+	| {
+			key: string;
+			kind: "task";
+			groupKey: string;
+			task: TimelineTask;
+			y: number;
+			height: number;
+	  };
 
 function extractProjectName(title: string | undefined, fallbackLabel: string) {
 	if (!title?.trim()) {
@@ -187,20 +242,6 @@ function getPriorityTone(priority: TimelineTask["priority"]) {
 	}
 }
 
-function clampPercentage(value: number) {
-	return Math.min(100, Math.max(0, value));
-}
-
-function getRangePositionStyle(
-	startPercent: number,
-	widthPercent: number,
-	isRTL: boolean
-) {
-	return isRTL
-		? { right: `${startPercent}%`, width: `${widthPercent}%` }
-		: { left: `${startPercent}%`, width: `${widthPercent}%` };
-}
-
 function SummaryCard({ accent, description, label, value }: SummaryCardProps) {
 	return (
 		<div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-stone-800 dark:bg-stone-950">
@@ -212,6 +253,121 @@ function SummaryCard({ accent, description, label, value }: SummaryCardProps) {
 			<p className="mt-2 text-xs text-slate-500 dark:text-stone-400">{description}</p>
 		</div>
 	);
+}
+
+const GANTT_LEFT_COLUMN_WIDTH = 320;
+const GANTT_HEADER_HEIGHT = 109;
+const GANTT_GROUP_ROW_HEIGHT = 52;
+const GANTT_TASK_ROW_HEIGHT = 84;
+
+function getGanttPixelsPerDay(zoomLevel: GanttZoomLevel) {
+	switch (zoomLevel) {
+		case "day":
+			return 34;
+		case "week":
+			return 14;
+		case "month":
+		default:
+			return 6;
+	}
+}
+
+function buildGanttYearBands(
+	start: Date,
+	end: Date,
+	pixelsPerDay: number,
+	locale: typeof ar | typeof enUS
+) {
+	return eachYearOfInterval({ start, end }).map((yearStart) => {
+		const bandStart = yearStart < start ? start : yearStart;
+		const bandEnd = endOfYear(yearStart) > end ? end : endOfYear(yearStart);
+
+		return {
+			key: `year-${yearStart.toISOString()}`,
+			label: formatTimelineDate(yearStart, { locale, formatPattern: "yyyy" }),
+			width:
+				(differenceInCalendarDays(bandEnd, bandStart) + 1) * pixelsPerDay,
+		} satisfies GanttBandCell;
+	});
+}
+
+function buildGanttMonthBands(
+	start: Date,
+	end: Date,
+	pixelsPerDay: number,
+	locale: typeof ar | typeof enUS
+) {
+	return eachMonthOfInterval({ start, end }).map((monthStart) => {
+		const bandStart = monthStart < start ? start : monthStart;
+		const bandEnd = endOfMonth(monthStart) > end ? end : endOfMonth(monthStart);
+
+		return {
+			key: `month-${monthStart.toISOString()}`,
+			label: formatTimelineDate(monthStart, { locale, formatPattern: "MMM" }),
+			width:
+				(differenceInCalendarDays(bandEnd, bandStart) + 1) * pixelsPerDay,
+		} satisfies GanttBandCell;
+	});
+}
+
+function buildGanttScaleCells(
+	start: Date,
+	end: Date,
+	zoomLevel: GanttZoomLevel,
+	pixelsPerDay: number,
+	locale: typeof ar | typeof enUS
+) {
+	if (zoomLevel === "day") {
+		return eachDayOfInterval({ start, end }).map((day) => ({
+			key: `day-${day.toISOString()}`,
+			label: formatTimelineDate(day, { locale, formatPattern: "d" }),
+			width: pixelsPerDay,
+		})) satisfies GanttScaleCell[];
+	}
+
+	if (zoomLevel === "week") {
+		return eachWeekOfInterval(
+			{ start, end },
+			{ weekStartsOn: 1 }
+		).map((weekStart) => {
+			const rangeStart = weekStart < start ? start : weekStart;
+			const rangeEnd = endOfWeek(weekStart, { weekStartsOn: 1 }) > end ? end : endOfWeek(weekStart, { weekStartsOn: 1 });
+			return {
+				key: `week-${weekStart.toISOString()}`,
+				label: `${formatTimelineDate(rangeStart, {
+					locale,
+					formatPattern: "d MMM",
+				})} - ${formatTimelineDate(rangeEnd, {
+					locale,
+					formatPattern: "d MMM",
+				})}`,
+				width:
+					(differenceInCalendarDays(rangeEnd, rangeStart) + 1) *
+					pixelsPerDay,
+			};
+		}) satisfies GanttScaleCell[];
+	}
+
+	return eachMonthOfInterval({ start, end }).map((monthStart) => {
+		const rangeStart = monthStart < start ? start : monthStart;
+		const rangeEnd = endOfMonth(monthStart) > end ? end : endOfMonth(monthStart);
+		return {
+			key: `scale-month-${monthStart.toISOString()}`,
+			label: formatTimelineDate(monthStart, { locale, formatPattern: "MMM yyyy" }),
+			width:
+				(differenceInCalendarDays(rangeEnd, rangeStart) + 1) * pixelsPerDay,
+		};
+	}) satisfies GanttScaleCell[];
+}
+
+function buildDependencyPath(
+	fromX: number,
+	fromY: number,
+	toX: number,
+	toY: number
+) {
+	const turnX = fromX + Math.max(18, Math.min(42, (toX - fromX) / 2));
+	return `M ${fromX} ${fromY} L ${turnX} ${fromY} L ${turnX} ${toY} L ${toX} ${toY}`;
 }
 
 export default function TaskTimelineView({
@@ -234,6 +390,8 @@ export default function TaskTimelineView({
 	const currentWeekRange = useMemo(() => getCurrentWeekRange(today), [today]);
 	const [searchValue, setSearchValue] = useState("");
 	const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+	const [zoomLevel, setZoomLevel] = useState<GanttZoomLevel>("week");
+	const [selectedTask, setSelectedTask] = useState<TimelineTask | null>(null);
 	const [filters, setFilters] = useState<TimelineFilterState>({
 		collection: "all",
 		status: "all",
@@ -319,6 +477,19 @@ export default function TaskTimelineView({
 			high: t("High"),
 			medium: t("Medium"),
 			low: t("Low"),
+			taskDetails: t("Task Details"),
+			detailsDescription: t("Task details and progress"),
+			openTask: t("Open Task"),
+			zoom: t("Zoom"),
+			dayScale: t("Day"),
+			weekScale: t("Week"),
+			monthScale: t("Month"),
+			timelineGrid: t("Timeline Grid"),
+			scheduleOverview: t("Schedule Overview"),
+			scheduledTasks: t("Scheduled Tasks"),
+			dependencies: t("Dependencies"),
+			noDependencies: t("No linked dependencies"),
+			ganttHint: t("Click any bar to inspect task details"),
 		}),
 		[t]
 	);
@@ -437,6 +608,129 @@ export default function TaskTimelineView({
 		[sortedTasks, today]
 	);
 
+	const ganttSections = useMemo<GanttSection[]>(
+		() =>
+			groupedSections
+				.map((section) => ({
+					groupKey: section.groupKey,
+					groupLabel: section.groupLabel,
+					tasks: section.tasks.filter((task) => task.isScheduled && task.startDate && task.endDate),
+					unscheduledTasks: section.tasks.filter((task) => !task.isScheduled || !task.startDate || !task.endDate),
+				}))
+				.filter((section) => section.tasks.length > 0 || section.unscheduledTasks.length > 0),
+		[groupedSections]
+	);
+
+	const unscheduledTasks = useMemo(
+		() => ganttSections.flatMap((section) => section.unscheduledTasks),
+		[ganttSections]
+	);
+
+	const pixelsPerDay = useMemo(() => getGanttPixelsPerDay(zoomLevel), [zoomLevel]);
+	const ganttTimelineWidth = useMemo(
+		() => Math.max(960, timelineRange.totalDays * pixelsPerDay),
+		[pixelsPerDay, timelineRange.totalDays]
+	);
+	const ganttYearBands = useMemo(
+		() => buildGanttYearBands(timelineRange.start, timelineRange.end, pixelsPerDay, locale),
+		[locale, pixelsPerDay, timelineRange.end, timelineRange.start]
+	);
+	const ganttMonthBands = useMemo(
+		() => buildGanttMonthBands(timelineRange.start, timelineRange.end, pixelsPerDay, locale),
+		[locale, pixelsPerDay, timelineRange.end, timelineRange.start]
+	);
+	const ganttScaleCells = useMemo(
+		() => buildGanttScaleCells(timelineRange.start, timelineRange.end, zoomLevel, pixelsPerDay, locale),
+		[locale, pixelsPerDay, timelineRange.end, timelineRange.start, zoomLevel]
+	);
+
+	const ganttRows = useMemo(() => {
+		let cursorY = 0;
+		const rows: GanttVisualRow[] = [];
+
+		for (const section of ganttSections) {
+			const isCollapsed = collapsedSections[section.groupKey];
+
+			rows.push({
+				key: `group-${section.groupKey}`,
+				kind: "group",
+				groupKey: section.groupKey,
+				groupLabel: section.groupLabel,
+				taskCount: section.tasks.length,
+				overdueCount: section.tasks.filter((task) => task.isOverdue).length,
+				y: cursorY,
+				height: GANTT_GROUP_ROW_HEIGHT,
+			});
+			cursorY += GANTT_GROUP_ROW_HEIGHT;
+
+			if (!isCollapsed) {
+				for (const task of section.tasks) {
+					rows.push({
+						key: task.id,
+						kind: "task",
+						groupKey: section.groupKey,
+						task,
+						y: cursorY,
+						height: GANTT_TASK_ROW_HEIGHT,
+					});
+					cursorY += GANTT_TASK_ROW_HEIGHT;
+				}
+			}
+		}
+
+		return {
+			rows,
+			totalHeight: Math.max(cursorY, GANTT_GROUP_ROW_HEIGHT),
+		};
+	}, [collapsedSections, ganttSections]);
+
+	const ganttTaskMetrics = useMemo(() => {
+		const metrics = new Map<
+			string,
+			{
+				rowTop: number;
+				rowHeight: number;
+				barStart: number;
+				barWidth: number;
+				barCenterY: number;
+			}
+		>();
+
+		for (const row of ganttRows.rows) {
+			if (row.kind !== "task" || !row.task.startDate || !row.task.endDate) {
+				continue;
+			}
+
+			const startDays = differenceInCalendarDays(row.task.startDate, timelineRange.start);
+			const durationDays = Math.max(
+				1,
+				differenceInCalendarDays(row.task.endDate, row.task.startDate) + 1
+			);
+			const barStart = startDays * pixelsPerDay;
+			const barWidth = Math.max(durationDays * pixelsPerDay, 10);
+
+			metrics.set(row.task.id, {
+				rowTop: row.y,
+				rowHeight: row.height,
+				barStart,
+				barWidth,
+				barCenterY: row.y + row.height / 2,
+			});
+		}
+
+		return metrics;
+	}, [ganttRows.rows, pixelsPerDay, timelineRange.start]);
+
+	const ganttDependencies = useMemo(
+		() =>
+			getTimelineDependencies(sortedTasks).filter(
+				(dependency) =>
+					ganttTaskMetrics.has(dependency.fromTaskId) &&
+					ganttTaskMetrics.has(dependency.toTaskId)
+			),
+		[ganttTaskMetrics, sortedTasks]
+	);
+
 	const resolveTaskHref = (taskId: string) =>
 		getTaskHref?.(taskId) ?? (projectId ? `/projects/${projectId}/tasks/${taskId}` : null);
 
@@ -452,18 +746,22 @@ export default function TaskTimelineView({
 		}
 	};
 
-	const todayOffset = clampPercentage(
-		(differenceInCalendarDays(today, timelineRange.start) / Math.max(1, timelineRange.totalDays)) * 100
+	const openTaskDetails = (task: TimelineTask) => {
+		setSelectedTask(task);
+	};
+
+	const todayPositionPx = Math.max(
+		0,
+		differenceInCalendarDays(today, timelineRange.start) * pixelsPerDay
 	);
-	const weekStartOffset = clampPercentage(
-		(differenceInCalendarDays(currentWeekRange.start, timelineRange.start) /
-			Math.max(1, timelineRange.totalDays)) *
-			100
+	const currentWeekStartPx = Math.max(
+		0,
+		differenceInCalendarDays(currentWeekRange.start, timelineRange.start) * pixelsPerDay
 	);
-	const weekWidth = clampPercentage(
-		((differenceInCalendarDays(currentWeekRange.end, currentWeekRange.start) + 1) /
-			Math.max(1, timelineRange.totalDays)) *
-			100
+	const currentWeekWidthPx = Math.max(
+		pixelsPerDay,
+		(differenceInCalendarDays(currentWeekRange.end, currentWeekRange.start) + 1) *
+			pixelsPerDay
 	);
 
 	const hasAnyTasks = translatedTasks.length > 0;
@@ -726,328 +1024,447 @@ export default function TaskTimelineView({
 				) : (
 					<div className="space-y-4">
 						<div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
-							<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-								<div>
+							<div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+								<div className="space-y-2">
 									<p className="text-sm font-medium text-slate-500 dark:text-stone-400">
 										{labels.range}
 									</p>
-									<p className="mt-1 text-base font-semibold text-slate-950 dark:text-stone-50">
+									<p className="text-base font-semibold text-slate-950 dark:text-stone-50">
 										{formatTimelineDate(timelineRange.start, { locale })} -{" "}
 										{formatTimelineDate(timelineRange.end, { locale })}
 									</p>
+									<p className="text-sm text-slate-500 dark:text-stone-400">
+										{labels.ganttHint}
+									</p>
 								</div>
-								<div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-stone-400">
-									<div className="inline-flex items-center gap-2">
-										<span className="h-2.5 w-2.5 rounded-full bg-slate-900 dark:bg-stone-100" />
-										{labels.today}
-									</div>
-									<div className="inline-flex items-center gap-2">
-										<span className="h-2.5 w-8 rounded-full bg-sky-100 dark:bg-sky-500/15" />
-										{labels.currentWeek}
-									</div>
-								</div>
-							</div>
 
-							<div className="mt-4">
-								<div className="relative h-6 rounded-full bg-slate-100 dark:bg-stone-900">
-									<div
-										className="absolute inset-y-0 rounded-full bg-sky-100 dark:bg-sky-500/15"
-										style={getRangePositionStyle(weekStartOffset, weekWidth, isRTL)}
-									/>
-									<div
-										className="absolute inset-y-0 w-px bg-slate-900 dark:bg-stone-100"
-										style={isRTL ? { right: `${todayOffset}%` } : { left: `${todayOffset}%` }}
-									/>
-								</div>
-								<div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-stone-400">
-									<span>{formatTimelineDate(timelineRange.start, { locale, formatPattern: "d MMM" })}</span>
-									<span>{formatTimelineDate(timelineRange.end, { locale, formatPattern: "d MMM" })}</span>
+								<div className="flex flex-col gap-3 xl:items-end">
+									<div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-stone-400">
+										<div className="inline-flex items-center gap-2">
+											<span className="h-2.5 w-2.5 rounded-full bg-slate-900 dark:bg-stone-100" />
+											{labels.today}
+										</div>
+										<div className="inline-flex items-center gap-2">
+											<span className="h-2.5 w-8 rounded-full bg-sky-100 dark:bg-sky-500/15" />
+											{labels.currentWeek}
+										</div>
+										<div className="inline-flex items-center gap-2">
+											<span className="h-2.5 w-8 rounded-full bg-slate-200 dark:bg-stone-700" />
+											{labels.dependencies}
+										</div>
+									</div>
+
+									<div className="flex flex-wrap items-center gap-2">
+										<span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-400">
+											{labels.zoom}
+										</span>
+										<div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1 dark:border-stone-800 dark:bg-stone-900">
+											{([
+												{ value: "day", label: labels.dayScale },
+												{ value: "week", label: labels.weekScale },
+												{ value: "month", label: labels.monthScale },
+											] as const).map((option) => (
+												<Button
+													key={option.value}
+													type="button"
+													size="sm"
+													variant={zoomLevel === option.value ? "default" : "ghost"}
+													className="rounded-full px-4"
+													onClick={() => setZoomLevel(option.value)}
+												>
+													{option.label}
+												</Button>
+											))}
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>
 
-						{groupedSections.map((section) => {
-							const isCollapsed = collapsedSections[section.groupKey];
-							const scheduledTasks = section.tasks.filter((task) => task.startDate || task.endDate);
-							const unscheduledTasks = section.tasks.filter((task) => !task.startDate && !task.endDate);
-							const overdueCount = section.tasks.filter((task) => task.isOverdue).length;
-
-							return (
-								<Collapsible
-									key={section.groupKey}
-									open={!isCollapsed}
-									onOpenChange={(open) =>
-										setCollapsedSections((current) => ({
-											...current,
-											[section.groupKey]: !open,
-										}))
-									}
-									className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-stone-800 dark:bg-stone-950"
-								>
-									<CollapsibleTrigger asChild>
-										<button
-											type="button"
-											className="flex w-full items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 text-right dark:border-stone-800"
+						<div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-stone-800 dark:bg-stone-950">
+							<div className="border-b border-slate-200 px-4 py-4 dark:border-stone-800">
+								<div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+									<div>
+										<p className="text-sm font-semibold text-slate-950 dark:text-stone-50">
+											{labels.scheduleOverview}
+										</p>
+										<p className="mt-1 text-sm text-slate-500 dark:text-stone-400">
+											{labels.timelineGrid}
+										</p>
+									</div>
+									<div className="flex flex-wrap items-center gap-2">
+										<Badge
+											variant="outline"
+											className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
 										>
-											<div className="min-w-0">
-												<h3 className="truncate text-lg font-semibold text-slate-950 dark:text-stone-50">
-													{section.groupLabel}
-												</h3>
-												<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-stone-400">
-													<Badge
-														variant="outline"
-														className="border-slate-200 bg-slate-50 dark:border-stone-700 dark:bg-stone-900"
-													>
-														{section.tasks.length} {labels.totalTasks}
-													</Badge>
-													{overdueCount > 0 ? (
-														<Badge className="border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
-															{overdueCount} {labels.overdue}
-														</Badge>
-													) : null}
+											{ganttRows.rows.filter((row) => row.kind === "task").length}{" "}
+											{labels.scheduledTasks}
+										</Badge>
+										<Badge
+											variant="outline"
+											className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
+										>
+											{ganttDependencies.length} {labels.dependencies}
+										</Badge>
+									</div>
+								</div>
+							</div>
+
+							<div className="max-h-[680px] overflow-auto" dir="ltr">
+								<div
+									className="relative min-w-max"
+									style={{
+										width: GANTT_LEFT_COLUMN_WIDTH + ganttTimelineWidth,
+									}}
+								>
+									<div className="sticky top-0 z-30">
+										<div
+											className="grid"
+											style={{
+												gridTemplateColumns: `${GANTT_LEFT_COLUMN_WIDTH}px ${ganttTimelineWidth}px`,
+											}}
+										>
+											<div className="sticky left-0 z-40 border-b border-r border-slate-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+												<p
+													className={cn(
+														"text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500",
+														isRTL && "text-right"
+													)}
+												>
+													{labels.phase}
+												</p>
+												<p
+													className={cn(
+														"mt-2 text-sm text-slate-600 dark:text-stone-300",
+														isRTL && "text-right"
+													)}
+												>
+													{labels.ganttHint}
+												</p>
+											</div>
+
+											<div className="border-b border-slate-200 bg-white dark:border-stone-800 dark:bg-stone-950">
+												<div className="flex border-b border-slate-200 dark:border-stone-800">
+													{ganttYearBands.map((band) => (
+														<div
+															key={band.key}
+															className="whitespace-nowrap border-r border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 last:border-r-0 dark:border-stone-800 dark:text-stone-500"
+															style={{ width: band.width }}
+														>
+															{band.label}
+														</div>
+													))}
+												</div>
+												<div className="flex border-b border-slate-200 dark:border-stone-800">
+													{ganttMonthBands.map((band) => (
+														<div
+															key={band.key}
+															className="whitespace-nowrap border-r border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 last:border-r-0 dark:border-stone-800 dark:text-stone-300"
+															style={{ width: band.width }}
+														>
+															{band.label}
+														</div>
+													))}
+												</div>
+												<div className="flex bg-slate-50/80 dark:bg-stone-900/60">
+													{ganttScaleCells.map((cell) => (
+														<div
+															key={cell.key}
+															className="truncate whitespace-nowrap border-r border-slate-200 px-2 py-2 text-[11px] text-slate-500 last:border-r-0 dark:border-stone-800 dark:text-stone-400"
+															style={{ width: cell.width }}
+															title={cell.label}
+														>
+															{cell.label}
+														</div>
+													))}
 												</div>
 											</div>
-											{isCollapsed ? (
-												<ChevronRight className="h-4 w-4 shrink-0 text-slate-400 dark:text-stone-500" />
-											) : (
-												<ChevronDown className="h-4 w-4 shrink-0 text-slate-400 dark:text-stone-500" />
-											)}
-										</button>
-									</CollapsibleTrigger>
+										</div>
+									</div>
 
-									<CollapsibleContent>
-										<div className="space-y-4 p-4">
-											{scheduledTasks.map((task) => {
-												const statusClasses = getTaskStatusColorClasses(task.status);
-												const operationalClasses = getTaskOperationalColorClasses(task, today);
-												const taskHref = resolveTaskHref(task.id);
-												const taskStatusLabel = getTranslatedTaskStatusLabel(task.status, t);
-												const note = task.notes?.trim();
-												const taskStart = task.startDate ?? task.endDate ?? timelineRange.start;
-												const taskEnd = task.endDate ?? task.startDate ?? taskStart;
-												const taskStartOffset = clampPercentage(
-													(differenceInCalendarDays(taskStart, timelineRange.start) /
-														Math.max(1, timelineRange.totalDays)) *
-														100
-												);
-												const taskWidth = clampPercentage(
-													((differenceInCalendarDays(taskEnd, taskStart) + 1) /
-														Math.max(1, timelineRange.totalDays)) *
-														100
+									<div
+										className="pointer-events-none absolute"
+										style={{
+											top: GANTT_HEADER_HEIGHT,
+											left: GANTT_LEFT_COLUMN_WIDTH,
+											width: ganttTimelineWidth,
+											height: ganttRows.totalHeight,
+										}}
+									>
+										<div
+											className="absolute inset-y-0 bg-sky-100/60 dark:bg-sky-500/10"
+											style={{
+												left: currentWeekStartPx,
+												width: currentWeekWidthPx,
+											}}
+										/>
+										<div
+											className="absolute inset-y-0 w-px bg-slate-900 dark:bg-stone-100"
+											style={{ left: todayPositionPx }}
+										/>
+										<svg className="absolute inset-0 h-full w-full" aria-hidden="true">
+											<defs>
+												<marker
+													id="task-timeline-arrow"
+													markerWidth="8"
+													markerHeight="8"
+													refX="6"
+													refY="4"
+													orient="auto"
+												>
+													<path d="M 0 0 L 8 4 L 0 8 z" fill="currentColor" />
+												</marker>
+											</defs>
+											{ganttDependencies.map((dependency) => {
+												const fromTask = ganttTaskMetrics.get(dependency.fromTaskId);
+												const toTask = ganttTaskMetrics.get(dependency.toTaskId);
+
+												if (!fromTask || !toTask) {
+													return null;
+												}
+
+												const startX = fromTask.barStart + fromTask.barWidth;
+												const endX = Math.max(toTask.barStart - 8, startX + 18);
+												const path = buildDependencyPath(
+													startX,
+													fromTask.barCenterY,
+													endX,
+													toTask.barCenterY
 												);
 
 												return (
-													<article
-														key={task.id}
-														className={cn(
-															"rounded-2xl border p-4 shadow-sm dark:bg-stone-950",
-															operationalClasses.card
-														)}
+													<path
+														key={dependency.id}
+														d={path}
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="1.5"
+														className="text-slate-300 dark:text-stone-600"
+														markerEnd="url(#task-timeline-arrow)"
+													/>
+												);
+											})}
+										</svg>
+									</div>
+
+									<div className="relative">
+										{ganttRows.rows.map((row) => {
+											if (row.kind === "group") {
+												const isCollapsed = collapsedSections[row.groupKey];
+												return (
+													<div
+														key={row.key}
+														className="grid border-b border-slate-200 dark:border-stone-800"
+														style={{
+															gridTemplateColumns: `${GANTT_LEFT_COLUMN_WIDTH}px ${ganttTimelineWidth}px`,
+														}}
 													>
-														<div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,1fr)] xl:items-start">
-															<div className="min-w-0">
-																<div className="flex items-start justify-between gap-3">
-																	<div className="min-w-0">
-																		<Button
-																			type="button"
-																			variant="link"
-																			onClick={() => openTask(task.id)}
-																			disabled={!taskHref}
-																			title={task.name}
-																			className="h-auto max-w-full p-0 text-start text-base font-semibold text-slate-950 hover:text-sky-600 disabled:no-underline dark:text-stone-50"
-																		>
-																			<span className="truncate">{task.name}</span>
-																		</Button>
-																		<div className="mt-2 flex flex-wrap items-center gap-2">
-																			<Badge className={cn("border", statusClasses.badge)}>
-																				{taskStatusLabel}
-																			</Badge>
-																			<Badge
-																				variant="outline"
-																				className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
-																			>
-																				{task.groupLabel}
-																			</Badge>
-																			<Badge className={cn("border", getPriorityTone(task.priority))}>
-																				{getPriorityLabel(task.priority, labels)}
-																			</Badge>
-																			{task.isOverdue ? (
-																				<Badge className="border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
-																					{labels.overdue}
-																				</Badge>
-																			) : null}
-																			{thisWeekTaskIds.has(task.id) ? (
-																				<Badge className="border border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
-																					{labels.thisWeek}
-																				</Badge>
-																			) : null}
-																		</div>
-																	</div>
-
-																	<div className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100">
-																		{getOwnerInitials(task.ownerLabel || labels.noOwner)}
-																	</div>
-																</div>
-
-																<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-																	<div className="min-w-0">
-																		<p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500">
-																			{labels.owner}
-																		</p>
-																		<p className="mt-1 truncate text-sm text-slate-700 dark:text-stone-200">
-																			{task.ownerLabel || labels.noOwner}
-																		</p>
-																	</div>
-																	<div className="min-w-0">
-																		<p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500">
-																			{labels.startDate}
-																		</p>
-																		<p className="mt-1 truncate text-sm text-slate-700 dark:text-stone-200">
-																			{formatTimelineDate(task.startDate, { locale })}
-																		</p>
-																	</div>
-																	<div className="min-w-0">
-																		<p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500">
-																			{labels.endDate}
-																		</p>
-																		<p className="mt-1 truncate text-sm text-slate-700 dark:text-stone-200">
-																			{task.endDate
-																				? formatTimelineDate(task.endDate, { locale })
-																				: labels.noFixedEndDate}
-																		</p>
-																	</div>
-																	<div className="min-w-0">
-																		<p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500">
-																			{labels.duration}
-																		</p>
-																		<p className="mt-1 truncate text-sm text-slate-700 dark:text-stone-200">
-																			{getTaskDurationLabel(task, {
-																				dayLabel: labels.day,
-																				daysLabel: labels.days,
-																				unscheduledLabel: "-",
-																			})}
-																		</p>
-																	</div>
-																</div>
-
-																<div className="mt-4">
-																	<div className="mb-2 flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500">
-																		<span>{labels.progress}</span>
-																		<span>{task.progress}%</span>
-																	</div>
-																	<Progress
-																		value={task.progress}
-																		showValueLabel={false}
-																		className="h-2 bg-slate-200 dark:bg-stone-800"
-																		indicatorClassName={operationalClasses.progress}
-																	/>
-																</div>
-
-																{note ? (
-																	<div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-stone-900 dark:text-stone-300">
-																		<p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500">
-																			{labels.note}
-																		</p>
-																		<p className="mt-1 line-clamp-2">{note}</p>
-																	</div>
-																) : null}
-															</div>
-
-															<div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-stone-800 dark:bg-stone-900/60">
-																<div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-stone-400">
-																	<span>{labels.range}</span>
-																	<span>
-																		{formatTimelineDate(taskStart, {
-																			locale,
-																			formatPattern: "d MMM",
-																		})}{" "}
-																		-{" "}
-																		{formatTimelineDate(taskEnd, {
-																			locale,
-																			formatPattern: "d MMM",
-																		})}
-																	</span>
-																</div>
-																<div className="relative h-14 rounded-2xl bg-white dark:bg-stone-950">
-																	<div
-																		className="absolute inset-y-1 rounded-xl bg-sky-100 dark:bg-sky-500/12"
-																		style={getRangePositionStyle(weekStartOffset, weekWidth, isRTL)}
-																	/>
-																	<div
-																		className="absolute inset-y-0 w-px bg-slate-900 dark:bg-stone-100"
-																		style={isRTL ? { right: `${todayOffset}%` } : { left: `${todayOffset}%` }}
-																	/>
-																	<div
-																		className={cn(
-																			"absolute top-1/2 h-7 -translate-y-1/2 rounded-xl shadow-sm",
-																			operationalClasses.bar,
-																			task.isOverdue && "ring-2 ring-rose-300/60 dark:ring-rose-500/40"
-																		)}
-																		style={getRangePositionStyle(taskStartOffset, Math.max(taskWidth, 2.2), isRTL)}
-																	/>
-																</div>
-																<div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-stone-400">
-																	<span>{formatTimelineDate(timelineRange.start, { locale, formatPattern: "d MMM" })}</span>
-																	<span>{formatTimelineDate(timelineRange.end, { locale, formatPattern: "d MMM" })}</span>
+														<div className="sticky left-0 z-20 border-r border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur dark:border-stone-800 dark:bg-stone-950/95">
+															<div className="flex items-center justify-between gap-3">
+																<button
+																	type="button"
+																	onClick={() =>
+																		setCollapsedSections((current) => ({
+																			...current,
+																			[row.groupKey]: !current[row.groupKey],
+																		}))
+																	}
+																	className={cn(
+																		"flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-stone-100",
+																		isRTL && "text-right"
+																	)}
+																>
+																	{isCollapsed ? (
+																		<ChevronRight className="h-4 w-4 shrink-0 text-slate-400 dark:text-stone-500" />
+																	) : (
+																		<ChevronDown className="h-4 w-4 shrink-0 text-slate-400 dark:text-stone-500" />
+																	)}
+																	<span className="truncate">{row.groupLabel}</span>
+																</button>
+																<div className="flex shrink-0 items-center gap-2">
+																	<Badge
+																		variant="outline"
+																		className="border-slate-200 bg-white text-slate-700 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-200"
+																	>
+																		{row.taskCount}
+																	</Badge>
+																	{row.overdueCount > 0 ? (
+																		<Badge className="border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
+																			{row.overdueCount} {labels.overdue}
+																		</Badge>
+																	) : null}
 																</div>
 															</div>
 														</div>
-													</article>
-												);
-											})}
-
-											{unscheduledTasks.length > 0 ? (
-												<div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-stone-700 dark:bg-stone-900/40">
-													<div className="mb-3 flex items-center gap-2">
-														<CalendarDays className="h-4 w-4 text-slate-400 dark:text-stone-500" />
-														<p className="text-sm font-semibold text-slate-700 dark:text-stone-200">
-															{labels.withoutDate}
-														</p>
+														<div className="h-[52px] bg-slate-50/80 dark:bg-stone-900/40" />
 													</div>
-													<div className="grid gap-3 md:grid-cols-2">
-														{unscheduledTasks.map((task) => {
-															const statusClasses = getTaskStatusColorClasses(task.status);
-															const operationalClasses = getTaskOperationalColorClasses(task, today);
-															const taskHref = resolveTaskHref(task.id);
-															return (
-																<div
-																	key={task.id}
+												);
+											}
+
+											const statusClasses = getTaskStatusColorClasses(row.task.status);
+											const operationalClasses = getTaskOperationalColorClasses(row.task, today);
+											const taskStatusLabel = getTranslatedTaskStatusLabel(row.task.status, t);
+											const rowMetrics = ganttTaskMetrics.get(row.task.id);
+
+											if (!rowMetrics) {
+												return null;
+											}
+
+											return (
+												<div
+													key={row.key}
+													className="grid border-b border-slate-200 last:border-b-0 dark:border-stone-800"
+													style={{
+														gridTemplateColumns: `${GANTT_LEFT_COLUMN_WIDTH}px ${ganttTimelineWidth}px`,
+													}}
+												>
+													<div className="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-950">
+														<div className="flex items-start justify-between gap-3">
+															<div className="min-w-0">
+																<Button
+																	type="button"
+																	variant="link"
+																	onClick={() => openTaskDetails(row.task)}
+																	title={row.task.name}
 																	className={cn(
-																		"rounded-xl border bg-white p-4 dark:bg-stone-950",
-																		operationalClasses.card
+																		"h-auto max-w-full p-0 text-sm font-semibold text-slate-950 hover:text-sky-600 dark:text-stone-50",
+																		isRTL ? "text-right" : "text-left"
 																	)}
 																>
-																	<div className="flex items-start justify-between gap-3">
-																		<div className="min-w-0">
-																			<Button
-																				type="button"
-																				variant="link"
-																				onClick={() => openTask(task.id)}
-																				disabled={!taskHref}
-																				title={task.name}
-																				className="h-auto max-w-full p-0 text-start text-sm font-semibold text-slate-950 hover:text-sky-600 disabled:no-underline dark:text-stone-50"
-																			>
-																				<span className="truncate">{task.name}</span>
-																			</Button>
-																			<p className="mt-1 text-sm text-slate-500 dark:text-stone-400">
-																				{task.ownerLabel || labels.noOwner}
-																			</p>
-																		</div>
-																		<Badge className={cn("border", statusClasses.badge)}>
-																			{getTranslatedTaskStatusLabel(task.status, t)}
+																	<span className="truncate">{row.task.name}</span>
+																</Button>
+																<div className="mt-2 flex flex-wrap items-center gap-2">
+																	<Badge className={cn("border", statusClasses.badge)}>
+																		{taskStatusLabel}
+																	</Badge>
+																	<Badge
+																		variant="outline"
+																		className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
+																	>
+																		{row.task.groupLabel}
+																	</Badge>
+																	{row.task.isOverdue ? (
+																		<Badge className="border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
+																			{labels.overdue}
 																		</Badge>
-																	</div>
+																	) : null}
+																	{thisWeekTaskIds.has(row.task.id) ? (
+																		<Badge className="border border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
+																			{labels.thisWeek}
+																		</Badge>
+																	) : null}
 																</div>
-															);
-														})}
+															</div>
+
+															<div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100">
+																{getOwnerInitials(row.task.ownerLabel || labels.noOwner)}
+															</div>
+														</div>
+
+														<div
+															className={cn(
+																"mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-stone-400",
+																isRTL && "text-right"
+															)}
+														>
+															<span className="truncate">
+																{row.task.ownerLabel || labels.noOwner}
+															</span>
+															<span className="shrink-0">
+																{formatTimelineDate(row.task.startDate, {
+																	locale,
+																	formatPattern: "d MMM",
+																})}{" "}
+																-{" "}
+																{formatTimelineDate(row.task.endDate, {
+																	locale,
+																	formatPattern: "d MMM",
+																})}
+															</span>
+														</div>
+													</div>
+
+													<div className="relative h-[84px] bg-white dark:bg-stone-950">
+														<div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-slate-200 dark:bg-stone-800" />
+														<button
+															type="button"
+															onClick={() => openTaskDetails(row.task)}
+															title={`${row.task.name} • ${formatTimelineDate(row.task.startDate, {
+																locale,
+																formatPattern: "d MMM",
+															})} - ${formatTimelineDate(row.task.endDate, {
+																locale,
+																formatPattern: "d MMM",
+															})}`}
+															className={cn(
+																"absolute top-1/2 flex h-10 -translate-y-1/2 items-center gap-3 overflow-hidden rounded-xl px-3 text-left text-sm font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-300/60",
+																operationalClasses.bar,
+																row.task.isOverdue && "ring-2 ring-rose-300/60 dark:ring-rose-500/40"
+															)}
+															style={{
+																left: rowMetrics.barStart,
+																width: rowMetrics.barWidth,
+															}}
+														>
+															<span className="truncate">{row.task.name}</span>
+															<span className="shrink-0 rounded-full bg-black/15 px-2 py-0.5 text-[11px] font-medium">
+																{row.task.progress}%
+															</span>
+														</button>
 													</div>
 												</div>
-											) : null}
-										</div>
-									</CollapsibleContent>
-								</Collapsible>
-							);
-						})}
+											);
+										})}
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{unscheduledTasks.length > 0 ? (
+							<div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-stone-700 dark:bg-stone-900/40">
+								<div className="mb-3 flex items-center gap-2">
+									<CalendarDays className="h-4 w-4 text-slate-400 dark:text-stone-500" />
+									<p className="text-sm font-semibold text-slate-700 dark:text-stone-200">
+										{labels.withoutDate}
+									</p>
+								</div>
+								<div className="grid gap-3 md:grid-cols-2">
+									{unscheduledTasks.map((task) => {
+										const statusClasses = getTaskStatusColorClasses(task.status);
+										const operationalClasses = getTaskOperationalColorClasses(task, today);
+										return (
+											<div
+												key={task.id}
+												className={cn(
+													"rounded-xl border bg-white p-4 dark:bg-stone-950",
+													operationalClasses.card
+												)}
+											>
+												<div className="flex items-start justify-between gap-3">
+													<div className="min-w-0">
+														<Button
+															type="button"
+															variant="link"
+															onClick={() => openTaskDetails(task)}
+															title={task.name}
+															className="h-auto max-w-full p-0 text-start text-sm font-semibold text-slate-950 hover:text-sky-600 dark:text-stone-50"
+														>
+															<span className="truncate">{task.name}</span>
+														</Button>
+														<p className="mt-1 text-sm text-slate-500 dark:text-stone-400">
+															{task.ownerLabel || labels.noOwner}
+														</p>
+													</div>
+													<Badge className={cn("border", statusClasses.badge)}>
+														{getTranslatedTaskStatusLabel(task.status, t)}
+													</Badge>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							</div>
+						) : null}
 					</div>
 				)}
 			</div>
@@ -1138,6 +1555,150 @@ export default function TaskTimelineView({
 					</div>
 				</div>
 			) : null}
+
+			<Sheet open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)}>
+				<SheetContent side={isRTL ? "left" : "right"} className="w-full sm:max-w-lg">
+					{selectedTask ? (
+						<>
+							<SheetHeader>
+								<SheetTitle>{labels.taskDetails}</SheetTitle>
+								<SheetDescription>{labels.detailsDescription}</SheetDescription>
+							</SheetHeader>
+
+							<div className="mt-6 space-y-5">
+								<div>
+									<h3 className="text-xl font-semibold text-slate-950 dark:text-stone-50">
+										{selectedTask.name}
+									</h3>
+									<div className="mt-3 flex flex-wrap items-center gap-2">
+										<Badge
+											className={cn(
+												"border",
+												getTaskStatusColorClasses(selectedTask.status).badge
+											)}
+										>
+											{getTranslatedTaskStatusLabel(selectedTask.status, t)}
+										</Badge>
+										<Badge
+											variant="outline"
+											className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
+										>
+											{selectedTask.groupLabel}
+										</Badge>
+										<Badge className={cn("border", getPriorityTone(selectedTask.priority))}>
+											{getPriorityLabel(selectedTask.priority, labels)}
+										</Badge>
+									</div>
+								</div>
+
+								<div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-stone-800 dark:bg-stone-900/50">
+									<div className="flex items-center justify-between gap-3">
+										<span className="text-slate-500 dark:text-stone-400">{labels.owner}</span>
+										<span className="font-medium text-slate-900 dark:text-stone-100">
+											{selectedTask.ownerLabel || labels.noOwner}
+										</span>
+									</div>
+									<div className="flex items-center justify-between gap-3">
+										<span className="text-slate-500 dark:text-stone-400">{labels.startDate}</span>
+										<span className="font-medium text-slate-900 dark:text-stone-100">
+											{formatTimelineDate(selectedTask.startDate, { locale })}
+										</span>
+									</div>
+									<div className="flex items-center justify-between gap-3">
+										<span className="text-slate-500 dark:text-stone-400">{labels.endDate}</span>
+										<span className="font-medium text-slate-900 dark:text-stone-100">
+											{formatTimelineDate(selectedTask.endDate, {
+												locale,
+												fallback: labels.noFixedEndDate,
+											})}
+										</span>
+									</div>
+									<div className="flex items-center justify-between gap-3">
+										<span className="text-slate-500 dark:text-stone-400">{labels.duration}</span>
+										<span className="font-medium text-slate-900 dark:text-stone-100">
+											{getTaskDurationLabel(selectedTask, {
+												dayLabel: labels.day,
+												daysLabel: labels.days,
+												unscheduledLabel: "-",
+											})}
+										</span>
+									</div>
+								</div>
+
+								<div>
+									<div className="mb-2 flex items-center justify-between gap-3 text-sm">
+										<span className="text-slate-500 dark:text-stone-400">{labels.progress}</span>
+										<span className="font-medium text-slate-900 dark:text-stone-100">
+											{selectedTask.progress}%
+										</span>
+									</div>
+									<Progress
+										value={selectedTask.progress}
+										showValueLabel={false}
+										className="h-2 bg-slate-200 dark:bg-stone-800"
+										indicatorClassName={getTaskOperationalColorClasses(selectedTask, today).progress}
+									/>
+								</div>
+
+								<div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+									<div className="mb-3 flex items-center justify-between gap-3">
+										<h4 className="text-sm font-semibold text-slate-950 dark:text-stone-50">
+											{labels.dependencies}
+										</h4>
+										<Badge
+											variant="outline"
+											className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
+										>
+											{getTaskDependencyIds(selectedTask).length}
+										</Badge>
+									</div>
+									{getTaskDependencyIds(selectedTask).length === 0 ? (
+										<p className="text-sm text-slate-500 dark:text-stone-400">
+											{labels.noDependencies}
+										</p>
+									) : (
+										<div className="flex flex-wrap gap-2">
+											{getTaskDependencyIds(selectedTask).map((dependencyId) => (
+												<Badge
+													key={dependencyId}
+													variant="outline"
+													className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
+												>
+													{dependencyId}
+												</Badge>
+											))}
+										</div>
+									)}
+								</div>
+
+								{selectedTask.notes?.trim() ? (
+									<div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-stone-800 dark:bg-stone-900/50">
+										<p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500">
+											{labels.note}
+										</p>
+										<p className="mt-2 text-sm leading-6 text-slate-700 dark:text-stone-200">
+											{selectedTask.notes}
+										</p>
+									</div>
+								) : null}
+
+								{resolveTaskHref(selectedTask.id) ? (
+									<Button
+										type="button"
+										onClick={() => {
+											openTask(selectedTask.id);
+											setSelectedTask(null);
+										}}
+										className="w-full"
+									>
+										{labels.openTask}
+									</Button>
+								) : null}
+							</div>
+						</>
+					) : null}
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
 }

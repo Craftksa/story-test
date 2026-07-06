@@ -613,5 +613,18 @@
   "Sprint": "السبرنت",
   "Phase": "المرحلة",
   "Switch between the task table, timeline, and weekly sprint planning": "بدّل بين جدول المهام والعرض الزمني وتخطيط السبرنت الأسبوعي"
+,
+  "Task Details": "تفاصيل المهمة",
+  "Open Task": "فتح المهمة",
+  "Zoom": "التقريب",
+  "Day": "يوم",
+  "Week": "أسبوع",
+  "Month": "شهر",
+  "Timeline Grid": "شبكة الجدول الزمني",
+  "Schedule Overview": "نظرة عامة على الجدول",
+  "Scheduled Tasks": "المهام المجدولة",
+  "Dependencies": "الاعتماديات",
+  "No linked dependencies": "لا توجد اعتماديات مرتبطة",
+  "Click any bar to inspect task details": "اضغط على أي شريط لمراجعة تفاصيل المهمة"
 }
 

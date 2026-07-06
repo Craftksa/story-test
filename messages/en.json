@@ -612,5 +612,17 @@
   "No upcoming tasks after this week": "No upcoming tasks after this week",
   "Sprint": "Sprint",
   "Phase": "Phase",
-  "Switch between the task table, timeline, and weekly sprint planning": "Switch between the task table, timeline, and weekly sprint planning"
+  "Switch between the task table, timeline, and weekly sprint planning": "Switch between the task table, timeline, and weekly sprint planning",
+  "Task Details": "Task Details",
+  "Open Task": "Open Task",
+  "Zoom": "Zoom",
+  "Day": "Day",
+  "Week": "Week",
+  "Month": "Month",
+  "Timeline Grid": "Timeline Grid",
+  "Schedule Overview": "Schedule Overview",
+  "Scheduled Tasks": "Scheduled Tasks",
+  "Dependencies": "Dependencies",
+  "No linked dependencies": "No linked dependencies",
+  "Click any bar to inspect task details": "Click any bar to inspect task details"
 }

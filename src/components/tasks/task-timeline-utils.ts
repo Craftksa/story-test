@@ -177,6 +177,13 @@ export type TimelineSummary = {
 	projectProgress: number;
 };
 
+export type TimelineDependency = {
+	id: string;
+	fromTaskId: string;
+	toTaskId: string;
+	type: "finish_to_start";
+};
+
 export type SprintBuckets = {
 	active: TimelineTask[];
 	starting: TimelineTask[];
@@ -426,6 +433,113 @@ function getTaskId(task: TimelineSourceTask, index: number) {
 	}
 
 	return `timeline-task-${index + 1}`;
+}
+
+function normalizeDependencyTaskId(value: unknown) {
+	if (typeof value === "string" && value.trim()) {
+		return value.trim();
+	}
+
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return String(value);
+	}
+
+	return null;
+}
+
+function collectDependencyIds(value: unknown): string[] {
+	if (!value) return [];
+
+	if (Array.isArray(value)) {
+		return value.flatMap((entry) => collectDependencyIds(entry));
+	}
+
+	const normalizedValue = normalizeDependencyTaskId(value);
+	if (normalizedValue) {
+		return [normalizedValue];
+	}
+
+	if (typeof value === "object") {
+		const record = value as Record<string, unknown>;
+		const directKeys = [
+			"taskId",
+			"id",
+			"dependencyTaskId",
+			"dependsOnTaskId",
+			"predecessorId",
+			"fromTaskId",
+			"sourceTaskId",
+		];
+
+		for (const key of directKeys) {
+			const candidate = normalizeDependencyTaskId(record[key]);
+			if (candidate) {
+				return [candidate];
+			}
+		}
+
+		const nestedKeys = ["dependency", "task", "predecessor", "source"];
+		for (const key of nestedKeys) {
+			if (record[key]) {
+				const nestedMatches = collectDependencyIds(record[key]);
+				if (nestedMatches.length > 0) {
+					return nestedMatches;
+				}
+			}
+		}
+	}
+
+	return [];
+}
+
+export function getTaskDependencyIds(task: TimelineSourceTask | TimelineTask) {
+	const source = ("originalTask" in task ? task.originalTask : task) as Record<string, unknown>;
+	const candidates = [
+		source.dependencyIds,
+		source.dependsOnTaskIds,
+		source.predecessorIds,
+		source.dependencies,
+		source.dependsOn,
+		source.predecessors,
+		source.predecessorTaskId,
+		source.dependsOnTaskId,
+		source.dependencyTaskId,
+	];
+
+	return Array.from(
+		new Set(
+			candidates
+				.flatMap((candidate) => collectDependencyIds(candidate))
+				.filter((dependencyId) => dependencyId !== ("id" in task ? task.id : null))
+		)
+	);
+}
+
+export function getTimelineDependencies(tasks: TimelineTask[]): TimelineDependency[] {
+	const taskIds = new Set(tasks.map((task) => task.id));
+	const dependencies = new Map<string, TimelineDependency>();
+
+	for (const task of tasks) {
+		for (const predecessorId of getTaskDependencyIds(task)) {
+			if (!taskIds.has(predecessorId) || predecessorId === task.id) {
+				continue;
+			}
+
+			const key = `${predecessorId}->${task.id}`;
+			if (dependencies.has(key)) {
+				continue;
+			}
+
+			dependencies.set(key, {
+				id: key,
+				fromTaskId: predecessorId,
+				toTaskId: task.id,
+				type: "finish_to_start",
+			});
+		}
+	}
+
+	return Array.from(dependencies.values());
 }
 
 function getTaskPriority(args: {
