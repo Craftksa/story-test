@@ -6,22 +6,41 @@ import {alias} from "drizzle-orm/pg-core";
 import {hasRole, isValidId} from "@/lib/utils";
 import {authenticate} from "@/lib/authenticate";
 import {deleteFilesFromUploadThing, extractFileKey} from "../../uploadthing/delete-files";
+import {authorizeProjectAccess} from "@/lib/project-permissions";
 
 const client = alias(users, "client");
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-	const { id } = params;
+type ProjectRouteContext = {
+	params: Promise<{ id: string }>;
+};
+
+function projectAccessDeniedResponse(access: {
+	status: 401 | 403 | 404;
+	error: string;
+}) {
+	return NextResponse.json({ error: access.error }, { status: access.status });
+}
+
+export async function GET(req: NextRequest, { params }: ProjectRouteContext) {
+	const { id } = await params;
 
 	if (!isValidId(id)) {
 		return NextResponse.json({ error: "Invalid project ID format" }, { status: 400 });
 	}
 
 	const { user } = await authenticate(req);
-	if (!user) {
-		return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-	}
 
 	try {
+		const access = await authorizeProjectAccess({
+			user,
+			projectId: id,
+			action: "read",
+		});
+
+		if (!access.ok) {
+			return projectAccessDeniedResponse(access);
+		}
+
 		// Fetch project info with client
 		const project = await db
 			.select({
@@ -163,19 +182,26 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 	}
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-	const { id } = params
+export async function PUT(req: NextRequest, { params }: ProjectRouteContext) {
+	const { id } = await params
 
 	if (!isValidId(id)) {
 		return NextResponse.json({ error: 'Invalid project ID format' }, { status: 400 })
 	}
 
 	const { user } = await authenticate(req)
-	if (!hasRole(user, ["admin", "moderator", "employee"])) {
-		return NextResponse.json({ error: "Forbidden 403" }, { status: 403 })
-	}
 
 	try {
+		const access = await authorizeProjectAccess({
+			user,
+			projectId: id,
+			action: "update",
+		})
+
+		if (!access.ok) {
+			return projectAccessDeniedResponse(access)
+		}
+
 		const body = await req.json()
 		if (!body || typeof body !== "object") {
 			return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
@@ -246,19 +272,26 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 	}
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-	const { id: projectId } = params;
+export async function DELETE(req: NextRequest, { params }: ProjectRouteContext) {
+	const { id: projectId } = await params;
 
 	if (!isValidId(projectId)) {
 		return NextResponse.json({ error: "Invalid project ID format" }, { status: 400 });
 	}
 
 	const { user } = await authenticate(req);
-	if (!hasRole(user, ["admin", "moderator"])) {
-		return NextResponse.json({ error: "Forbidden 403" }, { status: 403 });
-	}
 
 	try {
+		const access = await authorizeProjectAccess({
+			user,
+			projectId,
+			action: "delete",
+		});
+
+		if (!access.ok) {
+			return projectAccessDeniedResponse(access);
+		}
+
 		// Step 1: Get all task IDs under this project
 		const projectTasks = await db
 			.select({ id: tasks.id })
