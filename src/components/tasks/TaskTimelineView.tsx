@@ -59,7 +59,6 @@ import {
 	getTaskDurationLabel,
 	getTaskStatusColorClasses,
 	getThisWeekTasks,
-	getTimelineDependencies,
 	getTimelineRange,
 	getTimelineSummary,
 	groupTasksByType,
@@ -358,19 +357,6 @@ function buildGanttScaleCells(
 				(differenceInCalendarDays(rangeEnd, rangeStart) + 1) * pixelsPerDay,
 		};
 	}) satisfies GanttScaleCell[];
-}
-
-function buildDependencyPath(
-	fromX: number,
-	fromY: number,
-	toX: number,
-	toY: number
-) {
-	const gap = Math.max(14, Math.min(34, Math.abs(toX - fromX) / 2));
-	const bendX = fromX + gap;
-	const targetX = Math.max(toX - 6, bendX + 8);
-
-	return `M ${fromX} ${fromY} L ${bendX} ${fromY} L ${bendX} ${toY} L ${targetX} ${toY}`;
 }
 
 export default function TaskTimelineView({
@@ -724,16 +710,6 @@ export default function TaskTimelineView({
 		return metrics;
 	}, [ganttRows.rows, pixelsPerDay, timelineRange.start]);
 
-	const ganttDependencies = useMemo(
-		() =>
-			getTimelineDependencies(sortedTasks).filter(
-				(dependency) =>
-					ganttTaskMetrics.has(dependency.fromTaskId) &&
-					ganttTaskMetrics.has(dependency.toTaskId)
-			),
-		[ganttTaskMetrics, sortedTasks]
-	);
-
 	const resolveTaskHref = (taskId: string) =>
 		getTaskHref?.(taskId) ?? (projectId ? `/projects/${projectId}/tasks/${taskId}` : null);
 
@@ -1051,12 +1027,6 @@ export default function TaskTimelineView({
 											<span className="h-2.5 w-8 rounded-full bg-sky-100 dark:bg-sky-500/15" />
 											{labels.currentWeek}
 										</div>
-										{ganttDependencies.length > 0 ? (
-											<div className="inline-flex items-center gap-2">
-												<span className="h-px w-8 bg-slate-300 dark:bg-stone-600" />
-												{labels.dependencies}
-											</div>
-										) : null}
 									</div>
 
 									<div className="flex flex-wrap items-center gap-2">
@@ -1105,14 +1075,6 @@ export default function TaskTimelineView({
 											{ganttRows.rows.filter((row) => row.kind === "task").length}{" "}
 											{labels.scheduledTasks}
 										</Badge>
-										{ganttDependencies.length > 0 ? (
-											<Badge
-												variant="outline"
-												className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
-											>
-												{ganttDependencies.length} {labels.dependencies}
-											</Badge>
-										) : null}
 									</div>
 								</div>
 							</div>
@@ -1209,53 +1171,6 @@ export default function TaskTimelineView({
 											className="absolute inset-y-0 w-px bg-slate-900 dark:bg-stone-100"
 											style={{ left: todayPositionPx }}
 										/>
-										{ganttDependencies.length > 0 ? (
-											<svg className="absolute inset-0 h-full w-full" aria-hidden="true">
-												<defs>
-													<marker
-														id="gantt-dependency-arrow"
-														markerWidth="7"
-														markerHeight="7"
-														refX="6"
-														refY="3.5"
-														orient="auto"
-													>
-														<path d="M 0 0 L 7 3.5 L 0 7 z" fill="currentColor" />
-													</marker>
-												</defs>
-												{ganttDependencies.map((dependency) => {
-													const fromTask = ganttTaskMetrics.get(dependency.fromTaskId);
-													const toTask = ganttTaskMetrics.get(dependency.toTaskId);
-
-													if (!fromTask || !toTask) {
-														return null;
-													}
-
-													const fromX = fromTask.barStart + fromTask.barWidth;
-													const toX = toTask.barStart;
-													const path = buildDependencyPath(
-														fromX,
-														fromTask.barCenterY,
-														toX,
-														toTask.barCenterY
-													);
-
-													return (
-														<path
-															key={dependency.id}
-															d={path}
-															fill="none"
-															stroke="currentColor"
-															strokeWidth="1.5"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															className="text-slate-300 dark:text-stone-600"
-															markerEnd="url(#gantt-dependency-arrow)"
-														/>
-													);
-												})}
-											</svg>
-										) : null}
 									</div>
 
 									<div className="relative">

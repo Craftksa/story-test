@@ -511,30 +511,17 @@ export function getTaskDependencyIds(task: TimelineSourceTask | TimelineTask) {
 			candidates
 				.flatMap((candidate) => collectDependencyIds(candidate))
 				.filter((dependencyId) => dependencyId !== ("id" in task ? task.id : null))
-				.filter((dependencyId) => dependencyId.trim().length > 0)
 		)
 	);
 }
 
 export function getTimelineDependencies(tasks: TimelineTask[]): TimelineDependency[] {
-	const tasksById = new Map(tasks.map((task) => [task.id, task]));
+	const taskIds = new Set(tasks.map((task) => task.id));
 	const dependencies = new Map<string, TimelineDependency>();
 
 	for (const task of tasks) {
-		if (!task.isScheduled || !task.startDate || !task.endDate) {
-			continue;
-		}
-
 		for (const predecessorId of getTaskDependencyIds(task)) {
-			const predecessorTask = tasksById.get(predecessorId);
-
-			if (
-				!predecessorTask ||
-				predecessorId === task.id ||
-				!predecessorTask.isScheduled ||
-				!predecessorTask.startDate ||
-				!predecessorTask.endDate
-			) {
+			if (!taskIds.has(predecessorId) || predecessorId === task.id) {
 				continue;
 			}
 
