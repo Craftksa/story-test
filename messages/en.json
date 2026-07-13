@@ -643,5 +643,7 @@
   "Blocker Events": "Blocker Events",
   "No blocker events recorded for this project yet": "No blocker events recorded for this project yet",
   "Ongoing": "Ongoing",
-  "Resolved": "Resolved"
+  "Resolved": "Resolved",
+  "Project not found or you don't have access": "Project not found or you don't have access",
+  "Return Home": "Return Home"
 }

@@ -644,6 +644,8 @@
   "Blocker Events": "أحداث التعليق",
   "No blocker events recorded for this project yet": "لا توجد أحداث تعليق مسجلة لهذا المشروع حتى الآن",
   "Ongoing": "مستمر",
-  "Resolved": "تم الحل"
+  "Resolved": "تم الحل",
+  "Project not found or you don't have access": "المشروع غير موجود أو ليس لديك صلاحية الوصول إليه",
+  "Return Home": "العودة للرئيسية"
 }
 
