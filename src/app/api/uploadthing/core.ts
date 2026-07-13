@@ -24,7 +24,7 @@ export const ourFileRouter = {
 			})
 		)
 
-		.middleware(async ({ req, input }) => {
+		.middleware(async ({ input }) => {
 			const session = await auth(); // next-auth session
 			if (!session?.user?.id) throw new UploadThingError("Unauthorized");
 
@@ -62,7 +62,7 @@ export const ourFileRouter = {
 				contractId: z.string(),
 			})
 		)
-		.middleware(async ({ req, input }) => {
+		.middleware(async ({ input }) => {
 			const session = await auth();
 			if (!session?.user?.id) throw new UploadThingError("Unauthorized");
 

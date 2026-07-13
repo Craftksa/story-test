@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 type UploadProps = {
-	taskId: any;
+	taskId: string;
 	description: string;
 };
 
 export function SimpleUploadButton({ taskId, description }: UploadProps) {
 	const router = useRouter();
 
-	const { startUpload, isUploading, permittedFileInfo } = useUploadThing("imageUploader", {
+	const { startUpload } = useUploadThing("imageUploader", {
 		onUploadBegin() {
 			toast(
 				<div className="flex items-center gap-2 text-white">
@@ -22,7 +22,7 @@ export function SimpleUploadButton({ taskId, description }: UploadProps) {
 				{ duration: Infinity, id: "uploading" }
 			);
 		},
-		onUploadError(error) {
+		onUploadError() {
 			toast.dismiss("uploading");
 			toast.error("Upload failed");
 		},
@@ -51,7 +51,7 @@ export function SimpleUploadButton({ taskId, description }: UploadProps) {
 				className="sr-only"
 				onChange={onChange}
 				accept="image/*"
-				multiple={(permittedFileInfo?.config?.image?.maxFileCount ?? 1) > 1}
+				multiple
 			/>
 		</div>
 	);

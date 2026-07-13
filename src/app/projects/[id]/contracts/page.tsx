@@ -6,14 +6,12 @@ import { useProjectStore } from "@/store/projectStore"
 import Spinner from "@/components/Spinner"
 import CustomLink from "@/components/CustomLink"
 import React, { useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
 import {useTranslations} from "use-intl";
-import ContractDetailsPage from "@/components/ContractDetailsPage";
+import ContractDetailsPage, {type ContractListItem} from "@/components/ContractDetailsPage";
 
 const ContractsMainPage = () => {
 	const router = useRouter()
 	const { id: rawParamId } = useParams()
-	const { data: session } = useSession()
 
 	const { contracts, fetchContracts, loading: contractsLoading, setProjectId } = useContractStore()
 	const { projects, fetchProjects, loading: projectsLoading } = useProjectStore()
@@ -35,14 +33,18 @@ const ContractsMainPage = () => {
 				setResolvingProjectId(false)
 			})
 		}
-	}, [paramId])
+		// fetchProjects/projects intentionally omitted: `projects` is read only inside the
+		// async .then() and including it would re-trigger fetchProjects() on every store
+		// update, looping while `paramId` is absent.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [paramId, router])
 
 	useEffect(() => {
 		if (paramId) {
 			setProjectId(paramId)
 			fetchContracts()
 		}
-	}, [paramId])
+	}, [paramId, setProjectId, fetchContracts])
 
 	const isLoading = contractsLoading || resolvingProjectId || (!paramId && projectsLoading)
 
@@ -67,7 +69,7 @@ const ContractsMainPage = () => {
 		)
 	}
 
-	return <ContractDetailsPage projectId={paramId!} contracts={contracts} />
+	return <ContractDetailsPage projectId={paramId!} contracts={contracts as unknown as ContractListItem[]} />
 }
 
 export default ContractsMainPage

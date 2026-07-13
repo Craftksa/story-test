@@ -5,64 +5,49 @@ import {motion} from 'framer-motion';
 import {
 	FolderOpenDotIcon,
 	Home,
-	Plus,
 	SettingsIcon,
 	Users2Icon,
-	User,
 } from 'lucide-react';
 import Link from "next/link";
 import {useParams, usePathname} from "next/navigation";
-import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
-import {useSidebar} from "@/components/ui/sidebar";
 import {useSession} from "next-auth/react";
 import {hasRole} from "@/lib/utils";
 import {useTranslations} from "use-intl";
 
+type NavItem = { icon: typeof Home; label: string; href: string };
+
 const MobileNavigation = () => {
 	const pathname = usePathname();
-	const {toggleSidebar} = useSidebar();
 	const {data: session} = useSession();
 	const user = session?.user;
 	const {id: projectId} = useParams();
 	const t = useTranslations();
 
-	const clientNavItems = [
+	const clientNavItems: NavItem[] = [
 		{icon: Home, label: 'Home', href: '/'},
 		{icon: FolderOpenDotIcon, label: 'Tasks', href: `/projects/${projectId}/tasks`},
 		{icon: Users2Icon, label: 'Contracts', href: `/projects/${projectId}/contracts`},
 		{icon: SettingsIcon, label: 'Profile', href: '/profile'}
 	];
 
-	const baseNavItems = [
+	const baseNavItems: NavItem[] = [
 		{icon: Home, label: 'Home', href: '/'},
 		{icon: FolderOpenDotIcon, label: 'Projects', href: '/projects'},
 		{icon: Users2Icon, label: 'Users', href: '/users'},
 		{icon: SettingsIcon, label: 'Profile', href: '/profile'}
 	];
 
-	const actionItems = [
-		{icon: FolderOpenDotIcon, label: 'Add New Project', href: '/projects/new'},
-		{icon: User, label: 'Add New User', href: '/users/new'},
-	];
-
-	let navItems = [];
-	let showActions = true;
+	let navItems: NavItem[] = [];
 
 	if (hasRole(user, ['admin'])) {
 		navItems = baseNavItems;
-		showActions = true;
 	} else if (hasRole(user, ['moderator'])) {
 		navItems = baseNavItems.filter(item => item.label !== 'Users');
-		showActions = true;
 	} else if (hasRole(user, ['employee'])) {
 		navItems = baseNavItems.filter(item => item.label === 'Home' || item.label === 'Projects' || item.label === 'Profile');
-		showActions = false;
 	} else if (hasRole(user, ['client'])) {
 		navItems = clientNavItems;
-		showActions = false;
 	}
-
-	const midPoint = Math.floor(navItems.length / 2);
 
 	return (
 		<nav className="block sm:hidden print:hidden fixed bottom-0 z-50 left-0 right-0 bg-background border-t pb-safe">

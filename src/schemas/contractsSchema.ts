@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const createContractSchema = (getOne: any) =>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const createContractSchema = (getOne: unknown) =>
 	z.object({
 		contractorName: z
 			.string()
@@ -18,7 +19,8 @@ export const createContractSchema = (getOne: any) =>
 			}),
 	});
 
-export const updateContractSchema = (getOne: any, id?: string) =>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const updateContractSchema = (getOne: unknown, id?: string) =>
 	z.object({
 		contractorName: z
 			.string()

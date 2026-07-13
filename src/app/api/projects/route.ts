@@ -1,6 +1,6 @@
 import {projectAssignments, projects, users} from "@/drizzle/schema";
 import {NextRequest, NextResponse} from "next/server";
-import {eq, desc, or, inArray, and} from "drizzle-orm";
+import {eq, desc, inArray, and} from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/drizzle/db";
 import { alias } from "drizzle-orm/pg-core";
@@ -45,8 +45,8 @@ const projectSelectFields = {
 export async function GET(req: NextRequest) {
 	const { user } = await authenticate(req);
 
-	const userRole = user?.role!;
-	const userId = user?.id!;
+	const userRole = user?.role ?? "";
+	const userId = user?.id ?? "";
 
 	let filteredProjects;
 

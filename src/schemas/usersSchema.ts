@@ -1,5 +1,7 @@
 import {z} from "zod";
 
+type CheckDuplicate = (field: string, value: string, excludeId?: string) => unknown;
+
 const passwordSchema = z
 	.string()
 	.min(6, 'Password must be at least 6 characters long')
@@ -18,7 +20,7 @@ const passwordUpdateSchema = z
 	});
 
 
-export const createUserSchema = (getOne: any) =>
+export const createUserSchema = (getOne: CheckDuplicate) =>
 	z
 		.object({
 			name: z.string().min(2),
@@ -46,7 +48,7 @@ export const createUserSchema = (getOne: any) =>
 			path: ['confirmPassword']
 		})
 
-export const updateUserSchema = (getOne: any, id: string | undefined) =>
+export const updateUserSchema = (getOne: CheckDuplicate, id: string | undefined) =>
 	z.object({
 		name: z.string().min(2),
 			username: z

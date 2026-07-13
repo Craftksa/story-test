@@ -11,20 +11,28 @@ import InstallmentsPage from "@/components/InstallmentDetailsPage";
 import Link from "next/link";
 import {hasRole} from "@/lib/utils";
 
-interface Contract {
+interface Installment {
+	id?: string;
+	installmentAmount: string;
+	paidAmount: string;
+}
+
+export interface Contract {
 	id: string;
 	contractorName: string;
-	contractedAmount: string;
-	fileUrl?: string;
+	contractedAmount: string | number;
+	description?: string | null;
+	fileUrl?: string | null;
 	createdAt: string;
 	updatedAt: string;
 	projectId: string;
+	installments?: Installment[];
 }
 
 interface ContractDetailsCardProps {
 	contract: Contract;
 	deleteContract: (id: string) => void;
-	user: any;
+	user: { role?: string | null } | null | undefined;
 }
 
 const ContractDetailsCard: React.FC<ContractDetailsCardProps> = ({contract, deleteContract, user}) => {
@@ -34,8 +42,7 @@ const ContractDetailsCard: React.FC<ContractDetailsCardProps> = ({contract, dele
 
 	const formatDate = (date: string) => new Date(date).toLocaleDateString();
 
-	const getInstallmentTotals = (installments: any
-	) => {
+	const getInstallmentTotals = (installments: Installment[]) => {
 		return installments.reduce(
 			(acc, curr) => {
 				acc.totalAmount += parseFloat(curr.installmentAmount || '0');
@@ -45,7 +52,7 @@ const ContractDetailsCard: React.FC<ContractDetailsCardProps> = ({contract, dele
 			{totalAmount: 0, totalPaid: 0}
 		);
 	};
-	const {totalAmount, totalPaid} = getInstallmentTotals(contract.installments);
+	const {totalAmount, totalPaid} = getInstallmentTotals(contract.installments ?? []);
 
 	return (
 		<div className="w-full">
@@ -102,7 +109,7 @@ const ContractDetailsCard: React.FC<ContractDetailsCardProps> = ({contract, dele
 							<div>
 								<p className="text-sm font-bold">{t("Amount")}</p>
 								<p className="text-sm text-muted-foreground">
-									SAR. {parseFloat(contract.contractedAmount).toLocaleString()}
+									SAR. {parseFloat(String(contract.contractedAmount)).toLocaleString()}
 								</p>
 							</div>
 						</div>

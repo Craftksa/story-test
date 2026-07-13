@@ -4,7 +4,7 @@ import { db } from "@/drizzle/db";
 import { z } from "zod";
 import { authenticate } from "@/lib/authenticate";
 import { isValidId } from "@/lib/utils";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { authorizeProjectAccess } from "@/lib/project-permissions";
 
 function projectAccessDeniedResponse(access: {
@@ -24,6 +24,8 @@ const createTaskSchema = z
 		startDate: taskDateString,
 		endDate: taskDateString,
 		notes: z.string().optional(),
+		dependsOnTaskId: z.string().nullable().optional(),
+		isMilestone: z.boolean().optional(),
 		images: z
 			.array(
 				z.object({
@@ -50,9 +52,9 @@ const createTaskSchema = z
 
 export async function POST(
 	req: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
-	const projectId = params.id;
+	const { id: projectId } = await params;
 
 	if (!isValidId(projectId)) {
 		return NextResponse.json({ error: "Invalid project ID" }, { status: 400 });
@@ -84,7 +86,21 @@ export async function POST(
 		);
 	}
 
-	const { name, type, status, startDate, endDate, notes, images } = parsed.data;
+	const { name, type, status, startDate, endDate, notes, dependsOnTaskId, isMilestone, images } = parsed.data;
+
+	if (dependsOnTaskId) {
+		const dependencyRows = await db
+			.select({ id: tasks.id })
+			.from(tasks)
+			.where(and(eq(tasks.id, dependsOnTaskId), eq(tasks.projectId, projectId)));
+
+		if (!dependencyRows.length) {
+			return NextResponse.json(
+				{ error: "dependsOnTaskId must reference a task in the same project" },
+				{ status: 400 }
+			);
+		}
+	}
 
 	const task = await db
 		.insert(tasks)
@@ -95,6 +111,8 @@ export async function POST(
 			startDate: startDate ? new Date(startDate) : null,
 			endDate: endDate ? new Date(endDate) : null,
 			notes,
+			dependsOnTaskId: dependsOnTaskId ?? null,
+			isMilestone: isMilestone ?? false,
 			projectId,
 			updatedAt: new Date(),
 			createdAt: new Date(),
@@ -120,9 +138,9 @@ export async function POST(
 
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
-	const projectId = params.id;
+	const { id: projectId } = await params;
 
 	if (!isValidId(projectId)) {
 		return NextResponse.json({ error: "Invalid project ID" }, { status: 400 });

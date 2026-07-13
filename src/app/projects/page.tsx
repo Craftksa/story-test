@@ -1,8 +1,9 @@
 'use client'
 import React, {useEffect, useState} from "react";
+import {ColumnDef} from "@tanstack/react-table";
 import {DataTable, DataTableColumnHeader} from "@/components/data-table";
 import {Button} from "@/components/ui/button";
-import {Loader2, PlusCircleIcon} from "lucide-react";
+import {PlusCircleIcon} from "lucide-react";
 import Link from "next/link";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {useRouter} from "next/navigation";
@@ -17,9 +18,19 @@ import {useTranslations} from "use-intl";
 import { ProjectVisibilityFilter } from "@/components/project-visibility-filter";
 import { filterProjectsByVisibility, ProjectVisibilityScope } from "@/lib/project-visibility";
 
-export function ProjectsPage() {
-	const {projects, fetchProjects, loading, error, deleteProject} = useProjectStore();
-	const [selectedProject, setSelectedProject] = useState(null);
+interface ProjectListItem {
+	id: string;
+	name: string;
+	projectType: string;
+	city: string;
+	district: string;
+	designer: string;
+	startDate: string | Date | null;
+	client?: { name?: string | null } | null;
+}
+
+function ProjectsPage() {
+	const {projects, fetchProjects, loading, deleteProject} = useProjectStore();
 	const [projectVisibilityScope, setProjectVisibilityScope] = useState<ProjectVisibilityScope>("all");
 
 	const {data: session, status} = useSession();
@@ -36,7 +47,7 @@ export function ProjectsPage() {
 		} else {
 			fetchProjects();
 		}
-	}, [session, status]);
+	}, [session, status, router, fetchProjects]);
 
 
 
@@ -54,65 +65,69 @@ export function ProjectsPage() {
 		}
 	}, [status, loading, user, projects, router]);
 
-	const columns = [
+	const handleDelete = (item: ProjectListItem) => {
+		deleteProject(item.id)
+	};
+
+	const columns: ColumnDef<ProjectListItem>[] = [
 		{
 			accessorKey: "name",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Name"/>
 			),
-			cell: ({row}: any) => (
-				<span className="font-medium"><CustomLink href={`/projects/${row.original.id}`}>{row.getValue("name")}</CustomLink></span>
+			cell: ({row}) => (
+				<span className="font-medium"><CustomLink href={`/projects/${row.original.id}`}>{row.getValue("name") as string}</CustomLink></span>
 			),
 			enableSorting: true,
 			enableHiding: false,
 		},
 		{
 			accessorKey: "projectType",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Project Type"/>
 			),
-			cell: ({row}: any) => (
+			cell: ({row}) => (
 				<span className="font-medium">{<StatusBadge status={row.original.projectType}/>}</span>
 			),
 		},
 		{
 			accessorKey: "city",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="City"/>
 			),
-			cell: ({row}: any) => (
-				<span className="font-medium">{row.getValue("city")} - {row.original.district}</span>
+			cell: ({row}) => (
+				<span className="font-medium">{row.getValue("city") as string} - {row.original.district}</span>
 			),
 		},
 		{
 			accessorKey: "client.name",
-			header: ({ column }: any) => (
+			header: ({ column }) => (
 				<DataTableColumnHeader column={column} title="Client Name" />
 			),
-			cell: ({ row }: any) => {
+			cell: ({ row }) => {
 				const client = row.original.client;
 				return <span className="font-medium">{client?.name ?? <StatusBadge />}</span>;
 			},
 		},
 		{
 			accessorKey: "designer",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Designer Name"/>
 			),
-			cell: ({row}: any) => (
-				<span className="font-medium">{row.getValue("designer")}</span>
+			cell: ({row}) => (
+				<span className="font-medium">{row.getValue("designer") as string}</span>
 			),
 		},
 		{
 			accessorKey: "startDate",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Started On"/>
 			),
-			cell: ({row}: any) => <div>{row.original.startDate ? new Date(row.getValue("startDate")).toLocaleDateString() : <StatusBadge />}</div>,
+			cell: ({row}) => <div>{row.original.startDate ? new Date(row.getValue("startDate") as string).toLocaleDateString() : <StatusBadge />}</div>,
 		},
 		{
 			id: "actions",
-			cell: ({ row }: any) => (
+			cell: ({ row }) => (
 				<ActionButtons
 					entity="project"
 					data={row.original}
@@ -120,35 +135,8 @@ export function ProjectsPage() {
 					confirmationText={row.original.name}
 				/>
 			),
-		}
-,
+		},
 	];
-
-
-	const handleEdit = (item: any) => {
-		router.push(`/projects/edit/${item.id}`)
-	};
-	const handleView = (item: any) => {
-		router.push(`/projects/${item.id}`)
-	};
-
-
-	const [deleting, setDeleting] = useState(false)
-
-	const handleDelete = (item: any) => {
-		deleteProject(item.id)
-	};
-
-	const handleCopyId = (id: string) => {
-		navigator.clipboard.writeText(id.toString());
-	};
-
-	const handlePrint = (item: any) => {
-		setSelectedProject(item);
-		setTimeout(() => {
-			window.print();
-		}, 100);
-	}
 
 	const t = useTranslations();
 	const showProjectVisibilityFilter = !!user && !hasRole(user, ["client"]);
@@ -207,7 +195,7 @@ export function ProjectsPage() {
           </CardHeader>
           <CardContent className="md:px-6 p-0 ">
             <DataTable
-              data={visibleProjects}
+              data={visibleProjects as unknown as ProjectListItem[]}
               columns={columns}
               globalFilter={true}
               customActions={customActions}

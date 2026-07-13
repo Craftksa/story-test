@@ -3,7 +3,6 @@ import {NextRequest, NextResponse} from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/drizzle/db";
-import {auth} from "@/auth";
 import {authenticate} from "@/lib/authenticate";
 import {hasRole} from "@/lib/utils";
 

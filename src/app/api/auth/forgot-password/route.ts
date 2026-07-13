@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/drizzle/db';
 import { users, passwordResetTokens } from '@/drizzle/schema';
 import { sendPasswordResetEmail, generateOTP } from '@/lib/email';
+import { clearOtpAttempts } from '@/lib/otp-rate-limit';
 
 const forgotPasswordSchema = z.object({
 	email: z.string().email('Please enter a valid email address'),
@@ -32,10 +33,17 @@ export async function POST(req: NextRequest) {
 			.limit(1);
 
 		if (!user) {
+			// Avoid user enumeration: respond identically to the success case
 			return NextResponse.json({
-				error: "No account found with this email address"
-			}, { status: 404 });
+				message: "Password reset code has been sent to your email."
+			});
 		}
+
+		const staleTokens = await db
+			.select({ id: passwordResetTokens.id })
+			.from(passwordResetTokens)
+			.where(eq(passwordResetTokens.userId, user.id));
+		staleTokens.forEach((t) => clearOtpAttempts(t.id));
 
 		await db
 			.delete(passwordResetTokens)

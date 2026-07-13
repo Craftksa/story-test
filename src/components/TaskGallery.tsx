@@ -18,7 +18,6 @@ import {useTranslations} from "use-intl";
 import DeleteDialog from "@/components/DeleteDialog";
 import axios from "axios";
 import {toast} from "sonner";
-import {useParams, useRouter} from "next/navigation";
 import {useTaskStore} from "@/store/taskStore";
 import {hasRole} from "@/lib/utils";
 import {useSession} from "next-auth/react";
@@ -26,12 +25,12 @@ import {useSession} from "next-auth/react";
 interface TaskImage {
 	id: string;
 	url: string;
-	description: string;
+	description?: string | null;
 	uploadedAt: string;
 }
 
 interface TaskGalleryProps {
-	task: any;
+	task: { name?: string | null } | null | undefined;
 	images: TaskImage[];
 	onImageUpload?: (taskId: string, file: File) => void;
 	onImageDelete?: (taskId: string, imageId: string) => void;
@@ -66,14 +65,10 @@ const ImageViewerDialog = ({
 	                           images,
 	                           selectedIndex,
 	                           taskName,
-	                           isOpen,
-	                           onOpenChange
                            }: {
 	images: TaskImage[];
 	selectedIndex: number;
 	taskName: string;
-	isOpen: boolean;
-	onOpenChange: (open: boolean) => void;
 }) => {
 	const [carouselApi, setCarouselApi] = useState<CarouselApi>();
 	const [current, setCurrent] = useState(0);
@@ -114,10 +109,10 @@ const ImageViewerDialog = ({
 		}
 	};
 
-	if (images.length === 0) return null;
-
 	const t = useTranslations();
 	const isMobile = useIsMobile();
+
+	if (images.length === 0) return null;
 
 	return (
 		<DialogContent className="md:min-h-[100vh] min-h-[85vh] max-w-[calc(100%)] m-0 md:min-w-[80vw] p-2">
@@ -145,7 +140,7 @@ const ImageViewerDialog = ({
 					<>
 						<Carousel setApi={setCarouselApi} className=" z-50">
 							<CarouselContent className="p-0 md:w-auto w-[90vw] m-0">
-								{images.map((image, index) => (
+								{images.map((image) => (
 									<CarouselItem key={image.id} className="p-0 md:w-auto w-[90vw] m-0">
 										<div className="flex md:w-auto w-[90vw] flex-col items-center space-y-2">
 											<div className="relative overflow-hidden rounded-lg">
@@ -208,11 +203,9 @@ export const TaskGallery: React.FC<TaskGalleryProps> = ({
 	                                                        task,
 	                                                        images,
                                                         }) => {
-	const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 	const [filterOption, setFilterOption] = useState<FilterOption>('all');
 	const [customDateRange, setCustomDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 	const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
-	const [dialogOpen, setDialogOpen] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const t = useTranslations();
 
@@ -296,14 +289,9 @@ export const TaskGallery: React.FC<TaskGalleryProps> = ({
 		}
 	};
 
-	const handleImageClick = (globalIndex: number) => {
-		setSelectedImageIndex(globalIndex);
-		setDialogOpen(true);
-	};
-
 	const {removeImageFromTask} = useTaskStore();
 
-	const handleDelete = async (image: any) => {
+	const handleDelete = async (image: TaskImage) => {
 		try {
 			const response = await axios.delete(`/api/uploadthing/${image.id}`);
 
@@ -399,14 +387,13 @@ export const TaskGallery: React.FC<TaskGalleryProps> = ({
 								{groupImages.map((image, index) => {
 									const globalIndex = filteredImages.findIndex(img => img.id === image.id);
 									return (
-										<div className="relative">
-											<Dialog key={image.id}>
+										<div className="relative" key={image.id}>
+											<Dialog>
 												<DialogTrigger asChild>
 													<Card className="overflow-hidden group relative cursor-pointer ">
 														<button
 															type="button"
 															className="relative w-full h-full aspect-square"
-															onClick={() => handleImageClick(globalIndex)}
 														>
 															<Image
 																width={1000}
@@ -441,8 +428,6 @@ export const TaskGallery: React.FC<TaskGalleryProps> = ({
 													images={filteredImages}
 													selectedIndex={globalIndex}
 													taskName={task?.name || 'Task'}
-													isOpen={dialogOpen}
-													onOpenChange={setDialogOpen}
 												/>
 											</Dialog>
 											{hasRole(user, ["admin", "employee", "moderator"]) && <div className="absolute z-50 bottom-2 left-2 text-xs">

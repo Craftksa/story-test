@@ -22,7 +22,7 @@ import {useParams, usePathname, useSearchParams} from "next/navigation";
 import {useCheckedLocale} from "@/lib/client-utils";
 import {useTranslations} from "use-intl";
 
-export const getNavigationData = (
+export const useNavigationData = (
   role: "admin" | "moderator" | "employee" | "client",
   {
     projectId,
@@ -130,8 +130,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
-  // @ts-ignore
-  const data = getNavigationData(session?.user?.role ?? "client", {
+  const data = useNavigationData(session?.user?.role ?? "client", {
     projectId,
     pathname,
     currentTab,

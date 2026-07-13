@@ -3,23 +3,38 @@ import { devtools } from "zustand/middleware";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
+type Contract = {
+	id: string;
+	projectId: string;
+	contractorName: string;
+	contractedAmount: string | number;
+	description?: string | null;
+	fileUrl?: string | null;
+	createdAt: string;
+	updatedAt: string;
+	installments?: { id?: string; installmentAmount: string; paidAmount: string }[];
+	[key: string]: unknown;
+};
+
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 type ContractsStore = {
 	projectId: string | null;
 	setProjectId: (id: string) => void;
 
-	contracts: any[];
-	selectedContract: any | null;
+	contracts: Contract[];
+	selectedContract: Contract | null;
 	loading: boolean;
 	error: string | null;
 
 	fetchContracts: () => Promise<void>;
 	getContractById: (id: string) => Promise<void>;
 	fetchOneContract: (id: string) => Promise<void>;
-	createContract: (contract: any) => Promise<any>;
-	updateContract: (id: string, contract: unknown) => Promise<any>;
+	createContract: (contract: Partial<Contract>) => Promise<Contract | undefined>;
+	updateContract: (id: string, contract: Partial<Contract>) => Promise<Contract | undefined>;
 	deleteContract: (id: string) => Promise<void>;
 
-	checkDuplicate: (key: string, value: any, excludeId?: string) => boolean;
+	checkDuplicate: (key: string, value: unknown, excludeId?: string) => boolean;
 };
 
 export const useContractStore = create<ContractsStore>()(
@@ -42,8 +57,8 @@ export const useContractStore = create<ContractsStore>()(
 			try {
 				const contracts = await contractsApi.getAll();
 				set({ contracts });
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch contracts");
 			} finally {
 				set({ loading: false });
@@ -75,8 +90,8 @@ export const useContractStore = create<ContractsStore>()(
 			try {
 				const contract = await contractsApi.getOne(id);
 				set({ selectedContract: contract });
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch contract");
 			} finally {
 				set({ loading: false });
@@ -98,8 +113,8 @@ export const useContractStore = create<ContractsStore>()(
 				}));
 				toast.success("Contract created successfully");
 				return getContract;
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to create contract");
 			} finally {
 				set({ loading: false });
@@ -123,8 +138,8 @@ export const useContractStore = create<ContractsStore>()(
 				}));
 				toast.success("Contract updated successfully");
 				return getContract;
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to update contract");
 			} finally {
 				set({ loading: false });
@@ -144,8 +159,8 @@ export const useContractStore = create<ContractsStore>()(
 					contracts: state.contracts.filter((contract) => contract.id !== id),
 				}));
 				toast.success("Contract deleted successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to delete contract");
 			} finally {
 				set({ loading: false });

@@ -625,6 +625,25 @@
   "Scheduled Tasks": "المهام المجدولة",
   "Dependencies": "الاعتماديات",
   "No linked dependencies": "لا توجد اعتماديات مرتبطة",
-  "Click any bar to inspect task details": "اضغط على أي شريط لمراجعة تفاصيل المهمة"
+  "Click any bar to inspect task details": "اضغط على أي شريط لمراجعة تفاصيل المهمة",
+  "Confirm": "تأكيد",
+  "Block Task": "تعليق المهمة",
+  "Provide a reason and note before placing this task on hold": "يرجى تحديد السبب وكتابة ملاحظة قبل تعليق هذه المهمة",
+  "Blocked Reason": "سبب التعليق",
+  "Blocked Note": "ملاحظة التعليق",
+  "Select a reason": "اختر السبب",
+  "Describe why this task is blocked": "اشرح سبب تعليق هذه المهمة",
+  "client_approval": "بانتظار موافقة العميل",
+  "client_documents": "بانتظار رفع مستندات من العميل",
+  "internal": "تبعية داخلية",
+  "external": "جهة خارجية",
+  "Delay Report": "تقرير التأخير",
+  "Days blocked by client": "أيام التعليق بسبب العميل",
+  "Days blocked internally": "أيام التعليق الداخلي",
+  "Days blocked by external party": "أيام التعليق بسبب جهة خارجية",
+  "Blocker Events": "أحداث التعليق",
+  "No blocker events recorded for this project yet": "لا توجد أحداث تعليق مسجلة لهذا المشروع حتى الآن",
+  "Ongoing": "مستمر",
+  "Resolved": "تم الحل"
 }
 

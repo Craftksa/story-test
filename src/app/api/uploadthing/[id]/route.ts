@@ -2,11 +2,12 @@ import {NextRequest, NextResponse} from "next/server";
 import {authenticate} from "@/lib/authenticate";
 import {hasRole} from "@/lib/utils";
 import {db} from "@/drizzle/db";
-import {taskImages, users} from "@/drizzle/schema";
+import {taskImages} from "@/drizzle/schema";
 import {eq} from "drizzle-orm";
 import {deleteFilesFromUploadThing, extractFileKey} from "@/app/api/uploadthing/delete-files";
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+	const { id } = await params;
 	const { user } = await authenticate(req);
 
 	if (!hasRole(user, ["admin", "moderator", "employee"])) {
@@ -16,7 +17,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 	const image = await db
 		.select()
 		.from(taskImages)
-		.where(eq(taskImages.id, params.id))
+		.where(eq(taskImages.id, id))
 		.then((res) => res[0]);
 
 	if (!image) {

@@ -1,13 +1,10 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import ProjectForm, {ProjectFormData} from '@/components/forms/ProjectForm'
 import { useProjectStore } from '@/store/projectStore'
 import Spinner from '@/components/Spinner'
-import ProjectDetailsCard from "@/components/ProjectDetailsCard";
-import {Loader2} from "lucide-react";
+import ProjectDetailsCard, {type ProjectDetails} from "@/components/ProjectDetailsCard";
 import {useTranslations} from "use-intl";
 
 const ViewProjectPage = () => {
@@ -16,7 +13,7 @@ const ViewProjectPage = () => {
 
 	useEffect(() => {
 			fetchOneProject(id)
-	}, [id])
+	}, [id, fetchOneProject])
 	const t = useTranslations();
 
 	if (!selectedProject || loading) {
@@ -38,7 +35,7 @@ const ViewProjectPage = () => {
 
 	return (
 		<div className="flex justify-center">
-			<ProjectDetailsCard project={selectedProject} deleteProject={deleteProject} />
+			<ProjectDetailsCard project={selectedProject as unknown as ProjectDetails} deleteProject={deleteProject} />
 		</div>
 	)
 }

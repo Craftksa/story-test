@@ -758,9 +758,9 @@ export const buildReportHtml = async (payload: ReportDocumentPayload) => {
 		logPdfTrace(
 			[
 				`html.reportId=${payload.report.id}`,
-				`fontRegularEmbedded=${String(embeddedArabicFontRegularBase64.length > 0)}`,
-				`fontBoldEmbedded=${String(embeddedArabicFontBoldBase64.length > 0)}`,
-				`logoEmbedded=${String(embeddedBrandLogoBase64.length > 0)}`,
+				`fontRegularEmbedded=${String((embeddedArabicFontRegularBase64?.length ?? 0) > 0)}`,
+				`fontBoldEmbedded=${String((embeddedArabicFontBoldBase64?.length ?? 0) > 0)}`,
+				`logoEmbedded=${String((embeddedBrandLogoBase64?.length ?? 0) > 0)}`,
 				`hasTitle=${String(html.includes(escapeHtml(content.reportTitle)))}`,
 				`hasProject=${String(html.includes(escapeHtml(content.projectName)))}`,
 				`hasSummary=${String(
@@ -1074,7 +1074,10 @@ const resolveBrowserLaunchConfig = async (diagnostics: PdfGenerationDiagnostics)
 	logPdfTrace(`chromium.args.count=${chromiumArgs.length}`);
 	return {
 		args: chromiumArgs,
-		defaultViewport: chromium.defaultViewport,
+		// @sparticuz/chromium no longer exposes `defaultViewport`; match the same
+		// A4-page viewport used for the local-browser launch path above so PDF
+		// rendering stays consistent between environments.
+		defaultViewport: { width: 1240, height: 1754, deviceScaleFactor: 1 },
 		executablePath: chromiumExecutablePath,
 		headless: true as const,
 	};
@@ -1144,7 +1147,7 @@ export const generateReportPdfBuffer = async (payload: ReportDocumentPayload) =>
 		browser = await puppeteer.launch({
 			...launchConfig,
 			args: [...launchArgs, `--user-data-dir=${userDataDir}`],
-			ignoreHTTPSErrors: true,
+			acceptInsecureCerts: true,
 		});
 		diagnostics.launchSucceeded = true;
 		logPdfTrace("stage=launch-browser success=true");
@@ -1303,7 +1306,7 @@ export const generateLetterPdfBuffer = async (payload: LetterDocumentPayload) =>
 		browser = await puppeteer.launch({
 			...launchConfig,
 			args: [...launchArgs, `--user-data-dir=${userDataDir}`],
-			ignoreHTTPSErrors: true,
+			acceptInsecureCerts: true,
 		});
 		diagnostics.launchSucceeded = true;
 

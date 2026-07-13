@@ -9,7 +9,6 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
 	User,
@@ -17,12 +16,11 @@ import {
 	Shield,
 	Settings,
 	LogOut,
-	Edit,
 	Key,
 	UserCircle
 } from 'lucide-react';
 import ChangePasswordForm from '@/components/forms/ChangePasswordForm';
-import {getFirstInitial, getInitials} from "@/lib/utils";
+import {getFirstInitial} from "@/lib/utils";
 import Spinner from "@/components/Spinner";
 import StatusBadge from "@/components/StatusBadgeSystem";
 

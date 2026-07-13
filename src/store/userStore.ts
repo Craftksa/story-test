@@ -3,20 +3,33 @@ import { devtools } from "zustand/middleware";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
+type User = {
+	id: string;
+	name: string;
+	username: string;
+	email: string;
+	role: string;
+	image?: string | null;
+	createdAt?: string;
+	[key: string]: unknown;
+};
+
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 type UsersStore = {
-	users: any[];
-	selectedUser: any | null;
+	users: User[];
+	selectedUser: User | null;
 	loading: boolean;
 	error: string | null;
 
 	fetchUsers: () => Promise<void>;
 	getUserById: (id: string) => Promise<void>;
 	fetchOneUser: (id: string) => Promise<void>;
-	createUser: (user: Partial<any>) => Promise<void>;
-	updateUser: (id: number, user: Partial<any>) => Promise<void>;
-	deleteUser: (id: number) => Promise<void>;
+	createUser: (user: Partial<User>) => Promise<void>;
+	updateUser: (id: string, user: Partial<User>) => Promise<void>;
+	deleteUser: (id: string) => Promise<void>;
 
-	checkDuplicate: (key: string, value: any, excludeId?: string) => Promise<void>;
+	checkDuplicate: (key: string, value: unknown, excludeId?: string) => boolean;
 };
 
 const usersApi = api.createEntityApi("users");
@@ -36,8 +49,8 @@ export const useUserStore = create<UsersStore>()(
 					const users = await usersApi.getAll();
 					set({ users });
 				}
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch users");
 			} finally {
 				set({ loading: false });
@@ -67,8 +80,8 @@ export const useUserStore = create<UsersStore>()(
 			try {
 				const user = await usersApi.getOne(id);
 				set({ selectedUser: user });
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch user");
 			} finally {
 				set({ loading: false });
@@ -84,8 +97,8 @@ export const useUserStore = create<UsersStore>()(
 					users: [getUser, ...state.users],
 				}));
 				toast.success("User created successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to create user");
 			} finally {
 				set({ loading: false });
@@ -104,8 +117,8 @@ export const useUserStore = create<UsersStore>()(
 					),
 				}));
 				toast.success("User updated successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to update user");
 			} finally {
 				set({ loading: false });
@@ -120,15 +133,15 @@ export const useUserStore = create<UsersStore>()(
 					users: state.users.filter((user) => user.id !== id),
 				}));
 				toast.success("User deleted successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to delete user");
 			} finally {
 				set({ loading: false });
 			}
 		},
 
-		checkDuplicate: (key: string, value: any, excludeId: string) => {
+		checkDuplicate: (key: string, value: unknown, excludeId?: string) => {
 			const users = get().users;
 			return users.some((user) => {
 				if (excludeId && user.id === excludeId) return false;

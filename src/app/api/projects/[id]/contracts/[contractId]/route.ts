@@ -8,9 +8,9 @@ import { isValidId, hasRole } from "@/lib/utils";
 // GET: Fetch contract + installments
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { id: string; contractId: string } }
+	{ params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
-	const { id: projectId, contractId } = params;
+	const { id: projectId, contractId } = await params;
 
 	if (!isValidId(projectId) || !isValidId(contractId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
@@ -56,9 +56,9 @@ export async function GET(
 // PUT: Update contract fields
 export async function PUT(
 	req: NextRequest,
-	{ params }: { params: { id: string; contractId: string } }
+	{ params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
-	const { id: projectId, contractId } = params;
+	const { id: projectId, contractId } = await params;
 
 	if (!isValidId(projectId) || !isValidId(contractId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
@@ -72,8 +72,8 @@ export async function PUT(
 	try {
 		const body = await req.json();
 
-		const allowedFields = ["contractorName", "contractedAmount", "fileUrl", "description"];
-		const updates: Record<string, any> = {};
+		const allowedFields = ["contractorName", "contractedAmount", "fileUrl", "description"] as const;
+		const updates: Partial<typeof contracts.$inferInsert> = {};
 
 		for (const field of allowedFields) {
 			if (field in body) {
@@ -99,9 +99,9 @@ export async function PUT(
 // DELETE: Remove contract (installments cascade if foreign key is set)
 export async function DELETE(
 	req: NextRequest,
-	{ params }: { params: { id: string; contractId: string } }
+	{ params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
-	const { id: projectId, contractId } = params;
+	const { id: projectId, contractId } = await params;
 
 	if (!isValidId(projectId) || !isValidId(contractId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });

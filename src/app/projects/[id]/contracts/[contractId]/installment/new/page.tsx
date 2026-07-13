@@ -7,7 +7,7 @@ import {useTranslations} from "use-intl";
 
 
 const NewInstallmentPage = () => {
-	const {id: projectId, contractId} = useParams()
+	const {id: projectId, contractId} = useParams<{ id: string; contractId: string }>()
 
 	const t = useTranslations();
 	return (

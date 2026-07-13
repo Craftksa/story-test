@@ -1,5 +1,6 @@
 'use client'
 import React, {useEffect, useState} from "react";
+import {ColumnDef} from "@tanstack/react-table";
 import {DataTable, DataTableColumnHeader} from "@/components/data-table";
 import {Button} from "@/components/ui/button";
 import {EditIcon, PlusCircleIcon} from "lucide-react";
@@ -11,70 +12,87 @@ import DeleteDialog from "@/components/DeleteDialog";
 import StatusBadge from "@/components/StatusBadgeSystem";
 import {useTranslations} from "use-intl";
 
+interface UserListItem {
+	id: string;
+	name: string;
+	username: string;
+	email: string;
+	role: string;
+	createdAt: string | Date;
+}
 
-export function UsersPage() {
-	const {users, fetchUsers, loading, error, deleteUser} = useUserStore();
-	const [selectedUser, setSelectedUser] = useState(null);
+function UsersPage() {
+	const {users, fetchUsers, loading, deleteUser} = useUserStore();
 
 	const t = useTranslations();
 	const router = useRouter();
 
 	useEffect(() => {
 		fetchUsers();
-	}, []);
+	}, [fetchUsers]);
 
-	const columns = [
+	const handleEdit = (item: UserListItem) => {
+		router.push(`/users/edit/${item.id}`)
+	};
+
+	const [deleting, setDeleting] = useState(false)
+
+	const handleDelete = (item: UserListItem) => {
+		deleteUser(item.id)
+	};
+
+	const columns: ColumnDef<UserListItem>[] = [
 		{
 			accessorKey: "name",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Name"/>
 			),
-			cell: ({row}: any) => (
-				<span className="font-medium">{row.getValue("name")}</span>
+			cell: ({row}) => (
+				<span className="font-medium">{row.getValue("name") as string}</span>
 			),
 			enableSorting: true,
 			enableHiding: false,
 		},
 		{
 			accessorKey: "username",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Username"/>
 			),
-			cell: ({row}: any) => (
-				<span className="font-medium">{row.getValue("username")}</span>
+			cell: ({row}) => (
+				<span className="font-medium">{row.getValue("username") as string}</span>
 			),
 			enableSorting: true,
 			enableHiding: false,
 		},
 		{
 			accessorKey: "email",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Email"/>
 			),
-			cell: ({row}: any) => (
-				<span className="text-muted-foreground text-sm">{row.getValue("email")}</span>
+			cell: ({row}) => (
+				<span className="text-muted-foreground text-sm">{row.getValue("email") as string}</span>
 			),
 		},
 		{
 			accessorKey: "role",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Role"/>
 			),
-			cell: ({row}: any) => (
+			cell: ({row}) => (
 				<span className="capitalize"><StatusBadge status={row.original.role} /></span>
 			),
 		},
 		{
 			accessorKey: "createdAt",
-			header: ({column}: any) => (
+			header: ({column}) => (
 				<DataTableColumnHeader column={column} title="Joined"/>
 			),
-			cell: ({row}: any) => new Date(row.getValue("createdAt")).toLocaleDateString(),
+			cell: ({row}) => new Date(row.getValue("createdAt") as string).toLocaleDateString(),
 			enableSorting: true,
 		},
 		{
 			id: "actions",
-			cell: ({row}: any) => (
+			cell: ({row}) => (
 				<div className="actions-column">
 					<div className="flex -ml-2 gap-1 justify-center items-center">
 						<Button variant="rounded" size="icon" onClick={() => handleEdit(row.original)}>
@@ -92,28 +110,6 @@ export function UsersPage() {
 			),
 		},
 	];
-
-
-	const handleEdit = (item: any) => {
-		router.push(`/users/edit/${item.id}`)
-	};
-
-	const [deleting, setDeleting] = useState(false)
-
-	const handleDelete = (item: any) => {
-		deleteUser(item.id)
-	};
-
-	const handleCopyId = (id: string) => {
-		navigator.clipboard.writeText(id.toString());
-	};
-
-	const handlePrint = (item: any) => {
-		setSelectedUser(item);
-		setTimeout(() => {
-			window.print();
-		}, 100);
-	}
 
 	const customActions = (
 		<>
@@ -142,7 +138,7 @@ export function UsersPage() {
 				</CardHeader>
 				<CardContent className="md:px-6 p-0 ">
 					<DataTable
-						data={users}
+						data={users as unknown as UserListItem[]}
 						columns={columns}
 						globalFilter={true}
 						customActions={customActions}

@@ -9,7 +9,7 @@ export function useCheckedLocale() {
 
 	return {
 		lang: locale,
-		dir: isRTL ? "rtl" : "ltr" as any,
+		dir: (isRTL ? "rtl" : "ltr") as "rtl" | "ltr",
 		isRTL,
 	};
 }

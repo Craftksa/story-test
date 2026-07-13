@@ -10,14 +10,14 @@ import {useTranslations} from "use-intl";
 
 const Page = () => {
 	const {id: projectId, taskId} = useParams();
-	const {tasks, selectedTask, fetchOneTask, setProjectId, loading, deleteTask} = useTaskStore();
+	const {selectedTask, fetchOneTask, setProjectId, loading, deleteTask} = useTaskStore();
 	const { data: session } = useSession();
 	const user = session?.user;
 
 	useEffect(() => {
 		setProjectId(projectId as string)
 		fetchOneTask(taskId as string)
-	}, [projectId, taskId])
+	}, [projectId, taskId, setProjectId, fetchOneTask])
 
 	const t = useTranslations();
 

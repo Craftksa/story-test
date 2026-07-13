@@ -40,7 +40,7 @@ const EditInstallmentPage = () => {
 		};
 
 		fetchInstallment();
-	}, [projectId, contractId, installmentId]);
+	}, [projectId, contractId, installmentId, setProjectId, setContractId, fetchOneInstallment]);
 
 	if (loading) {
 		return (

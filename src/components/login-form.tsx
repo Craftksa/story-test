@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import {useTranslations, useLocale} from "use-intl";
+import {useTranslations} from "use-intl";
 import {useCheckedLocale} from "@/lib/client-utils";
 import Link from "next/link"
 

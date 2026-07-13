@@ -10,7 +10,7 @@ import {
 	users,
 } from "@/drizzle/schema";
 import { hasRole } from "@/lib/utils";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 type NullableDate = Date | string | null | undefined;
@@ -130,14 +130,23 @@ export type ActivityProjectDetails = {
 	letters: ActivityLetter[];
 	activities: Array<{
 		id: string;
-		type: "task" | "note" | "report";
+		type: "task" | "note" | "report" | "blocker";
 		title: string;
 		description: string;
 		occurredAt: string | null;
 		priority: "high" | "medium" | "low";
+		projectId?: string;
+		taskId?: string;
+		taskName?: string;
+		blockedReason?: BlockedReason | null;
+		blockedNote?: string | null;
+		blockerPhase?: "started" | "resolved";
+		authorName?: string | null;
 	}>;
 	activityItems: ActivityInboxItem[];
 };
+
+export type BlockedReason = "client_approval" | "client_documents" | "internal" | "external";
 
 export type ActivitySystemEventType =
 	| "report_submitted_for_review"
@@ -149,7 +158,9 @@ export type ActivitySystemEventType =
 	| "letter_resubmitted_for_review"
 	| "letter_returned_for_changes"
 	| "letter_sent"
-	| "letter_send_failed";
+	| "letter_send_failed"
+	| "task_blocked"
+	| "task_unblocked";
 
 export type ActivitySystemEventPayload = {
 	version: 1;
@@ -163,6 +174,8 @@ export type ActivitySystemEventPayload = {
 	actorName?: string | null;
 	note?: string | null;
 	recipientEmail?: string | null;
+	taskName?: string | null;
+	blockedReason?: BlockedReason | null;
 };
 
 export type ActivityInboxItem = {
@@ -288,6 +301,18 @@ type RawLetterRow = {
 const ACTIVITY_ALLOWED_ROLES = ["admin", "moderator", "employee"];
 const ACTIVITY_SYSTEM_NOTE_PREFIX = "__CRAFT_ACTIVITY__:";
 const ACTIVITY_WINDOW_DAYS = 7;
+
+export type ProjectDelayCategory = "client" | "internal" | "external";
+
+const BLOCKED_REASON_LABELS: Record<BlockedReason, string> = {
+	client_approval: "بانتظار موافقة العميل",
+	client_documents: "بانتظار رفع مستندات من العميل",
+	internal: "تبعية داخلية",
+	external: "جهة خارجية",
+};
+
+const categoryForBlockedReason = (reason: BlockedReason): ProjectDelayCategory =>
+	reason === "client_approval" || reason === "client_documents" ? "client" : reason;
 
 const noteAuthor = alias(users, "note_author");
 const letterAuthor = alias(users, "letter_author");
@@ -560,6 +585,41 @@ const buildLatestEventMap = (events: ActivitySystemEventRecord[]) => {
 
 	return map;
 };
+
+const buildBlockerActivities = (
+	systemEvents: ActivitySystemEventRecord[],
+	projectId: string
+): ActivityProjectDetails["activities"] =>
+	systemEvents
+		.filter(
+			(eventRecord) =>
+				eventRecord.event.eventType === "task_blocked" || eventRecord.event.eventType === "task_unblocked"
+		)
+		.map((eventRecord) => {
+			const isBlocked = eventRecord.event.eventType === "task_blocked";
+			const taskName = eventRecord.event.taskName || eventRecord.event.title;
+			const reasonLabel = eventRecord.event.blockedReason
+				? BLOCKED_REASON_LABELS[eventRecord.event.blockedReason]
+				: null;
+
+			return {
+				id: `blocker-${eventRecord.id}`,
+				type: "blocker" as const,
+				title: isBlocked ? "مهمة معلّقة" : "تم استئناف مهمة معلّقة",
+				description: isBlocked
+					? `${taskName} • ${reasonLabel ?? "بانتظار حل التعليق"}`
+					: `${taskName} • تم استئناف العمل`,
+				occurredAt: eventRecord.createdAt,
+				priority: isBlocked ? ("high" as const) : ("low" as const),
+				projectId,
+				taskId: eventRecord.event.relatedId,
+				taskName,
+				blockedReason: eventRecord.event.blockedReason ?? null,
+				blockedNote: eventRecord.event.note ?? null,
+				blockerPhase: isBlocked ? ("started" as const) : ("resolved" as const),
+				authorName: eventRecord.authorName,
+			};
+		});
 
 const getProjectDetailsHref = (projectId: string) => `/projects/${projectId}`;
 const getTaskDetailsHref = (projectId: string, taskId: string) => `/projects/${projectId}/tasks/${taskId}`;
@@ -1313,13 +1373,15 @@ export const getActivityProjectDetails = async (
 							: "تقرير جديد",
 			description: `${report.title} • ${report.authorName}`,
 			occurredAt: report.sentAt || report.updatedAt || report.createdAt,
-			priority:
+			priority: (
 				report.status === "pending_admin_approval"
 					? "medium"
 					: report.status === "rejected"
 						? "high"
-						: "low",
+						: "low"
+			) as "medium" | "high" | "low",
 		})),
+		...buildBlockerActivities(systemEvents, projectId),
 	].sort((left, right) => {
 		const leftTime = left.occurredAt ? new Date(left.occurredAt).getTime() : 0;
 		const rightTime = right.occurredAt ? new Date(right.occurredAt).getTime() : 0;
@@ -1525,3 +1587,108 @@ export const userCanAccessProjectActivity = async (projectId: string, user: Auth
 
 export const getProjectReportPermissionRows = async (reportId: string) =>
 	loadReportPermissions([reportId]);
+
+export type ProjectDelayReportEntry = {
+	taskId: string;
+	taskName: string;
+	blockedReason: BlockedReason;
+	category: ProjectDelayCategory;
+	blockedAt: string;
+	resolvedAt: string | null;
+	durationDays: number;
+	resolved: boolean;
+};
+
+export type ProjectDelayReport = {
+	projectId: string;
+	totalsByCategory: Record<ProjectDelayCategory, number>;
+	events: ProjectDelayReportEntry[];
+};
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const roundToOneDecimal = (value: number) => Math.round(value * 10) / 10;
+
+export const getProjectDelayReport = async (
+	projectId: string,
+	user: AuthLikeUser
+): Promise<ProjectDelayReport | null> => {
+	const hasAccess = await userCanAccessProjectActivity(projectId, user);
+	if (!hasAccess) return null;
+
+	const rawNotes = await loadProjectNotes([projectId]);
+	const allNotes: ActivityNote[] = rawNotes.map((note) => ({
+		id: note.id,
+		projectId: note.projectId,
+		content: note.content,
+		authorId: note.authorId,
+		authorName: getDisplayName(note.authorName, note.authorEmail),
+		createdAt: toIsoString(note.createdAt),
+		updatedAt: toIsoString(note.updatedAt),
+	}));
+	const { systemEvents } = splitProjectNotes(allNotes);
+
+	const blockerEvents = systemEvents
+		.filter(
+			(eventRecord) =>
+				eventRecord.event.eventType === "task_blocked" || eventRecord.event.eventType === "task_unblocked"
+		)
+		.sort(
+			(left, right) =>
+				new Date(left.createdAt ?? 0).getTime() - new Date(right.createdAt ?? 0).getTime()
+		);
+
+	const openBlockersByTask = new Map<string, ActivitySystemEventRecord[]>();
+	const events: ProjectDelayReportEntry[] = [];
+	const totalsByCategory: Record<ProjectDelayCategory, number> = { client: 0, internal: 0, external: 0 };
+
+	const addEntry = (openEvent: ActivitySystemEventRecord, resolvedAt: string | null) => {
+		const reason = openEvent.event.blockedReason;
+		if (!reason || !openEvent.createdAt) return;
+
+		const blockedAtTime = new Date(openEvent.createdAt).getTime();
+		const resolvedAtTime = resolvedAt ? new Date(resolvedAt).getTime() : Date.now();
+		const durationDays = Math.max(0, (resolvedAtTime - blockedAtTime) / MS_PER_DAY);
+		const category = categoryForBlockedReason(reason);
+
+		totalsByCategory[category] += durationDays;
+		events.push({
+			taskId: openEvent.event.relatedId,
+			taskName: openEvent.event.taskName || openEvent.event.title,
+			blockedReason: reason,
+			category,
+			blockedAt: openEvent.createdAt,
+			resolvedAt,
+			durationDays: roundToOneDecimal(durationDays),
+			resolved: resolvedAt !== null,
+		});
+	};
+
+	blockerEvents.forEach((eventRecord) => {
+		const taskId = eventRecord.event.relatedId;
+
+		if (eventRecord.event.eventType === "task_blocked") {
+			const queue = openBlockersByTask.get(taskId) ?? [];
+			queue.push(eventRecord);
+			openBlockersByTask.set(taskId, queue);
+			return;
+		}
+
+		const queue = openBlockersByTask.get(taskId);
+		const openEvent = queue?.shift();
+		if (!openEvent) return;
+
+		addEntry(openEvent, eventRecord.createdAt);
+	});
+
+	openBlockersByTask.forEach((queue) => {
+		queue.forEach((openEvent) => addEntry(openEvent, null));
+	});
+
+	(Object.keys(totalsByCategory) as ProjectDelayCategory[]).forEach((key) => {
+		totalsByCategory[key] = roundToOneDecimal(totalsByCategory[key]);
+	});
+
+	events.sort((left, right) => new Date(right.blockedAt).getTime() - new Date(left.blockedAt).getTime());
+
+	return { projectId, totalsByCategory, events };
+};

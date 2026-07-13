@@ -9,7 +9,7 @@ import Spinner from '@/components/Spinner'
 import {useTranslations} from "use-intl";
 
 const EditContractPage = () => {
-	const {id: projectId, contractId} = useParams()
+	const {id: projectId, contractId} = useParams<{ id: string; contractId: string }>()
 	const {fetchOneContract, selectedContract, loading, setProjectId} = useContractStore()
 	const t = useTranslations();
 
@@ -21,7 +21,7 @@ const EditContractPage = () => {
 		}
 
 		fetchContract()
-	}, [])
+	}, [projectId, contractId, setProjectId, fetchOneContract])
 
 	if (loading) {
 		return (

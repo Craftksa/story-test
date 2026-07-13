@@ -29,12 +29,20 @@ import {CustomDatePicker} from "@/components/CustomDatePicker";
 
 export type InstallmentFormData = z.infer<typeof createInstallmentSchema>;
 
+type InstallmentInput = {
+	id?: string;
+	installmentAmount?: string;
+	paidAmount?: string;
+	paymentDate?: string | Date | null;
+	notes?: string | null;
+};
+
 const InstallmentForm = ({
 	                         installment,
 	                         projectId,
 	                         contractId
                          }: {
-	installment?: InstallmentFormData & { id?: string };
+	installment?: InstallmentInput;
 	projectId: string;
 	contractId: string;
 }) => {
@@ -52,7 +60,7 @@ const InstallmentForm = ({
 	useEffect(() => {
 		setProjectId(projectId);
 		setContractId(contractId);
-	}, [projectId, contractId]);
+	}, [projectId, contractId, setProjectId, setContractId]);
 
 	const schema = isUpdate
 		? updateInstallmentSchema
@@ -63,7 +71,9 @@ const InstallmentForm = ({
 		defaultValues: {
 			installmentAmount: installment?.installmentAmount ?? '',
 			paidAmount: installment?.paidAmount ?? '',
-			paymentDate: installment?.paymentDate ? new Date(installment.paymentDate) : undefined,
+			paymentDate: installment?.paymentDate
+				? (installment.paymentDate instanceof Date ? installment.paymentDate : new Date(installment.paymentDate))
+				: undefined,
 			notes: installment?.notes ?? ''
 		},
 		mode: 'onChange'

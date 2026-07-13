@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { randomInt } from 'crypto';
 
 export const isSmtpConfigured = () =>
 	!!process.env.SMTP_HOST &&
@@ -139,5 +140,5 @@ export async function sendProjectLetterEmail({
 }
 
 export function generateOTP(): string {
-	return Math.floor(100000 + Math.random() * 900000).toString();
+	return randomInt(100000, 1000000).toString();
 }

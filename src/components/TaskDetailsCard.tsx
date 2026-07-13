@@ -12,18 +12,18 @@ import {useTranslations} from "use-intl";
 interface TaskImage {
 	id: string;
 	url: string;
-	description: string;
+	description?: string | null;
 	uploadedAt: string;
 }
 
-interface Task {
+export interface Task {
 	id: string;
 	name: string;
 	status: string;
 	type: string;
 	startDate: string | null;
 	endDate: string | null;
-	notes: string;
+	notes?: string | null;
 	projectId: string;
 	createdAt: string;
 	updatedAt: string;
@@ -32,8 +32,8 @@ interface Task {
 
 interface TaskDetailsCardProps {
 	task: Task;
-	deleteTask: any;
-	user: any;
+	deleteTask: (id: string) => void;
+	user: { role?: string | null } | null | undefined;
 }
 
 const TaskDetailsCard: React.FC<TaskDetailsCardProps> = ({ task, deleteTask, user}) => {

@@ -21,8 +21,8 @@ type FileItem = {
 };
 
 type Props = {
-	id?: any;
-	projectId?: any;
+	id?: string;
+	projectId?: string;
 	button?: string;
 };
 
@@ -32,13 +32,13 @@ export default function ImageUploaderWithPreview({ id, projectId, button}: Props
 	const [files, setFiles] = useState<FileItem[]>([]);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [isUploading, setIsUploading] = useState(false);
-	const { fetchOneTask, setProjectId} = useTaskStore();
+	const { setProjectId} = useTaskStore();
 	const router = useRouter();
 	const t = useTranslations();
 
 	useEffect(() => {
-		setProjectId(projectId);
-	}, [projectId]);
+		setProjectId(projectId ?? '');
+	}, [projectId, setProjectId]);
 
 	const paginatedFiles = files.slice(
 		(currentPage - 1) * IMAGES_PER_PAGE,
@@ -120,7 +120,7 @@ export default function ImageUploaderWithPreview({ id, projectId, button}: Props
 						setFiles([...updated]);
 					},
 					input: {
-						taskId: id,
+						taskId: id ?? '',
 						description: updated[i].description || "",
 						uploadedAt: Date.now().toString()
 					},

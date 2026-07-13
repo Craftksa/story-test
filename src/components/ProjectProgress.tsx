@@ -2,26 +2,18 @@ import React from 'react';
 import {useTranslations} from "use-intl";
 import {useCheckedLocale} from "@/lib/client-utils";
 
-// Mock Progress component (since we're using shadcn/ui style)
-const Progress = ({ value, className = "", children }: any) => (
-	<div className={`w-full rounded-full h-3 ${className}`} style={{ background: "rgba(255,255,255,0.08)" }}>
-		<div
-			className="h-3 rounded-full transition-all duration-300 ease-in-out"
-			style={{
-				width: `${Math.min(100, Math.max(0, value))}%`,
-				background: "linear-gradient(90deg, #D8C7A3, rgba(216,199,163,0.6))"
-			}}
-		>
-			{children}
-		</div>
-	</div>
-);
+type TaskStatus = 'not_started' | 'in_progress' | 'completed' | 'on_hold' | 'needs_review';
 
-export const ProjectProgress = ({ project }: any) => {
+interface ProjectProgressData {
+	tasks: unknown[];
+}
+
+export const ProjectProgress = ({ project }: { project: ProjectProgressData }) => {
 	const t = useTranslations();
 	const {dir} = useCheckedLocale();
+	const tasks = project.tasks as { taskStatus: TaskStatus }[];
 	// Status background colors for progress bars
-	const statusBgColors = {
+	const statusBgColors: Record<TaskStatus, string> = {
 		'not_started': "bg-white/18",
 		'in_progress': "bg-[#BFA97E]",
 		'completed': "bg-[#D8C7A3]",
@@ -29,7 +21,7 @@ export const ProjectProgress = ({ project }: any) => {
 		'needs_review': "bg-[#d8c7a3]/70"
 	};
 
-	const statusLabels = {
+	const statusLabels: Record<TaskStatus, string> = {
 		'not_started': 'Not Started',
 		'in_progress': 'In Progress',
 		'completed': 'Completed',
@@ -38,17 +30,17 @@ export const ProjectProgress = ({ project }: any) => {
 	};
 
 	// Calculate task statistics
-	const totalTasks = project.tasks.length;
-	const statusCounts = project.tasks.reduce((acc: any, task: any) => {
+	const totalTasks = tasks.length;
+	const statusCounts = tasks.reduce((acc, task) => {
 		acc[task.taskStatus] = (acc[task.taskStatus] || 0) + 1;
 		return acc;
-	}, {});
+	}, {} as Record<TaskStatus, number>);
 
 	const completedTasks = statusCounts.completed || 0;
 	const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
 	// Create segments for the detailed progress bar
-	const segments = Object.entries(statusCounts).map(([status, count]) => ({
+	const segments = (Object.entries(statusCounts) as [TaskStatus, number][]).map(([status, count]) => ({
 		status,
 		count,
 		percentage: (count / totalTasks) * 100,

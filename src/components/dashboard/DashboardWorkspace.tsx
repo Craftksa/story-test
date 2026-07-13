@@ -2,13 +2,11 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
 	AlertCircle,
 	Clock3,
-	ExternalLink,
 	FilePlus2,
 	FileText,
 	Filter,
@@ -707,6 +705,7 @@ const validateLetterForm = ({
 
 const getReportDeliveryOptionForAction = (
 	action: ReportSubmitAction,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	_currentOption: ReportDeliveryOption
 ): ReportDeliveryOption => {
 	if (action === "draft") {
@@ -742,48 +741,6 @@ const letterStatusClasses: Record<ProjectLetter["status"], string> = {
 		"border-sky-200 bg-sky-50 font-semibold text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200",
 };
 
-const activityItemTypeLabel: Record<ActivityInboxItem["type"], string> = {
-	report_pending_approval: "تقرير",
-	report_resubmitted: "تقرير",
-	report_needs_changes: "طلب تعديل",
-	report_sent: "إشعار",
-	report_send_failed: "إشعار",
-	letter_pending_approval: "خطاب",
-	letter_resubmitted: "خطاب",
-	letter_needs_changes: "طلب تعديل",
-	letter_sent: "إشعار",
-	letter_send_failed: "إشعار",
-	internal_note: "ملاحظة داخلية",
-	task_follow_up: "مهمة",
-};
-
-const activityItemStatusClasses: Record<ActivityInboxItem["type"], string> = {
-	report_pending_approval:
-		"border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
-	report_resubmitted:
-		"border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
-	report_needs_changes:
-		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	report_sent:
-		"border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
-	report_send_failed:
-		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	letter_pending_approval:
-		"border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
-	letter_resubmitted:
-		"border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
-	letter_needs_changes:
-		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	letter_sent:
-		"border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
-	letter_send_failed:
-		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	internal_note:
-		"border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
-	task_follow_up:
-		"border-violet-300 bg-violet-100 text-violet-950 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-100",
-};
-
 const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
 const activityPanelScrollContainerClass =
 	"overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-color:rgba(218,197,143,0.55)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.05] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9f8a58] hover:[&::-webkit-scrollbar-thumb]:bg-[#dac58f]";
@@ -809,8 +766,6 @@ const activityModalCloseButtonClassName =
 	"rounded-full border border-zinc-300 bg-white p-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
 const activityModalCardClassName =
 	"rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-black/5 dark:border-[#7f6c47]/24 dark:bg-[#1a1511] dark:shadow-black/25";
-const activityModalSurfaceClassName =
-	"rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-3 dark:border-[#7f6c47]/24 dark:bg-[#221b15]";
 const activityModalEmptySurfaceClassName =
 	"rounded-xl border border-dashed border-zinc-300 bg-zinc-100/70 px-4 py-4 text-sm text-zinc-600 dark:border-[#88724b]/32 dark:bg-[#231b15] dark:text-[#c9bda5]";
 const activityModalListItemClassName =
@@ -825,29 +780,14 @@ const reportModalHeaderClassName =
 	"sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-zinc-200 bg-white/95 px-6 py-5 backdrop-blur dark:border-[#8f7850]/22 dark:bg-[#17120e]/94";
 const reportModalFooterClassName =
 	"sticky bottom-0 border-t border-zinc-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-[#8f7850]/22 dark:bg-[#17120e]/94";
-const reportModalFieldClassName =
-	"w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm shadow-black/5 outline-none transition placeholder:text-zinc-500 focus-visible:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900/10 dark:border-[#7f6c47]/35 dark:bg-[#221b15] dark:text-[#f4ead8] dark:placeholder:text-[#b8ad99] dark:shadow-black/20 dark:focus-visible:border-[#d6bc84] dark:focus-visible:ring-[#d6bc84]/20";
-const reportModalSelectContentClassName =
-	"z-[10001] border border-zinc-200 bg-white text-zinc-950 shadow-2xl shadow-black/10 dark:border-[#7f6c47]/30 dark:bg-[#1d1712] dark:text-[#f4ead8] dark:shadow-black/35";
-const reportModalLabelClassName = "mb-2 block text-sm font-medium text-zinc-800 dark:text-[#eadfc9]";
 const reportModalPrimaryButtonClassName =
 	"rounded-xl bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#d0b27a] dark:text-[#17120e] dark:hover:bg-[#dec593]";
-const reportModalSecondaryButtonClassName =
-	"rounded-xl border border-zinc-300 bg-zinc-100 px-5 py-2.5 text-sm font-semibold text-zinc-900 transition hover:border-zinc-400 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#a78956]/35 dark:bg-[#2a2118] dark:text-[#f0dfbf] dark:hover:border-[#c9a86c]/55 dark:hover:bg-[#34281d]";
 const reportModalCancelButtonClassName =
 	"rounded-xl border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
 const reportModalCloseButtonClassName =
 	"rounded-full border border-zinc-300 bg-white p-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
 const reportModalCardClassName =
 	"rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-black/5 dark:border-[#7f6c47]/24 dark:bg-[#1a1511] dark:shadow-black/25";
-const reportModalSurfaceClassName =
-	"rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-3 dark:border-[#7f6c47]/24 dark:bg-[#221b15]";
-const reportModalEmptySurfaceClassName =
-	"rounded-xl border border-dashed border-zinc-300 bg-zinc-100/70 px-4 py-4 text-sm text-zinc-600 dark:border-[#88724b]/32 dark:bg-[#231b15] dark:text-[#c9bda5]";
-const reportModalListItemClassName =
-	"flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-100/80 px-3 py-3 text-sm dark:border-[#7f6c47]/24 dark:bg-[#211913]";
-const reportModalUploadTriggerClassName =
-	"inline-flex cursor-pointer items-center rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 shadow-sm shadow-black/5 transition hover:border-zinc-500 hover:bg-zinc-100 dark:border-[#a78956]/35 dark:bg-[#241c15] dark:text-[#f2e2c3] dark:hover:border-[#d4b679]/60 dark:hover:bg-[#312519]";
 const reportModalGhostActionClassName =
 	"text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-950 dark:text-[#cdbf9f] dark:hover:bg-[#2d2319] dark:hover:text-[#f4ead8]";
 const reportModalSubtleTextClassName = "text-sm text-zinc-600 dark:text-[#c8baa0]";
@@ -857,7 +797,6 @@ const reportModalRowCardClassName =
 	"grid gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-[#7f6c47]/24 dark:bg-[#1c1611]";
 
 export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
-	const router = useRouter();
 	const { lang, dir } = useCheckedLocale();
 	const activityDirection = dir === "rtl" ? "rtl" : "ltr";
 	const activityTextAlignClass = activityDirection === "rtl" ? "text-right" : "text-left";
@@ -865,7 +804,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 	const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
 	const [projects, setProjects] = useState<ProjectSummary[]>([]);
 	const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
-	const [activityItems, setActivityItems] = useState<ActivityInboxItem[]>([]);
+	const [, setActivityItems] = useState<ActivityInboxItem[]>([]);
 	const [loadingProjects, setLoadingProjects] = useState(true);
 	const [selectedProjectId, setSelectedProjectId] = useState("");
 	const [projectDetails, setProjectDetails] = useState<ProjectDetails | null>(null);
@@ -884,7 +823,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 	const [submittingNote, setSubmittingNote] = useState(false);
 	const [reportSubmitAction, setReportSubmitAction] = useState<ReportSubmitAction | null>(null);
 	const [submittingLetter, setSubmittingLetter] = useState(false);
-	const [actioningLetterId, setActioningLetterId] = useState<string | null>(null);
+	const [actioningLetterId] = useState<string | null>(null);
 	const [uploadingAttachments, setUploadingAttachments] = useState(false);
 	const [uploadingLetterAttachments, setUploadingLetterAttachments] = useState(false);
 	const [actioningReportId, setActioningReportId] = useState<string | null>(null);
@@ -896,14 +835,6 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			dateStyle: "medium",
 			timeStyle: "short",
 		});
-	};
-
-	const getActivityItemIcon = (itemType: ActivityInboxItem["type"]) => {
-		if (itemType.includes("report")) return FileText;
-		if (itemType.includes("letter")) return FilePlus2;
-		if (itemType === "internal_note") return MessageSquarePlus;
-		if (itemType === "task_follow_up") return Clock3;
-		return AlertCircle;
 	};
 
 	const loadProjects = async () => {
@@ -1010,29 +941,6 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 	}, [filteredProjects, selectedProjectId]);
 
 	const selectedSummary = projects.find((project) => project.id === selectedProjectId) ?? null;
-	const visibleActivityItems = useMemo(
-		() =>
-			activityItems.filter((item) => {
-				if (item.type === "report_pending_approval" || item.type === "report_resubmitted") {
-					return isAdmin;
-				}
-
-				if (item.type === "report_needs_changes") {
-					return !isAdmin;
-				}
-
-				if (item.type === "letter_pending_approval" || item.type === "letter_resubmitted") {
-					return isAdmin;
-				}
-
-				if (item.type === "letter_needs_changes") {
-					return !isAdmin;
-				}
-
-				return true;
-			}),
-		[activityItems, isAdmin]
-	);
 	const viewedReport = useMemo(
 		() => projectDetails?.reports.find((report) => report.id === viewingReportId) ?? null,
 		[projectDetails?.reports, viewingReportId]
@@ -1133,65 +1041,6 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 	const openViewLetterDialog = (letter: ProjectLetter) => {
 		setViewingLetterId(letter.id);
-	};
-
-	const ensureProjectLoaded = async (projectId: string) => {
-		if (projectDetails?.project.id === projectId) {
-			return projectDetails;
-		}
-
-		setSelectedProjectId(projectId);
-		return loadProjectDetails(projectId);
-	};
-
-	const handleActivityDetails = async (item: ActivityInboxItem) => {
-		if (item.relatedType === "task" && item.detailsHref) {
-			router.push(item.detailsHref);
-			return;
-		}
-
-		if (item.relatedType === "project") {
-			setSelectedProjectId(item.projectId);
-			return;
-		}
-
-		const details = await ensureProjectLoaded(item.projectId);
-		if (!details) return;
-
-		if (item.relatedType === "report") {
-			const report = details.reports.find((entry) => entry.id === item.relatedId);
-			if (report) {
-				openViewReportDialog(report);
-			}
-			return;
-		}
-
-		if (item.relatedType === "letter") {
-			const letter = details.letters.find((entry) => entry.id === item.relatedId);
-			if (letter) {
-				openViewLetterDialog(letter);
-			}
-		}
-	};
-
-	const handleActivityEdit = async (item: ActivityInboxItem) => {
-		const details = await ensureProjectLoaded(item.projectId);
-		if (!details) return;
-
-		if (item.relatedType === "report") {
-			const report = details.reports.find((entry) => entry.id === item.relatedId);
-			if (report) {
-				openEditReportDialog(report);
-			}
-			return;
-		}
-
-		if (item.relatedType === "letter") {
-			const letter = details.letters.find((entry) => entry.id === item.relatedId);
-			if (letter) {
-				openEditLetterDialog(letter);
-			}
-		}
 	};
 
 	const handleNoteSubmit = async () => {
@@ -1295,10 +1144,6 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 		}
 		await loadProjects();
 		return payload;
-	};
-
-	const handleReportSubmit = async () => {
-		void handleReportAction("save");
 	};
 
 	const closeReportDialog = () => {
@@ -1552,48 +1397,6 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 		}
 	};
 
-	const handleResubmitReport = async (item: ActivityInboxItem) => {
-		const details = await ensureProjectLoaded(item.projectId);
-		if (!details) return;
-
-		const report = details.reports.find((entry) => entry.id === item.relatedId);
-		if (!report) {
-			toast.error("تعذر العثور على التقرير لإعادة تسليمه.");
-			return;
-		}
-
-		setActioningReportId(report.id);
-		try {
-			const responsePayload = await upsertProjectDetails(
-				axios.patch<ActivityMutationResponse>(`/api/activity/reports/${report.id}`, {
-					title: report.title,
-					summary: report.summary || null,
-					details: report.details,
-					workDetails: report.workDetails || null,
-					attachments: normalizeAttachmentList(report.attachments),
-					recipients: report.recipients.map((recipient) => ({
-						name: recipient.name,
-						email: recipient.email || null,
-						phone: recipient.phone || null,
-						channel: "email",
-					})),
-					permissions: report.permissions.map((permission) => ({
-						userId: permission.userId,
-						accessLevel: permission.accessLevel,
-					})),
-					deliveryOption: "email",
-					submitAction: "save",
-				})
-			);
-			toast.success(responsePayload.message || "تمت إعادة تسليم التقرير للمراجعة.");
-		} catch (error) {
-			console.error("Failed to resubmit report", error);
-			toast.error(extractApiErrorMessage(error, "تعذر إعادة تسليم التقرير للمراجعة."));
-		} finally {
-			setActioningReportId(null);
-		}
-	};
-
 	const handleApprovalAction = async () => {
 		if (!approvalDialog) return;
 		if (approvalDialog.decision === "reject" && !approvalDialog.reason.trim()) {
@@ -1734,91 +1537,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 		}));
 	};
 
-	const selectedProjectTeam = projectDetails?.project.teamMembers ?? [];
 	const visiblePermissionUsers = internalUsers.filter((user) => user.id !== currentUser.id);
-
-	const renderActivityItemActions = (item: ActivityInboxItem) => {
-		if (item.type === "report_pending_approval" || item.type === "report_resubmitted") {
-			return (
-				<>
-					<Button
-						type="button"
-						size="sm"
-						onClick={() =>
-							setApprovalDialog({
-								reportId: item.relatedId,
-								projectId: item.projectId,
-								decision: "approve",
-								reason: "",
-							})
-						}
-						disabled={actioningReportId === item.relatedId}
-					>
-						موافقة وإرسال
-					</Button>
-					<Button type="button" size="sm" variant="outline" onClick={() => void handleActivityEdit(item)}>
-						تعديل
-					</Button>
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						onClick={() =>
-							setApprovalDialog({
-								reportId: item.relatedId,
-								projectId: item.projectId,
-								decision: "reject",
-								reason: "",
-							})
-						}
-					>
-						إرجاع للتعديل
-					</Button>
-				</>
-			);
-		}
-
-		if (item.type === "report_needs_changes") {
-			return (
-				<>
-					<Button type="button" size="sm" variant="outline" onClick={() => void handleActivityEdit(item)}>
-						فتح وتعديل
-					</Button>
-					<Button
-						type="button"
-						size="sm"
-						onClick={() => void handleResubmitReport(item)}
-						disabled={actioningReportId === item.relatedId}
-					>
-						تسليم للمراجعة
-					</Button>
-				</>
-			);
-		}
-
-		if (
-			item.type === "letter_pending_approval" ||
-			item.type === "letter_resubmitted" ||
-			item.type === "letter_needs_changes"
-		) {
-			return (
-				<>
-					<Button type="button" size="sm" variant="outline" onClick={() => void handleActivityEdit(item)}>
-						فتح وتعديل
-					</Button>
-					<Button type="button" size="sm" variant="ghost" onClick={() => void handleActivityDetails(item)}>
-						Details
-					</Button>
-				</>
-			);
-		}
-
-		return (
-			<Button type="button" size="sm" variant="ghost" onClick={() => void handleActivityDetails(item)}>
-				Details
-			</Button>
-		);
-	};
 
 	return (
 		<div dir={activityDirection} className={cn("space-y-4", activityTextAlignClass)}>

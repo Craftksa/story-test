@@ -4,20 +4,31 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import {ParamValue} from "next/dist/server/request/params";
 
+type Project = {
+	id: string;
+	name: string;
+	tasks?: { taskId: string; [key: string]: unknown }[];
+	contracts?: { id: string; [key: string]: unknown }[];
+	employees?: { id: string; name?: string | null; email?: string | null; role?: string | null; image?: string | null }[];
+	[key: string]: unknown;
+};
+
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 type ProjectsStore = {
-	projects: any[];
-	selectedProject: any | null;
+	projects: Project[];
+	selectedProject: Project | null;
 	loading: boolean;
 	error: string | null;
 
 	fetchProjects: () => Promise<void>;
 	getProjectById: (id: string) => Promise<void>;
 	fetchOneProject: (id: ParamValue) => Promise<void>;
-	createProject: (project: Partial<any>) => Promise<void>;
-	updateProject: (id: string, project: Partial<any>) => Promise<void>;
-	deleteProject: (id: number) => Promise<void>;
+	createProject: (project: Partial<Project>) => Promise<void>;
+	updateProject: (id: string, project: Partial<Project>) => Promise<void>;
+	deleteProject: (id: string) => Promise<void>;
 
-	checkDuplicate: (key: string, value: any, excludeId?: string) => Promise<void>;
+	checkDuplicate: (key: string, value: unknown, excludeId?: string) => boolean;
 	removeTaskFromProject: (taskId: string) => void
 	removeContractFromProject: (contractId: string) => void
 };
@@ -39,8 +50,8 @@ export const useProjectStore = create<ProjectsStore>()(
 					const projects = await projectsApi.getAll();
 					set({ projects });
 				}
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch projects");
 			} finally {
 				set({ loading: false });
@@ -68,10 +79,10 @@ export const useProjectStore = create<ProjectsStore>()(
 		fetchOneProject: async (id) => {
 			set({ loading: true, error: null });
 			try {
-				const project = await projectsApi.getOne(id);
+				const project = await projectsApi.getOne(id as string);
 				set({ selectedProject: project });
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch project");
 			} finally {
 				set({ loading: false });
@@ -87,8 +98,8 @@ export const useProjectStore = create<ProjectsStore>()(
 					projects: [getProject, ...state.projects],
 				}));
 				toast.success("Project created successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to create project");
 			} finally {
 				set({ loading: false });
@@ -107,8 +118,8 @@ export const useProjectStore = create<ProjectsStore>()(
 					),
 				}));
 				toast.success("Project updated successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to update project");
 			} finally {
 				set({ loading: false });
@@ -123,15 +134,15 @@ export const useProjectStore = create<ProjectsStore>()(
 					projects: state.projects.filter((project) => project.id !== id),
 				}));
 				toast.success("Project deleted successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to delete project");
 			} finally {
 				set({ loading: false });
 			}
 		},
 
-		checkDuplicate: (key: string, value: any, excludeId: string) => {
+		checkDuplicate: (key: string, value: unknown, excludeId?: string) => {
 			const projects = get().projects;
 			return projects.some((project) => {
 				if (excludeId && project.id === excludeId) return false;
@@ -146,8 +157,8 @@ export const useProjectStore = create<ProjectsStore>()(
 				return {
 					selectedProject: {
 						...state.selectedProject,
-						tasks: state.selectedProject.tasks.filter(
-							(task: any) => task.taskId !== taskId
+						tasks: state.selectedProject.tasks?.filter(
+							(task) => task.taskId !== taskId
 						),
 					},
 				};
@@ -160,7 +171,7 @@ export const useProjectStore = create<ProjectsStore>()(
 					selectedProject: {
 						...state.selectedProject,
 						contracts: state.selectedProject.contracts?.filter(
-							(contract: any) => contract.id !== contractId
+							(contract) => contract.id !== contractId
 						),
 					},
 				};

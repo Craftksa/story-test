@@ -16,10 +16,10 @@ const createInstallmentSchema = z.object({
 
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { id: string; contractId: string } }
+	{ params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
 	const { user } = await authenticate(req);
-	const { id: projectId, contractId } = params;
+	const { id: projectId, contractId } = await params;
 
 	if (!isValidId(projectId) || !isValidId(contractId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
@@ -44,9 +44,9 @@ export async function GET(
 
 export async function POST(
 	req: NextRequest,
-	{ params }: { params: { id: string; contractId: string } }
+	{ params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
-	const { id: projectId, contractId } = params;
+	const { id: projectId, contractId } = await params;
 
 	if (!isValidId(projectId) || !isValidId(contractId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });

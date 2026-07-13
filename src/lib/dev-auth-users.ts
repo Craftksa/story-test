@@ -34,4 +34,5 @@ export const getLocalDevAuthUser = (username: string, password: string) =>
 		(user) => user.username === username.trim() && user.password === password
 	) || null;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const LOCAL_DEV_LOGIN_ACCOUNTS = LOCAL_DEV_USERS.map(({ password, ...user }) => user);

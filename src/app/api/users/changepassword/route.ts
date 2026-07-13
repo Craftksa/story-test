@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest) {
 	try {
 		const { user } = await authenticate(req);
 
-		if (!user) {
+		if (!user || !user.id) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
@@ -43,14 +43,14 @@ export async function PUT(req: NextRequest) {
 			return NextResponse.json({ error: "User not found" }, { status: 404 });
 		}
 
-		// @ts-ignore
+		// @ts-expect-error - currentUser.password is typed string | null; bcrypt.compare requires string
 		const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentUser.password);
 
 		if (!isCurrentPasswordValid) {
 			return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
 		}
 
-		// @ts-ignore
+		// @ts-expect-error - currentUser.password is typed string | null; bcrypt.compare requires string
 		const isSamePassword = await bcrypt.compare(newPassword, currentUser.password);
 
 		if (isSamePassword) {

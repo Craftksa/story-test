@@ -341,7 +341,7 @@ export function TasksPage({ tasks, projectId }: TasksPageProps) {
 		return (
 			<div className="flex gap-2">
 				<DataTableFacetedFilter
-					column={table.getColumn("taskType")}
+					column={table.getColumn("taskType")!}
 					title={t("Type")}
 					options={typeOptions.map((option) => ({
 						...option,
@@ -349,7 +349,7 @@ export function TasksPage({ tasks, projectId }: TasksPageProps) {
 					}))}
 				/>
 				<DataTableFacetedFilter
-					column={table.getColumn("taskStatus")}
+					column={table.getColumn("taskStatus")!}
 					title={t("Status")}
 					options={statusOptions}
 				/>

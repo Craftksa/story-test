@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import ProjectForm, {ProjectFormData} from '@/components/forms/ProjectForm'
+import ProjectForm, {type ProjectInput} from '@/components/forms/ProjectForm'
 import { useProjectStore } from '@/store/projectStore'
 import Spinner from '@/components/Spinner'
 import {useTranslations} from "use-intl";
@@ -20,7 +20,7 @@ const EditProjectPage = () => {
 		}
 
 		fetchProject()
-	}, [])
+	}, [id, fetchOneProject])
 
 	if (loading) {
 		return (
@@ -50,7 +50,7 @@ const EditProjectPage = () => {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<ProjectForm project={selectedProject} />
+					<ProjectForm project={selectedProject as unknown as ProjectInput} />
 				</CardContent>
 			</Card>
 		</div>

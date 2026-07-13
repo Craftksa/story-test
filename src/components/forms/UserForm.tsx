@@ -1,7 +1,7 @@
 'use client';
 
 import {useRouter} from 'next/navigation';
-import {useForm} from 'react-hook-form';
+import {useForm, type Resolver} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
 import bcrypt from 'bcryptjs';
@@ -35,7 +35,15 @@ import {useCheckedLocale} from "@/lib/client-utils";
 export type UserFormData = z.infer<ReturnType<typeof createUserSchema>>;
 const roles = ['admin', 'moderator', 'employee', 'client'];
 
-const UserForm = ({user}: { user?: UserFormData & { id?: string } }) => {
+export type UserInput = {
+	id?: string;
+	name?: string;
+	username?: string;
+	email?: string;
+	role?: string;
+};
+
+const UserForm = ({user}: { user?: UserInput }) => {
 	const router = useRouter();
 	const {createUser, updateUser, checkDuplicate, error} = useUserStore();
 	const isUpdate = Boolean(user?.id);
@@ -47,12 +55,12 @@ const UserForm = ({user}: { user?: UserFormData & { id?: string } }) => {
 		: createUserSchema(checkDuplicate);
 
 	const form = useForm<UserFormData>({
-		resolver: zodResolver(schema),
+		resolver: zodResolver(schema) as Resolver<UserFormData>,
 		defaultValues: {
 			name: user?.name ?? '',
 			username: user?.username ?? '',
 			email: user?.email ?? '',
-			role: user?.role ?? 'employee',
+			role: (user?.role ?? 'employee') as UserFormData['role'],
 			password: '',
 			confirmPassword: ''
 		},
@@ -76,7 +84,7 @@ const UserForm = ({user}: { user?: UserFormData & { id?: string } }) => {
 				router.back();
 				router.refresh();
 			}
-		} catch (err) {
+		} catch {
 			toast.error('Something went wrong!');
 		}
 	};

@@ -45,12 +45,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 					const user = await db
 						.select()
 						.from(users)
-						.where(eq(users.username, credentials.username))
+						.where(eq(users.username, credentials.username as string))
 						.then((res) => res[0]);
 
 					if (!user || !user.password) return null;
 
-					// @ts-ignore
+					// @ts-expect-error - credentials.password is typed as unknown by the Credentials provider config
 					const isValid = await bcrypt.compare(credentials.password, user.password);
 					if (!isValid) return null;
 
@@ -77,10 +77,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 		async jwt({ token, user }) {
 			if (user) {
 				token.id = user.id;
-				// @ts-ignore
+				// @ts-expect-error - user is typed as User | AdapterUser; role/username come from the Credentials authorize() return shape
 				token.role = user.role;
 				token.name = user.name;
-				// @ts-ignore
+				// @ts-expect-error - user is typed as User | AdapterUser; role/username come from the Credentials authorize() return shape
 				token.username = user.username;
 				token.email = user.email;
 				token.image = user.image;
@@ -90,13 +90,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 		async session({ session, token }) {
 			if (token) {
 				session.user.id = token.id as string;
-				// @ts-ignore
+				// @ts-expect-error - session.user's adapter-derived type doesn't pick up the role augmentation here
 				session.user.role = token.role;
 				session.user.name = token.name;
-				// @ts-ignore
+				// @ts-expect-error - session.user's adapter-derived type doesn't pick up the username augmentation here
 				session.user.username = token.username;
 				session.user.email = token.email as string;
-				session.user.image = token.image;
+				session.user.image = token.image as string | null | undefined;
 			}
 			return session;
 		},

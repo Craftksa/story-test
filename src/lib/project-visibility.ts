@@ -28,13 +28,15 @@ const collectUserRefs = (value: unknown): string[] => {
 	return normalized ? [normalized] : [];
 };
 
-const getCurrentUserRefs = (currentUser: any) =>
+type MinimalUser = { id?: string | null; email?: string | null } | null | undefined;
+
+const getCurrentUserRefs = (currentUser: MinimalUser) =>
 	[
 		normalizeUserRef(currentUser?.id),
 		normalizeUserRef(currentUser?.email),
 	].filter((ref): ref is string => !!ref);
 
-export const isUserAssignedToProject = (project: any, currentUser: any) => {
+export const isUserAssignedToProject = (project: Record<string, unknown> | null | undefined, currentUser: MinimalUser) => {
 	if (!project || !currentUser) return false;
 
 	const currentUserRefs = getCurrentUserRefs(currentUser);
@@ -53,9 +55,9 @@ export const isUserAssignedToProject = (project: any, currentUser: any) => {
 	return currentUserRefs.some((userRef) => projectRefs.includes(userRef));
 };
 
-export const filterProjectsByVisibility = <T extends Record<string, any>>(
+export const filterProjectsByVisibility = <T extends Record<string, unknown>>(
 	projects: T[],
-	currentUser: any,
+	currentUser: MinimalUser,
 	scope: ProjectVisibilityScope
 ) => {
 	if (scope === "all") return projects;
@@ -65,8 +67,8 @@ export const filterProjectsByVisibility = <T extends Record<string, any>>(
 
 export const filterProjectItemsByVisibility = <T>(
 	items: T[],
-	projects: Array<Record<string, any>>,
-	currentUser: any,
+	projects: Array<Record<string, unknown>>,
+	currentUser: MinimalUser,
 	scope: ProjectVisibilityScope,
 	getProjectId: (item: T) => string | null | undefined
 ) => {

@@ -14,7 +14,8 @@ const updateUserSchema = z.object({
 	role: z.enum(["admin", "moderator", "employee", "client"]).optional(),
 });
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+	const { id } = await params;
 	const { user } = await authenticate(req);
 
 	if (!hasRole(user, ["admin"])) {
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 			createdAt: users.createdAt,
 		})
 		.from(users)
-		.where(eq(users.id, params.id))
+		.where(eq(users.id, id))
 		.then((res) => res[0]);
 
 	if (!userDetails) {
@@ -42,7 +43,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 	return NextResponse.json(userDetails);
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+	const { id } = await params;
 	const { user } = await authenticate(req);
 
 	if (!hasRole(user, ["admin"])) {
@@ -56,18 +58,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 		return NextResponse.json({ error: "Invalid data", issues: parsed.error.errors }, { status: 400 });
 	}
 
-	await db.update(users).set(parsed.data).where(eq(users.id, params.id));
+	await db.update(users).set(parsed.data).where(eq(users.id, id));
 
 	return NextResponse.json({ message: "User updated" });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+	const { id } = await params;
 	const { user } = await authenticate(req);
 
 	if (!hasRole(user, ["admin"])) {
 		return NextResponse.json({ error: "Forbidden 403" }, { status: 403 });
 	}
 
-	await db.delete(users).where(eq(users.id, params.id));
+	await db.delete(users).where(eq(users.id, id));
 	return NextResponse.json({ message: "User deleted" });
 }

@@ -11,19 +11,15 @@ import {
 	ExternalLink,
 	FilePlus2,
 	FileText,
-	Filter,
-	FolderKanban,
 	Loader2,
 	MessageSquarePlus,
-	RefreshCcw,
 	Send,
 	Sparkles,
 	UploadCloud,
 } from "lucide-react";
 import { useCheckedLocale } from "@/lib/client-utils";
 import { uploadFiles } from "@/utils/uploadthing";
-import { cn, formatStatus } from "@/lib/utils";
-import StatusBadge from "@/components/StatusBadgeSystem";
+import { cn } from "@/lib/utils";
 import Spinner from "@/components/Spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -381,8 +377,6 @@ const matchesActivityFilter = (summary: ProjectSummary, filter: ActivityFilter) 
 	return true;
 };
 
-const getProjectCountLabel = (count: number) => (count === 1 ? "مشروع" : "مشاريع");
-
 const truncate = (value?: string | null, max = 110) => {
 	if (!value) return "";
 	if (value.length <= max) return value;
@@ -707,6 +701,7 @@ const validateLetterForm = ({
 
 const getReportDeliveryOptionForAction = (
 	action: ReportSubmitAction,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	_currentOption: ReportDeliveryOption
 ): ReportDeliveryOption => {
 	if (action === "draft") {
@@ -714,32 +709,6 @@ const getReportDeliveryOptionForAction = (
 	}
 
 	return "email";
-};
-
-const priorityClasses: Record<"high" | "medium" | "low", string> = {
-	high: "border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-400/30 dark:bg-rose-950/35 dark:text-rose-200",
-	medium: "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/35 dark:text-amber-200",
-	low: "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-950/35 dark:text-emerald-200",
-};
-
-const reportStatusClasses: Record<ProjectReport["status"], string> = {
-	draft:
-		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
-	pending_admin_approval:
-		"border-amber-300 bg-amber-100 font-semibold text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
-	approved:
-		"border-sky-300 bg-sky-100 font-semibold text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
-	rejected:
-		"border-rose-300 bg-rose-100 font-semibold text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	sent:
-		"border-emerald-300 bg-emerald-100 font-semibold text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
-};
-
-const letterStatusClasses: Record<ProjectLetter["status"], string> = {
-	draft:
-		"border-zinc-300 bg-zinc-100 font-semibold text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
-	ready:
-		"border-sky-300 bg-sky-100 font-semibold text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
 };
 
 const activityItemTypeLabel: Record<ActivityInboxItem["type"], string> = {
@@ -755,33 +724,6 @@ const activityItemTypeLabel: Record<ActivityInboxItem["type"], string> = {
 	letter_send_failed: "إشعار",
 	internal_note: "ملاحظة داخلية",
 	task_follow_up: "مهمة",
-};
-
-const activityItemStatusClasses: Record<ActivityInboxItem["type"], string> = {
-	report_pending_approval:
-		"border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
-	report_resubmitted:
-		"border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
-	report_needs_changes:
-		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	report_sent:
-		"border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
-	report_send_failed:
-		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	letter_pending_approval:
-		"border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
-	letter_resubmitted:
-		"border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100",
-	letter_needs_changes:
-		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	letter_sent:
-		"border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100",
-	letter_send_failed:
-		"border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-100",
-	internal_note:
-		"border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100",
-	task_follow_up:
-		"border-violet-300 bg-violet-100 text-violet-950 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-100",
 };
 
 const activityInboxTypeBadgeClasses: Record<ActivityInboxItem["type"], string> = {
@@ -833,9 +775,6 @@ const activityInboxStatusBadgeFallbackClass =
 const activityInboxBadgeBaseClass =
 	"inline-flex h-7 items-center rounded-full border px-3 py-1 text-xs font-medium leading-none shadow-none";
 
-const activityPanelScrollHeightClass = "h-[calc(100vh-320px)]";
-const activityPanelScrollContainerClass =
-	"overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-color:rgba(218,197,143,0.55)_rgba(255,255,255,0.05)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/[0.05] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9f8a58] hover:[&::-webkit-scrollbar-thumb]:bg-[#dac58f]";
 const activityModalOverlayClassName = "fixed inset-0 z-[9998] bg-black/75 backdrop-blur-sm";
 const activityModalContentClassName =
 	"fixed left-1/2 top-1/2 z-[9999] w-full max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-zinc-300/90 bg-zinc-50 p-0 text-zinc-950 shadow-2xl shadow-black/15 dark:border-[#8f7850]/30 dark:bg-[#15110d] dark:text-[#f4ead8] dark:shadow-black/45";
@@ -858,8 +797,6 @@ const activityModalCloseButtonClassName =
 	"rounded-full border border-zinc-300 bg-white p-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
 const activityModalCardClassName =
 	"rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-black/5 dark:border-[#7f6c47]/24 dark:bg-[#1a1511] dark:shadow-black/25";
-const activityModalSurfaceClassName =
-	"rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-3 dark:border-[#7f6c47]/24 dark:bg-[#221b15]";
 const activityModalEmptySurfaceClassName =
 	"rounded-xl border border-dashed border-zinc-300 bg-zinc-100/70 px-4 py-4 text-sm text-zinc-600 dark:border-[#88724b]/32 dark:bg-[#231b15] dark:text-[#c9bda5]";
 const activityModalListItemClassName =
@@ -874,29 +811,14 @@ const reportModalHeaderClassName =
 	"sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-zinc-200 bg-white/95 px-6 py-5 backdrop-blur dark:border-[#8f7850]/22 dark:bg-[#17120e]/94";
 const reportModalFooterClassName =
 	"sticky bottom-0 border-t border-zinc-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-[#8f7850]/22 dark:bg-[#17120e]/94";
-const reportModalFieldClassName =
-	"w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm shadow-black/5 outline-none transition placeholder:text-zinc-500 focus-visible:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900/10 dark:border-[#7f6c47]/35 dark:bg-[#221b15] dark:text-[#f4ead8] dark:placeholder:text-[#b8ad99] dark:shadow-black/20 dark:focus-visible:border-[#d6bc84] dark:focus-visible:ring-[#d6bc84]/20";
-const reportModalSelectContentClassName =
-	"z-[10001] border border-zinc-200 bg-white text-zinc-950 shadow-2xl shadow-black/10 dark:border-[#7f6c47]/30 dark:bg-[#1d1712] dark:text-[#f4ead8] dark:shadow-black/35";
-const reportModalLabelClassName = "mb-2 block text-sm font-medium text-zinc-800 dark:text-[#eadfc9]";
 const reportModalPrimaryButtonClassName =
 	"rounded-xl bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#d0b27a] dark:text-[#17120e] dark:hover:bg-[#dec593]";
-const reportModalSecondaryButtonClassName =
-	"rounded-xl border border-zinc-300 bg-zinc-100 px-5 py-2.5 text-sm font-semibold text-zinc-900 transition hover:border-zinc-400 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#a78956]/35 dark:bg-[#2a2118] dark:text-[#f0dfbf] dark:hover:border-[#c9a86c]/55 dark:hover:bg-[#34281d]";
 const reportModalCancelButtonClassName =
 	"rounded-xl border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
 const reportModalCloseButtonClassName =
 	"rounded-full border border-zinc-300 bg-white p-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 dark:border-[#7f6c47]/30 dark:bg-[#201914] dark:text-[#d4c7ad] dark:hover:bg-[#2a2017] dark:hover:text-[#f4ead8]";
 const reportModalCardClassName =
 	"rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-black/5 dark:border-[#7f6c47]/24 dark:bg-[#1a1511] dark:shadow-black/25";
-const reportModalSurfaceClassName =
-	"rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-3 dark:border-[#7f6c47]/24 dark:bg-[#221b15]";
-const reportModalEmptySurfaceClassName =
-	"rounded-xl border border-dashed border-zinc-300 bg-zinc-100/70 px-4 py-4 text-sm text-zinc-600 dark:border-[#88724b]/32 dark:bg-[#231b15] dark:text-[#c9bda5]";
-const reportModalListItemClassName =
-	"flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-100/80 px-3 py-3 text-sm dark:border-[#7f6c47]/24 dark:bg-[#211913]";
-const reportModalUploadTriggerClassName =
-	"inline-flex cursor-pointer items-center rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 shadow-sm shadow-black/5 transition hover:border-zinc-500 hover:bg-zinc-100 dark:border-[#a78956]/35 dark:bg-[#241c15] dark:text-[#f2e2c3] dark:hover:border-[#d4b679]/60 dark:hover:bg-[#312519]";
 const reportModalGhostActionClassName =
 	"text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-950 dark:text-[#cdbf9f] dark:hover:bg-[#2d2319] dark:hover:text-[#f4ead8]";
 const reportModalSubtleTextClassName = "text-sm text-zinc-600 dark:text-[#c8baa0]";
@@ -911,14 +833,14 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const activityDirection = dir === "rtl" ? "rtl" : "ltr";
 	const activityTextAlignClass = activityDirection === "rtl" ? "text-right" : "text-left";
 	const isAdmin = ["admin", "moderator"].includes(currentUser.role ?? "");
-	const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+	const [activityFilter] = useState<ActivityFilter>("all");
 	const [projects, setProjects] = useState<ProjectSummary[]>([]);
 	const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
 	const [activityItems, setActivityItems] = useState<ActivityInboxItem[]>([]);
 	const [loadingProjects, setLoadingProjects] = useState(true);
 	const [selectedProjectId, setSelectedProjectId] = useState("");
 	const [projectDetails, setProjectDetails] = useState<ProjectDetails | null>(null);
-	const [loadingDetails, setLoadingDetails] = useState(false);
+	const [, setLoadingDetails] = useState(false);
 	const [noteDialogOpen, setNoteDialogOpen] = useState(false);
 	const [reportDialogOpen, setReportDialogOpen] = useState(false);
 	const [letterDialogOpen, setLetterDialogOpen] = useState(false);
@@ -933,7 +855,7 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 	const [submittingNote, setSubmittingNote] = useState(false);
 	const [reportSubmitAction, setReportSubmitAction] = useState<ReportSubmitAction | null>(null);
 	const [submittingLetter, setSubmittingLetter] = useState(false);
-	const [actioningLetterId, setActioningLetterId] = useState<string | null>(null);
+	const [actioningLetterId] = useState<string | null>(null);
 	const [uploadingAttachments, setUploadingAttachments] = useState(false);
 	const [uploadingLetterAttachments, setUploadingLetterAttachments] = useState(false);
 	const [actioningReportId, setActioningReportId] = useState<string | null>(null);
@@ -1010,55 +932,12 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		return projects.filter((summary) => matchesActivityFilter(summary, activityFilter));
 	}, [activityFilter, projects]);
 
-	const summaryCards = useMemo(
-		() => [
-			{
-				filter: "all" as ActivityFilter,
-				label: "كل المشاريع",
-				count: projects.length,
-				icon: FolderKanban,
-			},
-			{
-				filter: "pending_approval" as ActivityFilter,
-				label: "تحتاج اعتماد",
-				count: projects.filter((summary) => matchesActivityFilter(summary, "pending_approval")).length,
-				icon: AlertCircle,
-			},
-			{
-				filter: "overdue" as ActivityFilter,
-				label: "متأخرة",
-				count: projects.filter((summary) => matchesActivityFilter(summary, "overdue")).length,
-				icon: Clock3,
-			},
-			{
-				filter: "waiting_client_action" as ActivityFilter,
-				label: "بانتظار العميل",
-				count: projects.filter((summary) => matchesActivityFilter(summary, "waiting_client_action")).length,
-				icon: MessageSquarePlus,
-			},
-			{
-				filter: "no_recent_activity" as ActivityFilter,
-				label: "بدون نشاط حديث",
-				count: projects.filter((summary) => matchesActivityFilter(summary, "no_recent_activity")).length,
-				icon: RefreshCcw,
-			},
-			{
-				filter: "recent" as ActivityFilter,
-				label: "محدثة اليوم",
-				count: projects.filter((summary) => matchesActivityFilter(summary, "recent")).length,
-				icon: Sparkles,
-			},
-		],
-		[projects]
-	);
-
 	useEffect(() => {
 		if (!filteredProjects.length) return;
 		if (filteredProjects.some((project) => project.id === selectedProjectId)) return;
 		setSelectedProjectId(filteredProjects[0].id);
 	}, [filteredProjects, selectedProjectId]);
 
-	const selectedSummary = projects.find((project) => project.id === selectedProjectId) ?? null;
 	const visibleActivityItems = useMemo(
 		() =>
 			activityItems.filter((item) => {
@@ -1104,31 +983,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 			setViewingLetterId(null);
 		}
 	}, [projectDetails, viewingLetterId]);
-
-	const openAddNoteDialog = () => {
-		setNoteProjectId(selectedProjectId || filteredProjects[0]?.id || "");
-		setNoteText("");
-		setNoteDialogOpen(true);
-	};
-
-	const openCreateReportDialog = () => {
-		setReportForm({
-			...EMPTY_REPORT_FORM,
-			projectId: selectedProjectId || filteredProjects[0]?.id || "",
-		});
-		setReportDialogOpen(true);
-	};
-
-	const openCreateLetterDialog = () => {
-		setLetterForm({
-			...EMPTY_LETTER_FORM,
-			projectId: selectedProjectId || filteredProjects[0]?.id || "",
-			recipientEmail:
-				getProjectClientEmail(selectedProjectId || filteredProjects[0]?.id || "") || "",
-			letterDate: new Date().toISOString().slice(0, 10),
-		});
-		setLetterDialogOpen(true);
-	};
 
 	const openWhatsAppComingSoonDialog = () => {
 		setWhatsAppComingSoonDialogOpen(true);
@@ -1344,10 +1198,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}
 		await loadProjects();
 		return payload;
-	};
-
-	const handleReportSubmit = async () => {
-		void handleReportAction("save");
 	};
 
 	const closeReportDialog = () => {
@@ -1783,7 +1633,6 @@ export function ActivityCenter({ currentUser }: ActivityCenterProps) {
 		}));
 	};
 
-	const selectedProjectTeam = projectDetails?.project.teamMembers ?? [];
 	const visiblePermissionUsers = internalUsers.filter((user) => user.id !== currentUser.id);
 
 	const renderActivityItemActions = (item: ActivityInboxItem) => {

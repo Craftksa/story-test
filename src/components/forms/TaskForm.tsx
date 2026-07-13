@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEffect } from 'react';
@@ -31,11 +31,36 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { CustomDatePicker } from '@/components/CustomDatePicker';
 import {useTranslations} from "use-intl";
+import {useState} from "react";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 
-export type TaskFormData = z.infer<typeof createTaskSchema>;
+export type TaskFormData = z.infer<ReturnType<typeof createTaskSchema>>;
 
 const statusOptions = ['not_started', 'in_progress', 'completed', 'on_hold', 'needs_review'] as const;
 const taskTypeOptions = ['foundations', 'finishes'] as const;
+const blockedReasonOptions = ['client_approval', 'client_documents', 'internal', 'external'] as const;
+type BlockedReason = (typeof blockedReasonOptions)[number];
+
+export type TaskInput = {
+	id?: string;
+	name?: string;
+	type?: string;
+	status?: string;
+	startDate?: string | Date | null;
+	endDate?: string | Date | null;
+	notes?: string | null;
+	dependsOnTaskId?: string | null;
+	isMilestone?: boolean;
+	blockedReason?: BlockedReason | null;
+	blockedNote?: string | null;
+};
 
 function serializeTaskFormData(data: TaskFormData) {
 	return {
@@ -49,12 +74,11 @@ const TaskForm = ({
 	                  task,
 	                  projectId
                   }: {
-	task?: TaskFormData & { id?: string };
+	task?: TaskInput;
 	projectId: string;
 }) => {
 	const router = useRouter();
 	const {
-		tasks,
 		createTask,
 		updateTask,
 		checkDuplicate,
@@ -64,29 +88,43 @@ const TaskForm = ({
 
 	const isUpdate = Boolean(task?.id);
 
+	const [blockedReason, setBlockedReason] = useState<BlockedReason | ''>(task?.blockedReason ?? '');
+	const [blockedNote, setBlockedNote] = useState(task?.blockedNote ?? '');
+	const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+	const [draftBlockedReason, setDraftBlockedReason] = useState<BlockedReason | ''>('');
+	const [draftBlockedNote, setDraftBlockedNote] = useState('');
+
 	useEffect(() => {
 		setProjectId(projectId);
-	}, [projectId]);
+	}, [projectId, setProjectId]);
 
 	const schema = isUpdate
 		? updateTaskSchema(checkDuplicate, task?.id)
 		: createTaskSchema(checkDuplicate);
 
 	const form = useForm<TaskFormData>({
-		resolver: zodResolver(schema),
+		resolver: zodResolver(schema) as Resolver<TaskFormData>,
 		defaultValues: {
 			name: task?.name ?? '',
-			type: task?.type ?? 'foundations',
-			status: task?.status ?? 'not_started',
-			startDate: task?.startDate ? new Date(task.startDate) : undefined,
-			endDate: task?.endDate ? new Date(task.endDate) : undefined,
+			type: (task?.type ?? 'foundations') as TaskFormData['type'],
+			status: (task?.status ?? 'not_started') as TaskFormData['status'],
+			startDate: task?.startDate ? (task.startDate instanceof Date ? task.startDate : new Date(task.startDate)) : undefined,
+			endDate: task?.endDate ? (task.endDate instanceof Date ? task.endDate : new Date(task.endDate)) : undefined,
 			notes: task?.notes ?? ''
 		},
 		mode: 'onChange'
 	});
 
 	const onSubmit = async (data: TaskFormData) => {
-		const payload = serializeTaskFormData(data);
+		const payload: ReturnType<typeof serializeTaskFormData> & {
+			blockedReason?: BlockedReason;
+			blockedNote?: string;
+		} = serializeTaskFormData(data);
+
+		if (data.status === 'on_hold') {
+			payload.blockedReason = blockedReason || undefined;
+			payload.blockedNote = blockedNote;
+		}
 
 		try {
 			if (isUpdate) {
@@ -159,7 +197,24 @@ const TaskForm = ({
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel>{t("Status")}</FormLabel>
-								<Select onValueChange={field.onChange} value={field.value}>
+								<Select
+									onValueChange={(value) => {
+										if (value === 'on_hold' && field.value !== 'on_hold') {
+											setDraftBlockedReason(blockedReason);
+											setDraftBlockedNote(blockedNote);
+											setBlockDialogOpen(true);
+											return;
+										}
+
+										if (value !== 'on_hold') {
+											setBlockedReason('');
+											setBlockedNote('');
+										}
+
+										field.onChange(value);
+									}}
+									value={field.value}
+								>
 									<FormControl>
 										<SelectTrigger className="w-full">
 											<SelectValue placeholder={t("Select status")} />
@@ -174,6 +229,67 @@ const TaskForm = ({
 									</SelectContent>
 								</Select>
 								<FormMessage />
+
+								<Dialog
+									open={blockDialogOpen}
+									onOpenChange={(open) => {
+										if (!open) setBlockDialogOpen(false);
+									}}
+								>
+									<DialogContent>
+										<DialogHeader>
+											<DialogTitle>{t('Block Task')}</DialogTitle>
+											<DialogDescription>
+												{t('Provide a reason and note before placing this task on hold')}
+											</DialogDescription>
+										</DialogHeader>
+										<div className="space-y-4">
+											<div className="space-y-2">
+												<FormLabel>{t('Blocked Reason')}</FormLabel>
+												<Select
+													value={draftBlockedReason}
+													onValueChange={(value) => setDraftBlockedReason(value as BlockedReason)}
+												>
+													<SelectTrigger className="w-full">
+														<SelectValue placeholder={t('Select a reason')} />
+													</SelectTrigger>
+													<SelectContent>
+														{blockedReasonOptions.map((reason) => (
+															<SelectItem key={reason} value={reason}>
+																{t(reason)}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</div>
+											<div className="space-y-2">
+												<FormLabel>{t('Blocked Note')}</FormLabel>
+												<Textarea
+													value={draftBlockedNote}
+													onChange={(e) => setDraftBlockedNote(e.target.value)}
+													placeholder={t('Describe why this task is blocked')}
+												/>
+											</div>
+										</div>
+										<DialogFooter>
+											<Button type="button" variant="outline" onClick={() => setBlockDialogOpen(false)}>
+												{t('Cancel')}
+											</Button>
+											<Button
+												type="button"
+												disabled={!draftBlockedReason || !draftBlockedNote.trim()}
+												onClick={() => {
+													setBlockedReason(draftBlockedReason);
+													setBlockedNote(draftBlockedNote);
+													field.onChange('on_hold');
+													setBlockDialogOpen(false);
+												}}
+											>
+												{t('Confirm')}
+											</Button>
+										</DialogFooter>
+									</DialogContent>
+								</Dialog>
 							</FormItem>
 						)}
 					/>

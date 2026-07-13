@@ -17,18 +17,22 @@ import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/
 import {useTranslations} from "use-intl";
 import { Textarea } from '../ui/textarea';
 
-export type ContractFormData = z.infer<typeof createContractSchema>;
+export type ContractFormData = z.infer<ReturnType<typeof createContractSchema>>;
 
 const ContractForm = ({
 	                  contract,
 	                  projectId
                   }: {
-	contract?: ContractFormData & { id?: string };
+	contract?: {
+		id?: string;
+		contractorName?: string;
+		contractedAmount?: string | number;
+		description?: string | null;
+	};
 	projectId: string;
 }) => {
 	const router = useRouter();
 	const {
-		contracts,
 		createContract,
 		updateContract,
 		checkDuplicate,
@@ -40,23 +44,23 @@ const ContractForm = ({
 
 	useEffect(() => {
 		setProjectId(projectId);
-	}, [projectId]);
+	}, [projectId, setProjectId]);
 
 	const schema = isUpdate
 		? updateContractSchema(checkDuplicate, contract?.id)
 		: createContractSchema(checkDuplicate);
 
-	const form = useForm<any>({
+	const form = useForm<ContractFormData>({
 		resolver: zodResolver(schema),
 		defaultValues: {
 			contractorName: contract?.contractorName ?? '',
 			description: contract?.description ?? '',
-			contractedAmount: contract?.contractedAmount?.toString() ?? '',
+			contractedAmount: contract?.contractedAmount ? Number(contract.contractedAmount) : undefined,
 		},
 		mode: 'onChange'
 	});
 
-	const onSubmit = async (data: any) => {
+	const onSubmit = async (data: ContractFormData) => {
 		try {
 			if (isUpdate) {
 				await updateContract(contract!.id!, data);

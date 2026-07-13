@@ -1,7 +1,7 @@
 'use client';
 
-import React, {useEffect, useState} from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import React, {useEffect, useMemo, useState} from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -17,10 +17,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import {
-	ChartConfig,
-} from "@/components/ui/chart";
-import StatusBadge from "@/components/StatusBadgeSystem";
 import axios from "axios";
 import Spinner from "@/components/Spinner";
 import {useTranslations} from "use-intl";
@@ -37,7 +33,7 @@ import {
 	filterProjectsByVisibility,
 	ProjectVisibilityScope,
 } from "@/lib/project-visibility";
-import { cn } from "@/lib/utils";
+import { cn, formatStatus } from "@/lib/utils";
 import { ActivityCenter } from "@/components/activity/ActivityCenter";
 import { DashboardWorkspace } from "@/components/dashboard/DashboardWorkspace";
 import { CalendarDays, List } from "lucide-react";
@@ -132,17 +128,6 @@ type DashboardTimelineTask = TimelineSourceTask & {
 	projectId: string;
 	ownerName?: string | null;
 	projectName?: string | null;
-};
-
-type CityAnalysisSummary = {
-	city: string;
-	projects: number;
-	tasks: number;
-	uniqueClients: number;
-	completedTasks: number;
-	overdueTasks: number;
-	avgCompletionDays: number | null;
-	recentActivityCount: number;
 };
 
 type EmployeeAnalysisSummary = {
@@ -256,6 +241,7 @@ const getAllowedDashboardTabs = (role?: string | null): DashboardTab[] =>
 		: ['projects', 'tasks', 'activity'];
 
 const DEFAULT_DASHBOARD_TAB: DashboardTab = 'projects';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getDefaultDashboardTab = (_role?: string | null): DashboardTab => DEFAULT_DASHBOARD_TAB;
 
 const resolveDashboardTab = (
@@ -300,7 +286,7 @@ const buildDashboardTimelineTasks = (
 			projectId: project.id,
 			projectName: project.name,
 			ownerName,
-		}));
+		})) as DashboardTimelineTask[];
 	});
 
 const getEmployeeProgressIndicatorClassName = (completionRate: number) => {
@@ -339,20 +325,6 @@ const isTaskOverdue = (task: DetailedTask, referenceDate = new Date()) => {
 	if (!taskEndDate) return false;
 
 	return taskEndDate.getTime() < referenceDate.getTime() && !isTaskCompleted(task.taskStatus);
-};
-
-const getTaskCompletionDays = (task: DetailedTask) => {
-	if (!isTaskCompleted(task.taskStatus)) return null;
-
-	const taskStartDate = getDateValue(task.startDate) ?? getDateValue(task.createdAt);
-	const taskCompletionDate = getDateValue(task.updatedAt) ?? getDateValue(task.endDate);
-
-	if (!taskStartDate || !taskCompletionDate) return null;
-
-	const diffInMs = taskCompletionDate.getTime() - taskStartDate.getTime();
-	if (diffInMs < 0) return null;
-
-	return Math.max(1, Math.round(diffInMs / (1000 * 60 * 60 * 24)));
 };
 
 const formatAnalyticsDate = (value?: string | Date | null) => {
@@ -439,7 +411,8 @@ const buildActivityItemsFromProjects = (
 		items
 			.sort((left, right) => right.sortTime - left.sortTime)
 			.slice(0, 6)
-			.map(({ sortTime: _sortTime, ...item }) => item);
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		.map(({ sortTime: _sortTime, ...item }) => item);
 
 	return [
 		...sortAndTrim(overdueItems),
@@ -516,35 +489,6 @@ const getWeeklyDistributionStatus = (weeklyLocations: WeeklyLocationSummary[]) =
 	return {
 		label: 'شبه متوازن',
 		detail: 'هناك موقع متقدم نسبيًا مع حضور مناسب لبقية المواقع.',
-	};
-};
-
-const getWeeklyAdministrativeStatus = (weeklyLocations: WeeklyLocationSummary[]) => {
-	const topLocation = weeklyLocations[0];
-	if (!topLocation) {
-		return {
-			label: 'غير متاح',
-			detail: WEEKLY_ANALYSIS_EMPTY_STATE,
-		};
-	}
-
-	if (weeklyLocations.length === 1 || topLocation.sharePercentage >= 65) {
-		return {
-			label: 'تحتاج متابعة',
-			detail: 'التركيز المرتفع في موقع واحد يستدعي متابعة إدارية أقرب.',
-		};
-	}
-
-	if (weeklyLocations.length >= 2 && topLocation.sharePercentage <= 50) {
-		return {
-			label: 'مستقرة',
-			detail: 'لا توجد مؤشرات حرجة في القراءة الإدارية لهذا الأسبوع.',
-		};
-	}
-
-	return {
-		label: 'مراقبة خفيفة',
-		detail: 'الوضع العام جيد مع حاجة لمراقبة خفيفة لتوازن التنفيذ.',
 	};
 };
 
@@ -686,104 +630,6 @@ const buildWeeklyLocationSummaries = (
 			};
 		})
 		.sort((left, right) => right.activityCount - left.activityCount || right.activeProjects - left.activeProjects);
-};
-
-const buildCityAnalysisSummaries = (
-	dashboardData: DashboardData,
-	detailedProjects: DetailedProject[]
-): CityAnalysisSummary[] => {
-	const cityMap = new Map<
-		string,
-		CityAnalysisSummary & {
-			clientRefs: Set<string>;
-			completionDurations: number[];
-		}
-	>();
-
-	dashboardData.cityDistribution.forEach((entry) => {
-		const normalizedCity = getNormalizedCityName(entry.city);
-		cityMap.set(normalizedCity, {
-			city: normalizedCity,
-			projects: entry.projects ?? 0,
-			tasks: entry.tasks ?? 0,
-			uniqueClients: 0,
-			completedTasks: 0,
-			overdueTasks: 0,
-			avgCompletionDays: null,
-			recentActivityCount: dashboardData.recentActivity.filter(
-				(activity) => getNormalizedCityName(activity.city) === normalizedCity
-			).length,
-			clientRefs: new Set<string>(),
-			completionDurations: [],
-		});
-	});
-
-	detailedProjects.forEach((project) => {
-		const normalizedCity = getNormalizedCityName(project.city);
-		const current = cityMap.get(normalizedCity) ?? {
-			city: normalizedCity,
-			projects: 0,
-			tasks: 0,
-			uniqueClients: 0,
-			completedTasks: 0,
-			overdueTasks: 0,
-			avgCompletionDays: null,
-			recentActivityCount: dashboardData.recentActivity.filter(
-				(activity) => getNormalizedCityName(activity.city) === normalizedCity
-			).length,
-			clientRefs: new Set<string>(),
-			completionDurations: [],
-		};
-
-		if (!cityMap.has(normalizedCity)) {
-			current.projects += 1;
-		}
-
-		const projectTasks = project.tasks ?? [];
-		if (!dashboardData.cityDistribution.some((entry) => getNormalizedCityName(entry.city) === normalizedCity)) {
-			current.tasks += projectTasks.length;
-		}
-
-		const clientRef = project.client?.id?.trim() || project.client?.email?.trim() || project.client?.name?.trim();
-		if (clientRef) {
-			current.clientRefs.add(clientRef);
-		}
-
-		projectTasks.forEach((task) => {
-			if (isTaskCompleted(task.taskStatus)) {
-				current.completedTasks += 1;
-			}
-
-			if (isTaskOverdue(task)) {
-				current.overdueTasks += 1;
-			}
-
-			const completionDays = getTaskCompletionDays(task);
-			if (completionDays !== null) {
-				current.completionDurations.push(completionDays);
-			}
-		});
-
-		cityMap.set(normalizedCity, current);
-	});
-
-	return [...cityMap.values()]
-		.map((entry) => ({
-			city: entry.city,
-			projects: entry.projects,
-			tasks: entry.tasks,
-			uniqueClients: entry.clientRefs.size,
-			completedTasks: entry.completedTasks,
-			overdueTasks: entry.overdueTasks,
-			avgCompletionDays:
-				entry.completionDurations.length > 0
-					? Math.round(
-						entry.completionDurations.reduce((sum, days) => sum + days, 0) / entry.completionDurations.length
-					)
-					: null,
-			recentActivityCount: entry.recentActivityCount,
-		}))
-		.sort((left, right) => right.projects - left.projects || right.tasks - left.tasks);
 };
 
 const buildEmployeeAnalysisSummaries = (detailedProjects: DetailedProject[]): EmployeeAnalysisSummary[] => {
@@ -1102,8 +948,8 @@ export default function AdminDashboard() {
 	const [activityNotesLoadErrors, setActivityNotesLoadErrors] = useState<Record<string, boolean>>({});
 	const [loadingActivityNotes, setLoadingActivityNotes] = useState<Record<string, boolean>>({});
 	const [taskTimelineProjectDetails, setTaskTimelineProjectDetails] = useState<DetailedProject[]>([]);
-	const [isTaskTimelineLoading, setIsTaskTimelineLoading] = useState(false);
-	const [taskTimelineLoadError, setTaskTimelineLoadError] = useState(false);
+	const [, setIsTaskTimelineLoading] = useState(false);
+	const [, setTaskTimelineLoadError] = useState(false);
 	const [loadedTaskTimelineProjectIdsKey, setLoadedTaskTimelineProjectIdsKey] = useState('');
 	const [selectedTimelineProjectId, setSelectedTimelineProjectId] = useState("");
 	const [selectedTimelineProjectDetails, setSelectedTimelineProjectDetails] = useState<DetailedProject | null>(null);
@@ -1179,32 +1025,6 @@ export default function AdminDashboard() {
 		}
 	}, [activeTab, allowedTabs, searchParams, userRole]);
 
-	// Chart configurations
-	const cityDistributionConfig = {
-		projects: {
-			label: t("Projects"),
-			color: "var(--chart-1)",
-		},
-		tasks: {
-			label: t("Tasks"),
-			color: "var(--chart-2)",
-		},
-	} satisfies ChartConfig;
-
-	const taskTypesConfig = {
-		count: {
-			label: `${t("Tasks")}`,
-		},
-		foundation: {
-			label: "Foundations",
-			color: "var(--chart-1)",
-		},
-		finish: {
-			label: "Finishes",
-			color: "var(--chart-2)",
-		},
-	} satisfies ChartConfig;
-
 	const activitySections: Array<{
 		key: ActionCategory;
 		titleKey: string;
@@ -1265,15 +1085,17 @@ export default function AdminDashboard() {
 		})
 		.filter((projectId): projectId is string => !!projectId);
 	const taskTimelineProjectIdsKey = [...taskTimelineProjectIds].sort().join('|');
-	const analysisProjectIds = isAdmin
-		? projects
-			.map((project) => {
-				if (typeof project?.id === 'string' && project.id.trim()) return project.id;
-				if (typeof project?.projectId === 'string' && project.projectId.trim()) return project.projectId;
-				return null;
-			})
-			.filter((projectId): projectId is string => !!projectId)
-		: [];
+	const analysisProjectIds = useMemo(() => (
+		isAdmin
+			? projects
+				.map((project) => {
+					if (typeof project?.id === 'string' && project.id.trim()) return project.id;
+					if (typeof project?.projectId === 'string' && project.projectId.trim()) return project.projectId;
+					return null;
+				})
+				.filter((projectId): projectId is string => !!projectId)
+			: []
+	), [isAdmin, projects]);
 	const analysisProjectIdsKey = [...analysisProjectIds].sort().join('|');
 
 	useEffect(() => {
@@ -1331,7 +1153,7 @@ export default function AdminDashboard() {
 			.then((results) => {
 				if (isCancelled) return;
 
-				const nextNotes: Record<string, string[]> = {};
+				const nextNotes: Record<string, ActivityNote[]> = {};
 				const nextErrors: Record<string, boolean> = {};
 
 				results.forEach((result, index) => {
@@ -1373,7 +1195,7 @@ export default function AdminDashboard() {
 		return () => {
 			isCancelled = true;
 		};
-	}, [activeTab, activityNotesByTaskKey, activityNotesLoadErrors, visibleActionItems]);
+	}, [activeTab, activityNotesByTaskKey, activityNotesLoadErrors, loadingActivityNotes, visibleActionItems]);
 
 	useEffect(() => {
 		if (activeTab !== 'activity' || !USE_LEGACY_ACTIVITY_CENTER) return;
@@ -1531,10 +1353,6 @@ export default function AdminDashboard() {
 		return null;
 	}
 
-	const totalTaskCompletionRate = getSafePercentage(
-		dashboardData.taskMetrics.completedTasks,
-		dashboardData.taskMetrics.totalTasks
-	);
 	const safeSelectedTimelineProjectDetails = selectedTimelineProjectDetails
 		? {
 				...selectedTimelineProjectDetails,
@@ -1568,8 +1386,6 @@ export default function AdminDashboard() {
 	);
 	const selectedApprovalTask =
 		selectedProjectTasks.find((task) => task.taskId === approvalTaskId) ?? null;
-	const selectedDelayTask =
-		selectedProjectTasks.find((task) => task.taskId === delayTaskId) ?? null;
 	const internalAssigneeOptions = (users ?? [])
 		.filter((dashboardUser) => {
 			const role = typeof dashboardUser?.role === "string" ? dashboardUser.role.toLowerCase() : "";

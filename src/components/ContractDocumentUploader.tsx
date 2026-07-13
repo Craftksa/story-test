@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { uploadFiles } from "@/utils/uploadthing";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, FileText, Plus, Trash2, UploadCloud, X } from "lucide-react";
+import { CheckCircle2, FileText, Plus, UploadCloud, X } from "lucide-react";
 import Spinner from "@/components/Spinner";
 import { useTranslations } from "use-intl";
 
@@ -122,9 +122,9 @@ export default function ContractDocumentUploader({
 						type="button"
 						size="sm"
 						variant="outline"
-						disabled={disabled || isUploading || (document?.status === "uploaded")}
+						disabled={disabled || isUploading || (documentFile?.status === "uploaded")}
 						className="flex text-xs items-center gap-2"
-						onClick={() => document?.status !== "uploaded" && document?.getElementById("contractFileInput")?.click()}
+						onClick={() => documentFile?.status !== "uploaded" && document?.getElementById("contractFileInput")?.click()}
 					>
 						<Plus className="w-4 h-4" />
 						{documentFile?.status === "uploaded" ? t("Document Uploaded") : t(buttonText || "Upload Contract")}

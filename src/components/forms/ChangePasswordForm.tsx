@@ -56,19 +56,17 @@ const ChangePasswordForm = () => {
 		setIsSubmitting(true);
 
 		try {
-			const response = await axios.put('/api/users/changepassword', {
+			await axios.put('/api/users/changepassword', {
 				currentPassword: data.currentPassword,
 				newPassword: data.newPassword,
 			});
-
-			const result = response.data;
 
 			toast.success(t('Password changed successfully!'));
 			form.reset();
 		} catch (error) {
 			toast.error(
-				error instanceof Error
-					? t((error as any).response?.data?.error) || t(error.message)
+				axios.isAxiosError(error)
+					? t(error.response?.data?.error) || t(error.message)
 					: t('Something went wrong!')
 			);
 		} finally {

@@ -37,9 +37,11 @@ const taskFormFieldsSchema = z
 // Define the signature of your uniqueness check helper
 
 // Schema for creating a new task
-export const createTaskSchema = (getOne: any) =>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const createTaskSchema = (getOne: unknown) =>
 	taskFormFieldsSchema;
 
 // Schema for updating an existing task
-export const updateTaskSchema = (getOne: any, id?: string) =>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const updateTaskSchema = (getOne: unknown, id?: string) =>
 	taskFormFieldsSchema;

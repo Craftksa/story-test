@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 const statusEnum = z.enum(['not_started', 'in_progress', 'completed', 'on_hold', 'needs_review']);
-const projectTypeEnum = z.enum(['villa', 'palace']);
 
-export const createProjectSchema = (getOne: any) =>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const createProjectSchema = (getOne: unknown) =>
 	z.object({
 		name: z.string().min(2, 'Project name is required'),
 		status: statusEnum,
@@ -18,7 +18,8 @@ export const createProjectSchema = (getOne: any) =>
 		assignedTo: z.array(z.string()).optional(),
 	});
 
-export const updateProjectSchema = (getOne: any, id: string | undefined) =>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const updateProjectSchema = (getOne: unknown, id: string | undefined) =>
 	z.object({
 		name: z.string().min(2, 'Project name is required'),
 		status: statusEnum,

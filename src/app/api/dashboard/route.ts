@@ -1,6 +1,6 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {projects, tasks, users} from '@/drizzle/schema';
-import {and, count, eq, gte, lte, sql, SQL} from 'drizzle-orm';
+import {and, count, eq, gte, sql} from 'drizzle-orm';
 import {db} from "@/drizzle/db";
 import {authenticate} from "@/lib/authenticate";
 import {hasRole} from '@/lib/utils';
@@ -151,7 +151,10 @@ export async function GET(request: NextRequest) {
 		const finishTasks = tasksByType.find(t => t.type === 'finishes')?.count || 0;
 
 		// Helper function to combine monthly data
-		function combineMonthlyData(completed: any[], started: any[]) {
+		function combineMonthlyData(
+			completed: { month: number; year: number; count: number }[],
+			started: { month: number; year: number; count: number }[]
+		) {
 			const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 			const combined: { month: string; completed: number; started: number }[] = [];
 
@@ -238,27 +241,4 @@ export async function GET(request: NextRequest) {
 			{ status: 500 }
 		);
 	}
-}
-
-// Helper function to combine monthly data
-function combineMonthlyData(completed: any[], started: any[]) {
-	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-	const currentMonth = new Date().getMonth();
-	const last6Months = [];
-
-	for (let i = 5; i >= 0; i--) {
-		const monthIndex = (currentMonth - i + 12) % 12;
-		const monthName = months[monthIndex];
-
-		const completedCount = completed.find(c => c.month === monthName)?.count || 0;
-		const startedCount = started.find(s => s.month === monthName)?.count || 0;
-
-		last6Months.push({
-			month: monthName,
-			completed: completedCount,
-			started: startedCount
-		});
-	}
-
-	return last6Months;
 }

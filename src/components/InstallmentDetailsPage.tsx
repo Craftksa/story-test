@@ -1,13 +1,13 @@
 'use client';
 
 import React, {useEffect} from 'react';
+import {ColumnDef} from '@tanstack/react-table';
 import {DataTable, DataTableColumnHeader} from '@/components/data-table';
 import {Button} from '@/components/ui/button';
 import {PlusCircleIcon} from 'lucide-react';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {useSession} from 'next-auth/react';
 import Link from 'next/link';
-import {useRouter} from 'next/navigation';
 import {useInstallmentStore} from '@/store/installmentStore';
 import {useTranslations} from 'use-intl';
 import {format} from 'date-fns';
@@ -16,6 +16,16 @@ import {useCheckedLocale} from '@/lib/client-utils';
 import {hasRole} from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadgeSystem';
 import {ActionButtons} from '@/components/ActionButtons';
+
+interface InstallmentListItem {
+	id: string;
+	installmentNo: number;
+	installmentAmount: string;
+	paidAmount: string;
+	paymentDate: string | Date | null;
+	notes: string | null;
+	createdAt: string;
+}
 
 export function InstallmentsPage({ projectId, contractId }: { projectId: string; contractId: string }) {
 	const {
@@ -33,13 +43,12 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 
 	const { data: session } = useSession();
 	const user = session?.user;
-	const router = useRouter();
 
 	useEffect(() => {
 		setProjectId(projectId);
 		setContractId(contractId);
 		fetchInstallments();
-	}, [projectId, contractId]);
+	}, [projectId, contractId, setProjectId, setContractId, fetchInstallments]);
 
 	const sortedInstallments = [...installments].sort((a, b) =>
 		new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -54,16 +63,16 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 		return 'Paid';
 	};
 
-	const columns = [
+	const columns: ColumnDef<InstallmentListItem>[] = [
 		{
 			accessorKey: 'installmentNo',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Installment No')} />,
-			cell: ({ row }: any) => <span>#{parseFloat(row.getValue('installmentNo'))}</span>,
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Installment No')} />,
+			cell: ({ row }) => <span>#{row.getValue('installmentNo') as number}</span>,
 		},
 		{
 			accessorKey: 'status',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Status')} />,
-			cell: ({ row }: any) => {
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Status')} />,
+			cell: ({ row }) => {
 				const installment = row.original;
 				const status = getInstallmentStatus(installment.installmentAmount, installment.paidAmount);
 				const color = status === 'Paid' ? 'Completed' : status === 'Partial Paid' ? 'moderator' : 'On Hold';
@@ -72,30 +81,30 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 		},
 		{
 			accessorKey: 'installmentAmount',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Installment Amount')} />,
-			cell: ({ row }: any) => <span>{parseFloat(row.getValue('installmentAmount')).toLocaleString()}</span>,
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Installment Amount')} />,
+			cell: ({ row }) => <span>{parseFloat(row.getValue('installmentAmount') as string).toLocaleString()}</span>,
 		},
 		{
 			accessorKey: 'paidAmount',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Paid Amount')} />,
-			cell: ({ row }: any) => <span>{parseFloat(row.getValue('paidAmount')).toLocaleString()}</span>,
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Paid Amount')} />,
+			cell: ({ row }) => <span>{parseFloat(row.getValue('paidAmount') as string).toLocaleString()}</span>,
 		},
 		{
 			accessorKey: 'paymentDate',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Payment Date')} />,
-			cell: ({ row }: any) => {
-				const date = row.getValue('paymentDate');
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Payment Date')} />,
+			cell: ({ row }) => {
+				const date = row.getValue('paymentDate') as string | null;
 				return date ? format(new Date(date), 'PP', { locale }) : <StatusBadge />;
 			},
 		},
 		{
 			accessorKey: 'notes',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Notes')} />,
-			cell: ({ row }: any) => <span>{row.getValue('notes') || <StatusBadge />} </span>,
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Notes')} />,
+			cell: ({ row }) => <span>{(row.getValue('notes') as string | null) || <StatusBadge />} </span>,
 		},
 		{
 			id: 'actions',
-			cell: ({ row }: any) => (
+			cell: ({ row }) => (
 				<ActionButtons
 					entity="installment"
 					data={row.original}

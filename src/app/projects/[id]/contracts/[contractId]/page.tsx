@@ -6,12 +6,11 @@ import ContractDetailsCard from "@/components/ContractDetailsCard";
 import {useContractStore} from "@/store/contractStore";
 import Spinner from "@/components/Spinner";
 import {useSession} from "next-auth/react";
-import {useCheckedLocale} from "@/lib/client-utils";
 import {useTranslations} from "use-intl";
 
 const Page = () => {
 	const {id: projectId, contractId} = useParams();
-	const {contracts, selectedContract, fetchOneContract, setProjectId, loading, deleteContract} = useContractStore();
+	const {selectedContract, fetchOneContract, setProjectId, loading, deleteContract} = useContractStore();
 	const { data: session } = useSession();
 	const user = session?.user;
 	const t = useTranslations();
@@ -19,7 +18,7 @@ const Page = () => {
 	useEffect(() => {
 		setProjectId(projectId as string)
 		fetchOneContract(contractId as string)
-	}, [projectId, contractId])
+	}, [projectId, contractId, setProjectId, fetchOneContract])
 
 	if (!selectedContract || loading) {
 		return (

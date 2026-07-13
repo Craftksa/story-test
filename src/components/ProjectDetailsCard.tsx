@@ -5,7 +5,6 @@ import {
 	Building2,
 	Clock,
 	FileCog,
-	FileText,
 	MapPin,
 	Palette,
 	ReceiptText,
@@ -24,9 +23,36 @@ import {useSession} from "next-auth/react";
 import {useTranslations} from "use-intl";
 import {ProjectActivityFeed} from "@/components/ProjectActivityFeed";
 import ClientActionButtons from "@/components/ClientActionButtons";
-import ContractsPage from "@/components/ContractDetailsPage";
+import ContractsPage, {type ContractListItem} from "@/components/ContractDetailsPage";
+import type {TimelineSourceTask} from "@/components/tasks/task-timeline-utils";
+import {ProjectDelayReport} from "@/components/ProjectDelayReport";
 
-const ProjectDetailsCard = ({project, deleteProject}: { project: any, deleteProject: any }) => {
+interface ProjectEmployee {
+	id: string;
+	name?: string | null;
+	email?: string | null;
+	role?: string | null;
+	image?: string | null;
+}
+
+export interface ProjectDetails {
+	id: string;
+	name: string;
+	description?: string | null;
+	status: string;
+	projectType: string;
+	designer: string;
+	client?: { name?: string | null } | null;
+	city: string;
+	district: string;
+	startDate?: string | Date | null;
+	endDate?: string | Date | null;
+	employees: ProjectEmployee[];
+	tasks: unknown[];
+	contracts: unknown[];
+}
+
+const ProjectDetailsCard = ({project, deleteProject}: { project: ProjectDetails, deleteProject: (id: string) => void }) => {
 	const router = useRouter();
 	const {data: session} = useSession();
 	const user = session?.user;
@@ -88,7 +114,7 @@ const ProjectDetailsCard = ({project, deleteProject}: { project: any, deleteProj
 								<div>
 									<p className="text-sm font-bold">{t("Client")}</p>
 									<p
-										className="text-sm text-muted-foreground">{project.client.name ? capitalizeWords(project.client.name) : `${t("No Client Assigned")}`}</p>
+										className="text-sm text-muted-foreground">{project.client?.name ? capitalizeWords(project.client.name) : `${t("No Client Assigned")}`}</p>
 								</div>
 							</div>
 						</div>
@@ -123,8 +149,8 @@ const ProjectDetailsCard = ({project, deleteProject}: { project: any, deleteProj
               </h3>
 						{project.employees.length > 0 ? (
 							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-								{project.employees.map((emp: any) => (
-									<UserCard key={emp.id} user={emp}/>
+								{project.employees.map((emp) => (
+									<UserCard key={emp.id} user={{...emp, name: emp.name ?? '', email: emp.email ?? '', role: emp.role ?? ''}}/>
 								))}
 							</div>
 						) : (
@@ -158,13 +184,19 @@ const ProjectDetailsCard = ({project, deleteProject}: { project: any, deleteProj
 						</h3>
 						<ProjectActivityFeed projectId={project.id}/>
 					</div>
+
+					{hasRole(user, ["admin", "moderator"]) && (
+						<div className="">
+							<ProjectDelayReport projectId={project.id}/>
+						</div>
+					)}
 					{hasRole(user, ["employee"]) && (
 						<div className="">
 							<h3 className=" font-semibold flex my-4 items-center">
 								<ReceiptText className="h-4 w-4 mx-2"/>
 								{t("Tasks")}
 							</h3>
-							<TasksPage tasks={project.tasks} projectId={project.id}/>
+							<TasksPage tasks={project.tasks as TimelineSourceTask[]} projectId={project.id}/>
 						</div>
 					)}
 
@@ -174,10 +206,10 @@ const ProjectDetailsCard = ({project, deleteProject}: { project: any, deleteProj
 							<TabsTrigger value="contracts" className="font-bold">{t("Contracts")}</TabsTrigger>
 						</TabsList>
 						<TabsContent value="tasks">
-							<TasksPage tasks={project.tasks} projectId={project.id}/>
+							<TasksPage tasks={project.tasks as TimelineSourceTask[]} projectId={project.id}/>
 						</TabsContent>
 						<TabsContent value="contracts">
-							<ContractsPage contracts={project.contracts} projectId={project.id} />
+							<ContractsPage contracts={project.contracts as ContractListItem[]} projectId={project.id} />
 						</TabsContent>
 					</Tabs>)}
 				</CardContent>

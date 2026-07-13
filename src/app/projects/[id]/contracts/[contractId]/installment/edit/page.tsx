@@ -6,7 +6,7 @@ const InstallmentsEditPage = () => {
 	const router = useRouter();
 	useEffect(() => {
 		router.back();
-	}, []);
+	}, [router]);
 };
 
 export default InstallmentsEditPage;

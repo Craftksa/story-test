@@ -6,7 +6,7 @@ const TasksEditPage = () => {
 	const router = useRouter();
 	useEffect(() => {
 		router.back();
-	}, []);
+	}, [router]);
 };
 
 export default TasksEditPage;

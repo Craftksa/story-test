@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'use-intl';
 
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Spinner from '@/components/Spinner';
 import {
@@ -98,8 +97,8 @@ const VerifyOtpForm = ({ email, onSuccess, onBack }: VerifyOtpFormProps) => {
 			onSuccess(result.tokenId);
 		} catch (error) {
 			toast.error(
-				error instanceof Error
-					? t((error as any).response?.data?.error) || t(error.message)
+				axios.isAxiosError(error)
+					? t(error.response?.data?.error) || t(error.message)
 					: t('Something went wrong!')
 			);
 		} finally {
@@ -121,7 +120,7 @@ const VerifyOtpForm = ({ email, onSuccess, onBack }: VerifyOtpFormProps) => {
 
 			toast.success(t('New OTP sent to your email!'));
 			form.reset();
-		} catch (error) {
+		} catch {
 			toast.error(t('Failed to resend OTP. Please try again.'));
 		} finally {
 			setIsResending(false);

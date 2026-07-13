@@ -110,6 +110,11 @@ export async function middleware(req: NextRequest) {
 		return NextResponse.next();
 	}
 
+	// Defense-in-depth: any other /api/* route requires a valid token
+	if (isApiRoute && !isAuth) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
 	// Public pages (e.g. /login)
 	if (PUBLIC_PATHS.includes(pathname)) {
 		if (isAuth) {

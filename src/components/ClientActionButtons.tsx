@@ -1,10 +1,10 @@
 import React from 'react';
-import {ClipboardCheck, ClipboardList, FileTextIcon, UserRound, Users} from "lucide-react";
+import {ClipboardCheck, ClipboardList, FileTextIcon} from "lucide-react";
 import {useTranslations} from "use-intl";
 import {Button} from "@/components/ui/button";
 import {useRouter} from "next/navigation";
 
-const ClientActionButtons = ({projectId}: any) => {
+const ClientActionButtons = ({projectId}: { projectId: string }) => {
 	const router = useRouter();
 	const t=  useTranslations();
 	return (

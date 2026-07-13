@@ -1,6 +1,10 @@
 import React, {useEffect, useRef} from "react"
 import {
+	Cell,
+	Column,
 	ColumnDef,
+	ColumnFiltersState,
+	FilterMeta,
 	flexRender,
 	getCoreRowModel,
 	getFacetedRowModel,
@@ -8,6 +12,9 @@ import {
 	getFilteredRowModel,
 	getPaginationRowModel,
 	getSortedRowModel,
+	Row,
+	SortingState,
+	Table as ReactTable,
 	useReactTable,
 } from "@tanstack/react-table"
 import {Skeleton} from "@/components/ui/skeleton"
@@ -38,23 +45,22 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import {Separator} from "./ui/separator"
-import {Badge} from "@/components/ui/badge";
 import {useCheckedLocale} from "@/lib/client-utils";
 import {useTranslations} from "use-intl";
 import StatusBadge from "@/components/StatusBadgeSystem"
 
-const fuzzyFilter = (row: any, columnId: string, value: string, addMeta: any) => {
+function fuzzyFilter<TData>(row: Row<TData>, columnId: string, value: string, addMeta: (meta: FilterMeta) => void) {
 	const itemRank = rankItem(row.getValue(columnId), value)
 	addMeta({itemRank})
 	return itemRank.passed
 }
 
-export function DataTableColumnHeader({column, title, className}: any) {
+export function DataTableColumnHeader<TData>({column, title, className}: {column: Column<TData, unknown>; title: string; className?: string}) {
+	const t = useTranslations();
+
 	if (!column.getCanSort()) {
 		return <div>{title}</div>
 	}
-	const t = useTranslations();
 
 	return (
 		<div className={`${className} flex items-center space-x-2`}>
@@ -96,13 +102,15 @@ export function DataTableColumnHeader({column, title, className}: any) {
 }
 
 
-export function DataTableFacetedFilter({column, title, options}: any) {
+type FacetedFilterOption = { label: string; value: string; default?: boolean };
+
+export function DataTableFacetedFilter<TData>({column, title, options}: {column: Column<TData, unknown>; title: string; options: FacetedFilterOption[]}) {
 	const selectedValue = column?.getFilterValue()
 	const hasSetDefault = useRef(false)
 
 	useEffect(() => {
 		if (!hasSetDefault.current && !selectedValue) {
-			const defaultOption = options.find((opt: any) => opt.default)
+			const defaultOption = options.find((opt) => opt.default)
 			if (defaultOption) {
 				column?.setFilterValue(defaultOption.value)
 				hasSetDefault.current = true
@@ -121,18 +129,18 @@ export function DataTableFacetedFilter({column, title, options}: any) {
 								{t(title)}
 							</span>
 					}
-					{selectedValue && (
+					{!!selectedValue && (
 						<>
 							<div className="md:block hidden">
-								<StatusBadge status={t(options.find((opt: any) => opt.value === selectedValue)?.label)} />
+								<StatusBadge status={t(options.find((opt) => opt.value === selectedValue)?.label ?? '')} />
 							</div>
-							<span className="md:hidden block px-1 text-xs bg-primary">{t(options.find((opt: any) => opt.value === selectedValue)?.label)}</span>
+							<span className="md:hidden block px-1 text-xs bg-primary">{t(options.find((opt) => opt.value === selectedValue)?.label ?? '')}</span>
 						</>
 					)}
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="w-[200px] p-0" align="start">
-				{options.map((option: any) => {
+				{options.map((option) => {
 					const isSelected = selectedValue === option.value
 					return (
 						<DropdownMenuCheckboxItem
@@ -154,11 +162,12 @@ export function DataTableFacetedFilter({column, title, options}: any) {
 	)
 }
 
-function DataTablePagination({table}: any) {
+function DataTablePagination<TData>({table}: {table: ReactTable<TData> | null}) {
+	const t = useTranslations();
+
 	if (!table) {
 		return <div>Loading table...</div>;
 	}
-	const t = useTranslations();
 
 
 	return (
@@ -248,7 +257,7 @@ function DataTablePagination({table}: any) {
 	)
 }
 
-function DataTableViewOptions({table}: any) {
+function DataTableViewOptions<TData>({table}: {table: ReactTable<TData>}) {
 	const t = useTranslations();
 
 	return (
@@ -269,10 +278,10 @@ function DataTableViewOptions({table}: any) {
 				{table
 					.getAllColumns()
 					.filter(
-						(column: any) =>
+						(column) =>
 							typeof column.accessorFn !== "undefined" && column.getCanHide()
 					)
-					.map((column: any) => {
+					.map((column) => {
 						return (
 							<DropdownMenuCheckboxItem
 								key={column.id}
@@ -289,7 +298,7 @@ function DataTableViewOptions({table}: any) {
 	)
 }
 
-function DataTableToolbar(
+function DataTableToolbar<TData>(
 	{
 		table,
 		globalFilter,
@@ -297,11 +306,11 @@ function DataTableToolbar(
 		customRange,
 		facetedFilter,
 	}: {
-		table: any,
+		table: ReactTable<TData>,
 		globalFilter?: boolean,
 		customActions?: React.ReactNode
 		customRange?: React.ReactNode,
-		facetedFilter?: (table: any) => React.JSX.Element
+		facetedFilter?: (table: ReactTable<TData>) => React.JSX.Element
 	}) {
 	// Get the current column filters and table state
 	const columnFilters = table.getState().columnFilters || []
@@ -400,7 +409,6 @@ function DataTableToolbar(
 export function DataTable<TData, TValue>({
 	                                         columns,
 	                                         data,
-	                                         filterColumns,
 	                                         globalFilter,
 	                                         customActions,
 	                                         customRange,
@@ -412,20 +420,19 @@ export function DataTable<TData, TValue>({
                                          }: {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
-	filterColumns?: string[];
 	globalFilter?: boolean;
 	customActions?: React.ReactNode;
-	customRange?: any;
+	customRange?: React.ReactNode;
 	loading?: boolean;
-	facetedFilter?: (table: any) => React.JSX.Element;
+	facetedFilter?: (table: ReactTable<TData>) => React.JSX.Element;
 	emptyTableMessage?: string;
-	initialSorting?: any;
+	initialSorting?: SortingState;
 	initialPageSize?: number;
 }) {
-	const [sorting, setSorting] = React.useState(initialSorting ?? [])
+	const [sorting, setSorting] = React.useState<SortingState>(initialSorting ?? [])
 	const [rowSelection, setRowSelection] = React.useState({})
 	const [columnVisibility, setColumnVisibility] = React.useState({})
-	const [columnFilters, setColumnFilters] = React.useState([])
+	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
 	const [globalFilterValue, setGlobalFilterValue] = React.useState("")
 	const [pagination, setPagination] = React.useState({
 		pageIndex: 0,
@@ -439,10 +446,9 @@ export function DataTable<TData, TValue>({
 		columns,
 		filterFns: {fuzzy: fuzzyFilter},
 		globalFilterFn: fuzzyFilter,
+		enableRowSelection: true,
 		defaultColumn: {
 			enableSorting: true,
-			enableFiltering: true,
-			enableRowSelection: true,
 		},
 		state: {
 			sorting,
@@ -466,15 +472,18 @@ export function DataTable<TData, TValue>({
 		getFacetedUniqueValues: getFacetedUniqueValues(),
 	})
 
-	const getColumnHeader = (header: any) => {
-		const resolvedColumnDef = header.column.columnDef
+	const getColumnHeader = (cell: Cell<TData, TValue>) => {
+		const resolvedColumnDef = cell.column.columnDef as ColumnDef<TData, TValue> & {
+			accessorKey?: string;
+			accessorFn?: unknown;
+		}
 
 		let key: string | null = null
 
 		if (resolvedColumnDef.accessorKey) {
 			key = resolvedColumnDef.accessorKey
 		} else if (resolvedColumnDef.accessorFn) {
-			key = resolvedColumnDef.id
+			key = cell.column.id
 		}
 
 		return key
@@ -529,7 +538,7 @@ export function DataTable<TData, TValue>({
 							<div key={cell.id} className="flex mt-1 gap-4 items-center">
 								<div
 									className="text-xs truncate capitalize w-14 leading-none space-y-2 font-medium text-muted-foreground">
-									{t(getColumnHeader(cell))}
+									{t(getColumnHeader(cell) ?? '')}
 								</div>
 								<div className="text-sm">
 									{loading && index !== row.getVisibleCells().length - 1 ? (

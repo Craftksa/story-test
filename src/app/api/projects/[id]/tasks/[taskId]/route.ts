@@ -1,5 +1,5 @@
 import { db } from "@/drizzle/db";
-import { tasks, taskImages } from "@/drizzle/schema";
+import { tasks, taskImages, projectNotes } from "@/drizzle/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/authenticate";
@@ -10,8 +10,10 @@ import {
 } from "@/app/api/uploadthing/delete-files";
 import { z } from "zod";
 import { authorizeProjectAccess } from "@/lib/project-permissions";
+import { createActivitySystemNoteContent, type BlockedReason } from "@/lib/activity";
 
 const taskDateString = z.string().datetime({ offset: true }).optional();
+const blockedReasonEnum = z.enum(["client_approval", "client_documents", "internal", "external"]);
 
 function projectAccessDeniedResponse(access: {
 	status: 401 | 403 | 404;
@@ -19,6 +21,46 @@ function projectAccessDeniedResponse(access: {
 }) {
 	return NextResponse.json({ error: access.error }, { status: access.status });
 }
+
+const recordTaskBlockerEvent = async ({
+	projectId,
+	taskId,
+	taskName,
+	authorId,
+	authorName,
+	phase,
+	blockedReason,
+	blockedNote,
+}: {
+	projectId: string;
+	taskId: string;
+	taskName: string;
+	authorId: string | null | undefined;
+	authorName: string | null | undefined;
+	phase: "started" | "resolved";
+	blockedReason?: BlockedReason | null;
+	blockedNote?: string | null;
+}) => {
+	await db.insert(projectNotes).values({
+		projectId,
+		authorId: authorId ?? null,
+		content: createActivitySystemNoteContent({
+			version: 1,
+			eventType: phase === "started" ? "task_blocked" : "task_unblocked",
+			relatedType: "task",
+			relatedId: taskId,
+			projectId,
+			title: taskName,
+			taskName,
+			blockedReason: blockedReason ?? null,
+			note: blockedNote ?? null,
+			actorId: authorId ?? null,
+			actorName: authorName ?? null,
+		}),
+		createdAt: new Date(),
+		updatedAt: new Date(),
+	});
+};
 
 const updateTaskSchema = z
 	.object({
@@ -30,6 +72,10 @@ const updateTaskSchema = z
 		startDate: taskDateString.nullable().optional(),
 		endDate: taskDateString.nullable().optional(),
 		notes: z.string().nullable().optional(),
+		dependsOnTaskId: z.string().nullable().optional(),
+		isMilestone: z.boolean().optional(),
+		blockedReason: blockedReasonEnum.optional(),
+		blockedNote: z.string().optional(),
 		images: z
 			.array(
 				z.object({
@@ -40,25 +86,43 @@ const updateTaskSchema = z
 			.optional(),
 	})
 	.superRefine((values, ctx) => {
-		if (!values.startDate || !values.endDate) return;
+		if (values.startDate && values.endDate) {
+			const startDate = new Date(values.startDate);
+			const endDate = new Date(values.endDate);
 
-		const startDate = new Date(values.startDate);
-		const endDate = new Date(values.endDate);
+			if (endDate.getTime() < startDate.getTime()) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ["endDate"],
+					message: "End date must be on or after start date",
+				});
+			}
+		}
 
-		if (endDate.getTime() < startDate.getTime()) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				path: ["endDate"],
-				message: "End date must be on or after start date",
-			});
+		if (values.status === "on_hold") {
+			if (!values.blockedReason) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ["blockedReason"],
+					message: "A blocked reason is required when placing a task on hold",
+				});
+			}
+
+			if (!values.blockedNote || !values.blockedNote.trim()) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ["blockedNote"],
+					message: "A note explaining the blocker is required when placing a task on hold",
+				});
+			}
 		}
 	});
 
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { id: string; taskId: string } }
+	{ params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
-	const { id: projectId, taskId } = params;
+	const { id: projectId, taskId } = await params;
 
 	if (!isValidId(projectId) || !isValidId(taskId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
@@ -109,9 +173,9 @@ export async function GET(
 
 export async function PUT(
 	req: NextRequest,
-	{ params }: { params: { id: string; taskId: string } }
+	{ params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
-	const { id: projectId, taskId } = params;
+	const { id: projectId, taskId } = await params;
 
 	if (!isValidId(projectId) || !isValidId(taskId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
@@ -148,7 +212,58 @@ export async function PUT(
 			);
 		}
 
+		const currentRows = await db
+			.select({
+				name: tasks.name,
+				status: tasks.status,
+				dependsOnTaskId: tasks.dependsOnTaskId,
+			})
+			.from(tasks)
+			.where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
+
+		const currentTask = currentRows[0];
+		if (!currentTask) {
+			return NextResponse.json({ error: "Task not found for this project" }, { status: 404 });
+		}
+
 		const { images, ...payload } = parsed.data;
+
+		if (payload.dependsOnTaskId) {
+			if (payload.dependsOnTaskId === taskId) {
+				return NextResponse.json({ error: "A task cannot depend on itself" }, { status: 400 });
+			}
+
+			const dependencyRows = await db
+				.select({ id: tasks.id })
+				.from(tasks)
+				.where(and(eq(tasks.id, payload.dependsOnTaskId), eq(tasks.projectId, projectId)));
+
+			if (!dependencyRows.length) {
+				return NextResponse.json(
+					{ error: "dependsOnTaskId must reference a task in the same project" },
+					{ status: 400 }
+				);
+			}
+		}
+
+		const effectiveDependsOnTaskId =
+			payload.dependsOnTaskId !== undefined ? payload.dependsOnTaskId : currentTask.dependsOnTaskId;
+
+		if (payload.status === "completed" && effectiveDependsOnTaskId) {
+			const dependencyRows = await db
+				.select({ status: tasks.status })
+				.from(tasks)
+				.where(eq(tasks.id, effectiveDependsOnTaskId));
+
+			const dependencyTask = dependencyRows[0];
+			if (dependencyTask && dependencyTask.status !== "completed") {
+				return NextResponse.json(
+					{ error: "Cannot complete this task until its dependency is completed." },
+					{ status: 400 }
+				);
+			}
+		}
+
 		const updates: Record<string, unknown> = {};
 
 		for (const [field, value] of Object.entries(payload)) {
@@ -159,6 +274,17 @@ export async function PUT(
 					: value;
 		}
 
+		const previousStatus = currentTask.status;
+		const nextStatus = payload.status ?? previousStatus;
+
+		if (payload.status === "on_hold") {
+			updates.blockedAt = new Date();
+		} else if (payload.status) {
+			updates.blockedReason = null;
+			updates.blockedNote = null;
+			updates.blockedAt = null;
+		}
+
 		await db
 			.update(tasks)
 			.set({
@@ -166,6 +292,28 @@ export async function PUT(
 				updatedAt: new Date(),
 			})
 			.where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
+
+		if (previousStatus !== "on_hold" && nextStatus === "on_hold") {
+			await recordTaskBlockerEvent({
+				projectId,
+				taskId,
+				taskName: payload.name ?? currentTask.name,
+				authorId: userId,
+				authorName: user?.name || user?.email || null,
+				phase: "started",
+				blockedReason: payload.blockedReason,
+				blockedNote: payload.blockedNote,
+			});
+		} else if (previousStatus === "on_hold" && nextStatus !== "on_hold") {
+			await recordTaskBlockerEvent({
+				projectId,
+				taskId,
+				taskName: payload.name ?? currentTask.name,
+				authorId: userId,
+				authorName: user?.name || user?.email || null,
+				phase: "resolved",
+			});
+		}
 
 		if (Array.isArray(images)) {
 			const newImages: { url: string; description: string | null }[] = images.map((img) => ({
@@ -211,9 +359,9 @@ export async function PUT(
 
 export async function DELETE(
 	req: NextRequest,
-	{ params }: { params: { id: string; taskId: string } }
+	{ params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
-	const { id: projectId, taskId } = params;
+	const { id: projectId, taskId } = await params;
 
 	if (!isValidId(projectId) || !isValidId(taskId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });

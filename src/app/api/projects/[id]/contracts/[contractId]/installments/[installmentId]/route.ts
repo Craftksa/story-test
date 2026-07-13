@@ -8,9 +8,9 @@ import { isValidId, hasRole } from "@/lib/utils";
 // ✅ GET: Get single installment by ID
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { id: string; contractId: string; installmentId: string } }
+	{ params }: { params: Promise<{ id: string; contractId: string; installmentId: string }> }
 ) {
-	const { id: projectId, contractId, installmentId } = params;
+	const { id: projectId, contractId, installmentId } = await params;
 
 	if (![projectId, contractId, installmentId].every(isValidId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
@@ -44,9 +44,9 @@ export async function GET(
 // ✅ PUT: Update single installment
 export async function PUT(
 	req: NextRequest,
-	{ params }: { params: { id: string; contractId: string; installmentId: string } }
+	{ params }: { params: Promise<{ id: string; contractId: string; installmentId: string }> }
 ) {
-	const { id: projectId, contractId, installmentId } = params;
+	const { id: projectId, contractId, installmentId } = await params;
 
 	if (![projectId, contractId, installmentId].every(isValidId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
@@ -87,9 +87,9 @@ export async function PUT(
 // ✅ DELETE: Remove installment
 export async function DELETE(
 	req: NextRequest,
-	{ params }: { params: { id: string; contractId: string; installmentId: string } }
+	{ params }: { params: Promise<{ id: string; contractId: string; installmentId: string }> }
 ) {
-	const { id: projectId, contractId, installmentId } = params;
+	const { id: projectId, contractId, installmentId } = await params;
 
 	if (![projectId, contractId, installmentId].every(isValidId)) {
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });

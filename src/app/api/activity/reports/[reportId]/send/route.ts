@@ -75,24 +75,25 @@ const recordWorkflowEvent = async ({
 
 export async function POST(
 	req: NextRequest,
-	{ params }: { params: { reportId: string } }
+	{ params }: { params: Promise<{ reportId: string }> }
 ) {
+	const { reportId } = await params;
 	const { user } = await authenticate(req);
 
-	if (!hasRole(user, ["admin", "moderator"]) || !isValidId(params.reportId)) {
+	if (!hasRole(user, ["admin", "moderator"]) || !isValidId(reportId)) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
 	try {
 		const result = await getReportPdfPayload({
-			reportId: params.reportId,
+			reportId,
 			user: user ?? {},
 			approvedByName: user?.name || null,
 		});
-		if ("error" in result && result.error === "report_not_found") {
-			return NextResponse.json({ error: "Report not found" }, { status: 404 });
-		}
-		if ("error" in result && result.error === "project_not_found") {
+		if ("error" in result) {
+			if (result.error === "report_not_found") {
+				return NextResponse.json({ error: "Report not found" }, { status: 404 });
+			}
 			return NextResponse.json({ error: "Project not found" }, { status: 404 });
 		}
 
@@ -127,7 +128,7 @@ export async function POST(
 				sentAt,
 				updatedAt: new Date(),
 			})
-			.where(eq(projectReports.id, params.reportId));
+			.where(eq(projectReports.id, reportId));
 
 		if (!delivery.deliverySucceeded) {
 			const failureDebug = delivery.diagnostic ?? null;

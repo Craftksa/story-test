@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { DataTable, DataTableColumnHeader } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
-import {EyeIcon, EditIcon, Loader2Icon, PlusCircleIcon, FileDownIcon, ImagePlus, FileUp} from 'lucide-react';
+import {PlusCircleIcon, FileDownIcon, FileUp} from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSession } from 'next-auth/react';
@@ -19,41 +20,53 @@ import { useCheckedLocale } from '@/lib/client-utils';
 import {hasRole} from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadgeSystem";
 
-export function ContractsPage({ contracts, projectId }: { contracts: any[]; projectId: string }) {
+export interface ContractListItem {
+	id: string;
+	contractorName: string;
+	contractedAmount: string;
+	fileUrl?: string | null;
+	createdAt: string | Date;
+}
+
+export function ContractsPage({ contracts, projectId }: { contracts: ContractListItem[]; projectId: string }) {
 	const { deleteContract, setProjectId } = useContractStore();
-	const { fetchOneProject, removeContractFromProject } = useProjectStore();
+	const { removeContractFromProject } = useProjectStore();
 	const t = useTranslations();
 	const { lang } = useCheckedLocale();
 
 	useEffect(() => {
 		setProjectId(projectId);
-	}, [projectId]);
+	}, [projectId, setProjectId]);
 
 	const { data: session } = useSession();
 	const user = session?.user;
 	const router = useRouter();
 
-	const columns = [
+	const handleUpload = (data: ContractListItem) => {
+		router.push(`/projects/${projectId}/contracts/upload/${data.id}`)
+	}
+
+	const columns: ColumnDef<ContractListItem>[] = [
 		{
 			accessorKey: 'contractorName',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Contractor')} />,
-			cell: ({ row }: any) => (
-				<CustomLink href={`/projects/${projectId}/contracts/${row.original.id}`}>{row.getValue('contractorName')}</CustomLink>
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Contractor')} />,
+			cell: ({ row }) => (
+				<CustomLink href={`/projects/${projectId}/contracts/${row.original.id}`}>{row.getValue('contractorName') as string}</CustomLink>
 			),
 		},
 		{
 			accessorKey: 'contractedAmount',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Amount')} />,
-			cell: ({ row }: any) => {
-				const amount = row.getValue('contractedAmount');
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Amount')} />,
+			cell: ({ row }) => {
+				const amount = row.getValue('contractedAmount') as string;
 				return <span>{amount ? `${parseFloat(amount).toLocaleString()}` : <StatusBadge />}</span>;
 			},
 		},
 		{
 			accessorKey: 'fileUrl',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('File')} />,
-			cell: ({ row }: any) => {
-				const url = row.getValue('fileUrl');
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('File')} />,
+			cell: ({ row }) => {
+				const url = row.getValue('fileUrl') as string | undefined;
 				return url ? (
 					<a href={url} target="_blank" rel="noopener noreferrer">
 						<Button variant="ghost" size="icon" title={t('Download File')}>
@@ -67,16 +80,16 @@ export function ContractsPage({ contracts, projectId }: { contracts: any[]; proj
 		},
 		{
 			accessorKey: 'createdAt',
-			header: ({ column }: any) => <DataTableColumnHeader column={column} title={t('Created')} />,
-			cell: ({ row }: any) => {
-				const date = row.getValue('createdAt');
+			header: ({ column }) => <DataTableColumnHeader column={column} title={t('Created')} />,
+			cell: ({ row }) => {
+				const date = row.getValue('createdAt') as string;
 				const locale = lang === 'ar' ? ar : enUS;
 				return <span>{date ? formatDistanceToNow(new Date(date), { addSuffix: true, locale }) : <StatusBadge />}</span>;
 			},
 		},
 		{
 			id: 'actions',
-			cell: ({ row }: any) => (
+			cell: ({ row }) => (
 				<ActionButtons
 					entity="contract"
 					data={row.original}
@@ -97,11 +110,6 @@ export function ContractsPage({ contracts, projectId }: { contracts: any[]; proj
 			),
 		},
 	];
-
-
-	const handleUpload = (data: any) => {
-		router.push(`/projects/${projectId}/contracts/upload/${data.id}`)
-	}
 	const customActions = (
 		<>
 			{user && hasRole(user, ["admin", "moderator"]) && (

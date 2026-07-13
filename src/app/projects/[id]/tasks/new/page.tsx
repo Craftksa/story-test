@@ -7,7 +7,7 @@ import {useTranslations} from "use-intl";
 
 
 const NewTaskPage = () => {
-	const {id: projectId} = useParams()
+	const {id: projectId} = useParams<{ id: string }>()
 
 	const t = useTranslations();
 	return (

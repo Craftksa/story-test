@@ -6,7 +6,7 @@ const TasksUploadPage = () => {
 	const router = useRouter();
 	useEffect(() => {
 		router.back();
-	}, []);
+	}, [router]);
 };
 
 export default TasksUploadPage;

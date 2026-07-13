@@ -2,7 +2,7 @@
 
 import {usePathname} from 'next/navigation';
 import {Breadcrumb, BreadcrumbItem, BreadcrumbList} from "@/components/ui/breadcrumb";
-import {SlashIcon, ChevronRightIcon} from "@radix-ui/react-icons";
+import {ChevronRightIcon} from "@radix-ui/react-icons";
 import Link from "next/link";
 import {useTranslations} from "use-intl";
 

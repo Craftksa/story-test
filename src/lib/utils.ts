@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function hasRole(user: any, roles: string[] = []) {
+export function hasRole(user: { role?: string | null } | null | undefined, roles: string[] = []) {
   return !!user?.role && roles.includes(user.role);
 }
 

@@ -7,6 +7,8 @@ import {
 	integer,
 	varchar,
 	decimal,
+	index,
+	type AnyPgColumn,
 } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
 import { nanoid } from "nanoid"
@@ -21,7 +23,10 @@ export const users = pgTable("user", {
 	password: text("password"),
 	updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
 	createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-})
+}, (table) => ({
+	emailIdx: index("user_email_idx").on(table.email),
+	usernameIdx: index("user_username_idx").on(table.username),
+}))
 
 export const passwordResetTokens = pgTable('password_reset_tokens', {
 	id: text('id').primaryKey(),
@@ -123,7 +128,9 @@ export const projects = pgTable("project", {
 
 	createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
-});
+}, (table) => ({
+	clientIdIdx: index("project_client_id_idx").on(table.clientId),
+}));
 
 
 export const tasks = pgTable("task", {
@@ -138,6 +145,14 @@ export const tasks = pgTable("task", {
 	projectId: text("project_id")
 		.notNull()
 		.references(() => projects.id, { onDelete: "cascade" }),
+
+	dependsOnTaskId: text("depends_on_task_id")
+		.references((): AnyPgColumn => tasks.id, { onDelete: "set null" }),
+	isMilestone: boolean("is_milestone").notNull().default(false),
+	blockedReason: text("blocked_reason")
+		.$type<"client_approval" | "client_documents" | "internal" | "external">(),
+	blockedNote: text("blocked_note"),
+	blockedAt: timestamp("blocked_at", { mode: "date" }),
 
 	createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
@@ -181,6 +196,8 @@ export const projectAssignments = pgTable("project_assignment", {
 		.notNull(),
 }, (table) => ({
 	pk: primaryKey({ columns: [table.projectId, table.userId] }),
+	userIdIdx: index("project_assignment_user_id_idx").on(table.userId),
+	projectIdIdx: index("project_assignment_project_id_idx").on(table.projectId),
 }));
 
 export const taskImages = pgTable("task_image", {

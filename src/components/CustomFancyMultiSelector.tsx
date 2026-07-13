@@ -64,7 +64,7 @@ export function UserMultiSelector({
 		}
 	}
 
-	const removeSelection = (value: string, e: React.MouseEvent) => {
+	const removeSelection = (value: string, e: React.SyntheticEvent) => {
 		e.preventDefault()
 		e.stopPropagation()
 		onChange(selectedValues.filter(v => v !== value))
@@ -94,7 +94,7 @@ export function UserMultiSelector({
 										className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
 										onKeyDown={(e) => {
 											if (e.key === "Enter") {
-												removeSelection(option.value, e as any)
+												removeSelection(option.value, e)
 											}
 										}}
 										onMouseDown={(e) => removeSelection(option.value, e)}

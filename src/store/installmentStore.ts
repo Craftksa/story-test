@@ -4,12 +4,15 @@ import { devtools } from "zustand/middleware";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 type Installment = {
 	id: string;
 	installmentNo: number;
 	installmentAmount: string;
 	paidAmount: string;
-	paymentDate: string | null;
+	paymentDate: string | Date | null;
+	notes: string | null;
 	taskId: string | null;
 	createdAt: string;
 	updatedAt: string;
@@ -29,8 +32,8 @@ type InstallmentsStore = {
 	fetchInstallments: () => Promise<void>;
 	getInstallmentById: (id: string) => Promise<void>;
 	fetchOneInstallment: (id: string) => Promise<void>;
-	createInstallment: (data: any) => Promise<Installment | void>;
-	updateInstallment: (id: string, data: any) => Promise<Installment | void>;
+	createInstallment: (data: Partial<Installment>) => Promise<Installment | void>;
+	updateInstallment: (id: string, data: Partial<Installment>) => Promise<Installment | void>;
 	deleteInstallment: (id: string) => Promise<void>;
 };
 
@@ -58,8 +61,8 @@ export const useInstallmentStore = create<InstallmentsStore>()(
 			try {
 				const installments = await installmentsApi.getAll();
 				set({ installments });
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch installments");
 			} finally {
 				set({ loading: false });
@@ -93,8 +96,8 @@ export const useInstallmentStore = create<InstallmentsStore>()(
 			try {
 				const installment = await installmentsApi.getOne(id);
 				set({ selectedInstallment: installment });
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch installment");
 			} finally {
 				set({ loading: false });
@@ -118,8 +121,8 @@ export const useInstallmentStore = create<InstallmentsStore>()(
 				}));
 				toast.success("Installment created successfully");
 				return fullInstallment;
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to create installment");
 			} finally {
 				set({ loading: false });
@@ -145,8 +148,8 @@ export const useInstallmentStore = create<InstallmentsStore>()(
 				}));
 				toast.success("Installment updated successfully");
 				return updated;
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to update installment");
 			} finally {
 				set({ loading: false });
@@ -168,8 +171,8 @@ export const useInstallmentStore = create<InstallmentsStore>()(
 					installments: state.installments.filter((i) => i.id !== id),
 				}));
 				toast.success("Installment deleted successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to delete installment");
 			} finally {
 				set({ loading: false });

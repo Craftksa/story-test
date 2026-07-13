@@ -1,7 +1,13 @@
 import React from 'react';
 import Link from "next/link";
 
-const CustomLink = ({href, className, children}: any) => {
+interface CustomLinkProps {
+	href: string;
+	className?: string;
+	children: React.ReactNode;
+}
+
+const CustomLink = ({href, className, children}: CustomLinkProps) => {
 	return (
 		<Link href={href} className={`${className} hover:underline hover:text-primary underline-offset-2`}>
 			{children}

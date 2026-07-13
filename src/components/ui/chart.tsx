@@ -145,7 +145,7 @@ function ChartTooltipContent({
     if (labelFormatter) {
       return (
         <div className={cn("font-medium", labelClassName)}>
-          {labelFormatter(t(value), payload)}
+          {labelFormatter(t(String(value)), payload)}
         </div>
       )
     }
@@ -154,7 +154,7 @@ function ChartTooltipContent({
       return null
     }
 
-    return <div className={cn("font-medium", labelClassName)}>{t(value)}</div>
+    return <div className={cn("font-medium", labelClassName)}>{t(String(value))}</div>
   }, [
     label,
     labelFormatter,
@@ -163,6 +163,7 @@ function ChartTooltipContent({
     labelClassName,
     config,
     labelKey,
+    t,
   ])
 
   if (!active || !payload?.length) {

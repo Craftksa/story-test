@@ -36,8 +36,22 @@ import { useTranslations } from 'next-intl';
 
 export type ProjectFormData = z.infer<ReturnType<typeof createProjectSchema>>;
 
+export type ProjectInput = {
+	id?: string;
+	name?: string;
+	status?: string;
+	city?: string;
+	district?: string;
+	projectType?: string;
+	startDate?: string | Date | null;
+	endDate?: string | Date | null;
+	description?: string | null;
+	clientId?: string | null;
+	designer?: string | null;
+	assignedTo?: string[];
+};
+
 const statusOptions = ['not_started', 'in_progress', 'completed', 'on_hold', 'needs_review'] as const;
-const projectTypeOptions = ['villa', 'palace'] as const;
 const cityDistrictMap: Record<string, string[]> = {
 	Riyadh: ['Al Olaya', 'Al Malqa', 'Al Murabba', 'Al Malaz'],
 	Jeddah: ['Al Hamra', 'Al Rawdah', 'Al Salamah', 'Al Faisaliyah'],
@@ -53,16 +67,16 @@ const cityDistrictMap: Record<string, string[]> = {
 
 const cities = Object.keys(cityDistrictMap);
 
-const ProjectForm = ({ project }: { project?: ProjectFormData & { id?: string } }) => {
+const ProjectForm = ({ project }: { project?: ProjectInput }) => {
 	const router = useRouter();
 	const { createProject, updateProject, checkDuplicate, error } = useProjectStore();
 	const { fetchUsers, users } = useUserStore();
 	const isUpdate = Boolean(project?.id);
-	const [selectedCity, setSelectedCity] = useState(project?.city ?? '');
+	const [, setSelectedCity] = useState(project?.city ?? '');
 
 	useEffect(() => {
 		fetchUsers();
-	}, [])
+	}, [fetchUsers])
 
 	const clients = users.filter((user) => user.role === "client").map((user) => ({
 		label: user.name,
@@ -84,7 +98,7 @@ const ProjectForm = ({ project }: { project?: ProjectFormData & { id?: string } 
 		resolver: zodResolver(schema),
 		defaultValues: {
 			name: project?.name ?? '',
-			status: project?.status ?? 'not_started',
+			status: (project?.status ?? 'not_started') as ProjectFormData['status'],
 			city: project?.city ?? '',
 			district: project?.district ?? '',
 			projectType: project?.projectType ?? '',
@@ -110,7 +124,7 @@ const ProjectForm = ({ project }: { project?: ProjectFormData & { id?: string } 
 				router.back();
 				router.refresh();
 			}
-		} catch (err) {
+		} catch {
 			toast.error('Something went wrong!');
 		}
 	};

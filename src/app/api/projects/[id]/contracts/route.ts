@@ -16,9 +16,9 @@ const createContractSchema = z.object({
 
 export async function POST(
 	req: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
-	const projectId = params.id;
+	const { id: projectId } = await params;
 
 	if (!isValidId(projectId)) {
 		return NextResponse.json({ error: "Invalid project ID" }, { status: 400 });
@@ -41,7 +41,7 @@ export async function POST(
 	const [contract] = await db.insert(contracts).values({
 		projectId,
 		contractorName,
-		contractedAmount,
+		contractedAmount: contractedAmount.toString(),
 		description: description || '',
 		fileUrl: fileUrl || null,
 		createdAt: new Date(),
@@ -53,10 +53,10 @@ export async function POST(
 
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { user } = await authenticate(req);
-	const projectId = params.id;
+	const { id: projectId } = await params;
 
 	if (!hasRole(user, ["admin", "moderator", "client"])) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });

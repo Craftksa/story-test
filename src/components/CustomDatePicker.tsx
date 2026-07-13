@@ -14,7 +14,7 @@ interface CustomDatePickerProps {
 	placeholder?: string;
 }
 
-export function CustomDatePicker({ value, onChange, label, className, placeholder = "Pick a date" }: CustomDatePickerProps) {
+export function CustomDatePicker({ value, onChange, className, placeholder = "Pick a date" }: CustomDatePickerProps) {
 	return (
 		<Popover>
 			<PopoverTrigger asChild>

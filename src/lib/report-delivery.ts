@@ -204,18 +204,16 @@ const buildDeliveryMessage = ({
 		}`;
 	}
 
-	if (emailOutcome !== "success" && whatsappOutcome !== "success") {
-		const emailMessage = getEmailOutcomeMessage(emailOutcome);
-		const whatsappStatusMessage = getWhatsAppOutcomeMessage(whatsappOutcome, whatsappMessage);
+	// At this point emailOutcome and whatsappOutcome are guaranteed !== "success"
+	// (both success cases already returned above).
+	const emailMessage = getEmailOutcomeMessage(emailOutcome);
+	const whatsappStatusMessage = getWhatsAppOutcomeMessage(whatsappOutcome, whatsappMessage);
 
-		if (emailMessage && whatsappStatusMessage) {
-			return `${emailMessage} ${whatsappStatusMessage}`;
-		}
-
-		return emailMessage || whatsappStatusMessage || EMAIL_FAILED_MESSAGE;
+	if (emailMessage && whatsappStatusMessage) {
+		return `${emailMessage} ${whatsappStatusMessage}`;
 	}
 
-	return BOTH_SUCCESS_MESSAGE;
+	return emailMessage || whatsappStatusMessage || EMAIL_FAILED_MESSAGE;
 };
 
 const mapExecutionOutcomeToStatus = (outcome: DeliveryExecutionStatus): DeliveryStatus => {

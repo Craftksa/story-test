@@ -18,25 +18,26 @@ export const revalidate = 0;
 
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { reportId: string } }
+	{ params }: { params: Promise<{ reportId: string }> }
 ) {
+	const { reportId } = await params;
 	console.log("[pdf-route] request started");
-	console.log(`[pdf-route] reportId=${params.reportId}`);
+	console.log(`[pdf-route] reportId=${reportId}`);
 	const { user } = await authenticate(req);
 
-	if (!canAccessActivity(user) || !isValidId(params.reportId)) {
+	if (!canAccessActivity(user) || !isValidId(reportId)) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
 	try {
 		const result = await getReportPdfPayload({
-			reportId: params.reportId,
+			reportId: reportId,
 			user: user ?? {},
 		});
-		if ("error" in result && result.error === "report_not_found") {
-			return NextResponse.json({ error: "Report not found" }, { status: 404 });
-		}
-		if ("error" in result && result.error === "project_not_found") {
+		if ("error" in result) {
+			if (result.error === "report_not_found") {
+				return NextResponse.json({ error: "Report not found" }, { status: 404 });
+			}
 			return NextResponse.json({ error: "Project not found" }, { status: 404 });
 		}
 
@@ -68,7 +69,7 @@ export async function GET(
 			}`
 		);
 		logPdfErrorDetails("GET /api/activity/reports/[reportId]/pdf", error, {
-			reportId: params.reportId,
+			reportId: reportId,
 		});
 		const userMessage = getReportPdfUserMessage(error, PDF_VIEW_FAILURE_MESSAGE);
 		return NextResponse.json(

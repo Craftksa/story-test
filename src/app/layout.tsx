@@ -1,5 +1,5 @@
 import type {Metadata} from "next";
-import {Noto_Nastaliq_Urdu, Tajawal} from "next/font/google";
+import {Tajawal} from "next/font/google";
 import "./globals.css";
 import localFont from "next/font/local";
 import {ThemeProvider} from "next-themes";
@@ -7,22 +7,15 @@ import AppLayout from "@/components/layout/AppLayout";
 import {SessionProvider} from "next-auth/react";
 import {Toaster} from "sonner";
 import {auth} from "@/auth";
-import {getLocale, getMessages, getTranslations} from 'next-intl/server';
+import {getLocale, getMessages} from 'next-intl/server';
 import {LocaleSwitcher} from "@/components/LocaleSwitcher";
 import {getCheckedLocale} from "@/lib/server-utils";
 import {IntlProviderWrapper} from "@/components/providers/intl-provider-wrapper";
-import Footer from "@/components/Footer";
 
 const tajawal = Tajawal({
 	subsets: ['arabic'],
 	weight: ['300', '400', '700'],
 	variable: '--font-tajawal',
-});
-
-const urdu = Noto_Nastaliq_Urdu({
-	subsets: ['arabic'],
-	weight: ['400', '700'],
-	variable: '--font-urdu',
 });
 
 const metropolis = localFont({

@@ -96,8 +96,8 @@ const ForgotPasswordForm = ({ onSuccess }: ForgotPasswordFormProps) => {
 			onSuccess(data.email);
 		} catch (error) {
 			toast.error(
-				error instanceof Error
-					? t((error as any).response?.data?.error) || t(error.message)
+				axios.isAxiosError(error)
+					? t(error.response?.data?.error) || t(error.message)
 					: t('Something went wrong!')
 			);
 		} finally {

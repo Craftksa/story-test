@@ -2,14 +2,14 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import {ArrowLeft, Home, LogIn, Plus} from 'lucide-react';
+import {ArrowLeft, Home} from 'lucide-react';
 import {useRouter} from "next/navigation";
 
 export default function NotFound(
   {
     tag = "Page",
     description = "The page you're looking for doesn't exist or has been moved.",
-  }: any
+  }: { tag?: string; description?: string }
 ) {
   const router = useRouter();
 

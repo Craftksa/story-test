@@ -7,7 +7,7 @@ import {useParams} from "next/navigation";
 import {useTranslations} from "use-intl";
 
 const UploadImages = () => {
-	const {id: projectId, taskId} = useParams();
+	const {id: projectId, taskId} = useParams<{ id: string; taskId: string }>();
 
 	const t = useTranslations();
 

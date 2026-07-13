@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Check if new password is different from current password
-		// @ts-ignore
+		// @ts-expect-error - user.password is typed string | null; bcrypt.compare requires string
 		const isSamePassword = await bcrypt.compare(newPassword, user.password);
 		if (isSamePassword) {
 			return NextResponse.json({

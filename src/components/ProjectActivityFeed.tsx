@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {Image as ImageIcon, RefreshCcw, Plus, FilePlus2, ImagePlus} from "lucide-react";
+import {RefreshCcw, FilePlus2, ImagePlus} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useTranslations, useLocale } from "use-intl";
+import { useTranslations } from "use-intl";
 import StatusBadge from "@/components/StatusBadgeSystem";
 import CustomLink from "@/components/CustomLink";
 import {ar, enUS} from "date-fns/locale";

@@ -9,7 +9,7 @@ import Spinner from '@/components/Spinner'
 import {useTranslations} from "use-intl";
 
 const EditTaskPage = () => {
-	const {id: projectId, taskId} = useParams()
+	const {id: projectId, taskId} = useParams<{ id: string; taskId: string }>()
 	const {fetchOneTask, selectedTask, loading, setProjectId} = useTaskStore()
 	const t = useTranslations();
 
@@ -21,7 +21,7 @@ const EditTaskPage = () => {
 		}
 
 		fetchTask()
-	}, [])
+	}, [projectId, taskId, setProjectId, fetchOneTask])
 
 	if (loading) {
 		return (

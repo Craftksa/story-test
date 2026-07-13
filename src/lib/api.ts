@@ -25,11 +25,11 @@ const api = {
 
 	createEntityApi: (entityName: string) => ({
 		getAll: () => api.get(entityName),
-		getOne: (id: any) => api.get(`${entityName}/${id}`),
-		create: (data: {} | undefined) => api.post(entityName, data),
-		update: (id: any, data: {} | undefined) =>
+		getOne: (id: string) => api.get(`${entityName}/${id}`),
+		create: (data: Record<string, unknown> | undefined) => api.post(entityName, data),
+		update: (id: string, data: Record<string, unknown> | undefined) =>
 			api.put(`${entityName}/${id}`, data),
-		delete: (id: any) => api.delete(`${entityName}/${id}`),
+		delete: (id: string) => api.delete(`${entityName}/${id}`),
 	}),
 };
 

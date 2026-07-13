@@ -3,23 +3,52 @@ import {devtools} from "zustand/middleware";
 import {toast} from "sonner";
 import api from "@/lib/api";
 
+type TaskImage = {
+	id: string;
+	url: string;
+	description?: string | null;
+	uploadedAt: string;
+};
+
+type Task = {
+	id: string;
+	name: string;
+	status: string;
+	type: string;
+	startDate: string | null;
+	endDate: string | null;
+	notes?: string | null;
+	projectId: string;
+	createdAt: string;
+	updatedAt: string;
+	images: TaskImage[];
+	dependsOnTaskId?: string | null;
+	isMilestone?: boolean;
+	blockedReason?: "client_approval" | "client_documents" | "internal" | "external" | null;
+	blockedNote?: string | null;
+	blockedAt?: string | null;
+	[key: string]: unknown;
+};
+
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 type TasksStore = {
 	projectId: string | null;
 	setProjectId: (id: string) => void;
 
-	tasks: any[];
-	selectedTask: any | null;
+	tasks: Task[];
+	selectedTask: Task | null;
 	loading: boolean;
 	error: string | null;
 
 	fetchTasks: () => Promise<void>;
 	getTaskById: (id: string) => Promise<void>;
 	fetchOneTask: (id: string) => Promise<void>;
-	createTask: (task: any) => Promise<any>;
-	updateTask: (id: string, task: unknown) => Promise<any>;
+	createTask: (task: Partial<Task>) => Promise<Task | undefined>;
+	updateTask: (id: string, task: Partial<Task>) => Promise<Task | undefined>;
 	deleteTask: (id: string) => Promise<void>;
 
-	checkDuplicate: (key: string, value: any, excludeId?: string) => boolean;
+	checkDuplicate: (key: string, value: unknown, excludeId?: string) => boolean;
 	removeImageFromTask: (imageId: string) => Promise<void>;
 };
 
@@ -43,8 +72,8 @@ export const useTaskStore = create<TasksStore>()(
 			try {
 				const tasks = await tasksApi.getAll();
 				set({ tasks });
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch tasks");
 			} finally {
 				set({ loading: false });
@@ -76,8 +105,8 @@ export const useTaskStore = create<TasksStore>()(
 			try {
 				const task = await tasksApi.getOne(id);
 				set({ selectedTask: task });
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to fetch task");
 			} finally {
 				set({ loading: false });
@@ -99,8 +128,8 @@ export const useTaskStore = create<TasksStore>()(
 				}));
 				toast.success("Task created successfully");
 				return getTask;
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to create task");
 			} finally {
 				set({ loading: false });
@@ -124,8 +153,8 @@ export const useTaskStore = create<TasksStore>()(
 				}));
 				toast.success("Task updated successfully");
 				return getTask;
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to update task");
 			} finally {
 				set({ loading: false });
@@ -145,8 +174,8 @@ export const useTaskStore = create<TasksStore>()(
 					tasks: state.tasks.filter((task) => task.id !== id),
 				}));
 				toast.success("Task deleted successfully");
-			} catch (error: any) {
-				set({ error: error.message });
+			} catch (error) {
+				set({ error: getErrorMessage(error) });
 				toast.error("Failed to delete task");
 			} finally {
 				set({ loading: false });
@@ -168,7 +197,7 @@ export const useTaskStore = create<TasksStore>()(
 					selectedTask: {
 						...state.selectedTask,
 						images: state.selectedTask.images.filter(
-							(image: any) => image.id !== imageId
+							(image) => image.id !== imageId
 						),
 					},
 				};

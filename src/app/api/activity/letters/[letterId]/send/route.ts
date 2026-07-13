@@ -39,11 +39,12 @@ const getLetterSendUserMessage = (error: unknown) => {
 
 export async function POST(
 	req: NextRequest,
-	{ params }: { params: { letterId: string } }
+	{ params }: { params: Promise<{ letterId: string }> }
 ) {
+	const { letterId } = await params;
 	const { user } = await authenticate(req);
 
-	if (!canAccessActivity(user) || !isValidId(params.letterId)) {
+	if (!canAccessActivity(user) || !isValidId(letterId)) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
@@ -57,7 +58,7 @@ export async function POST(
 			);
 		}
 
-		const canModify = await canUserModifyLetter(params.letterId, user ?? {});
+		const canModify = await canUserModifyLetter(letterId, user ?? {});
 		if (!canModify) {
 			return NextResponse.json(
 				{ error: "You do not have permission to send this letter." },
@@ -65,7 +66,7 @@ export async function POST(
 			);
 		}
 
-		const letter = await getLetterById(params.letterId, user ?? {});
+		const letter = await getLetterById(letterId, user ?? {});
 		if (!letter) {
 			return NextResponse.json({ error: "Letter not found" }, { status: 404 });
 		}
@@ -95,7 +96,7 @@ export async function POST(
 				status: "ready",
 				updatedAt: new Date(),
 			})
-			.where(eq(projectLetters.id, params.letterId));
+			.where(eq(projectLetters.id, letterId));
 
 		const details = await getActivityProjectDetails(letter.projectId, user ?? {});
 		return NextResponse.json({

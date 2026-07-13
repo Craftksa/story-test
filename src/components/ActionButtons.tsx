@@ -8,11 +8,13 @@ import {Button} from "@/components/ui/button";
 import DeleteDialog from "@/components/DeleteDialog";
 import {useRouter} from "next/navigation";
 
+type ActionableData = { id: string | number };
+
 interface ActionButtonsProps {
 	entity?: 'project' | 'task' | string;
-	data: any;
+	data: ActionableData;
 	view?: boolean;
-	onDelete: (data: any) => void;
+	onDelete: (data: ActionableData) => void;
 	confirmationText: string;
 	viewPath?: string;
 	editPath?: string;

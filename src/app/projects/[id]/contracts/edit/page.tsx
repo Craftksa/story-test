@@ -6,7 +6,7 @@ const ContractsEditPage = () => {
 	const router = useRouter();
 	useEffect(() => {
 		router.back();
-	}, []);
+	}, [router]);
 };
 
 export default ContractsEditPage;

@@ -1,5 +1,5 @@
 import React from "react";
-import {ActivityIcon, LucideIcon} from "lucide-react";
+import {LucideIcon} from "lucide-react";
 import {useTranslations} from "use-intl";
 
 
@@ -10,13 +10,13 @@ const StatusBadge = ({
                        sign = false,
                        Icon,
                      }: {
-  status?: any;
-  color?: any;
+  status?: string;
+  color?: string;
   size?: string,
   sign?: boolean;
   Icon?: LucideIcon;
 }) => {
-  const statusColors: Record<any, string> = {
+  const statusColors: Record<string, string> = {
     admin: "bg-rose-100 text-rose-900 border-rose-300 print:text-rose-700 dark:bg-rose-950/35 dark:text-rose-200 dark:border-rose-400/30",
     employee: "bg-green-100 text-green-900 border-green-300 print:text-green-700 dark:bg-green-950/35 dark:text-green-200 dark:border-green-400/30",
     moderator: "bg-amber-100 text-amber-900 border-amber-300 print:text-amber-700 dark:bg-amber-950/35 dark:text-amber-200 dark:border-amber-400/30",
@@ -68,7 +68,7 @@ const StatusBadge = ({
         print:bg-white
         print:border-muted-foreground/50
       ${
-        statusColors[status] || statusColors[color] || "bg-slate-100 text-slate-900 border-slate-300 print:text-slate-700 dark:bg-slate-900/45 dark:text-slate-200 dark:border-slate-400/30"
+        statusColors[status] || statusColors[color ?? ''] || "bg-slate-100 text-slate-900 border-slate-300 print:text-slate-700 dark:bg-slate-900/45 dark:text-slate-200 dark:border-slate-400/30"
       }`}
     >
       {Icon && <Icon className="w-3 h-3 animate-spin leading-[0px]" />}

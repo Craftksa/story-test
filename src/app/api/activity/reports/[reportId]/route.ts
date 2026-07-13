@@ -162,16 +162,17 @@ const getStatusForSubmitAction = ({
 
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { reportId: string } }
+	{ params }: { params: Promise<{ reportId: string }> }
 ) {
+	const { reportId } = await params;
 	const { user } = await authenticate(req);
 
-	if (!canAccessActivity(user) || !isValidId(params.reportId)) {
+	if (!canAccessActivity(user) || !isValidId(reportId)) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
 	try {
-		const report = await getReportById(params.reportId, user ?? {});
+		const report = await getReportById(reportId, user ?? {});
 		if (!report) {
 			return NextResponse.json({ error: "Report not found" }, { status: 404 });
 		}
@@ -185,21 +186,22 @@ export async function GET(
 
 export async function PATCH(
 	req: NextRequest,
-	{ params }: { params: { reportId: string } }
+	{ params }: { params: Promise<{ reportId: string }> }
 ) {
+	const { reportId } = await params;
 	const { user } = await authenticate(req);
 
-	if (!canAccessActivity(user) || !isValidId(params.reportId)) {
+	if (!canAccessActivity(user) || !isValidId(reportId)) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
 	try {
-		const canModify = await canUserModifyReport(params.reportId, user ?? {});
+		const canModify = await canUserModifyReport(reportId, user ?? {});
 		if (!canModify) {
 			return NextResponse.json({ error: "You do not have permission to edit this report." }, { status: 403 });
 		}
 
-		const existingReport = await getReportById(params.reportId, user ?? {});
+		const existingReport = await getReportById(reportId, user ?? {});
 		if (!existingReport) {
 			return NextResponse.json({ error: "Report not found" }, { status: 404 });
 		}
@@ -283,14 +285,14 @@ export async function PATCH(
 				sentAt: shouldResetToDraft ? null : existingReport.sentAt ? new Date(existingReport.sentAt) : null,
 				updatedAt: new Date(),
 			})
-			.where(eq(projectReports.id, params.reportId));
+			.where(eq(projectReports.id, reportId));
 
 		if (isAdmin) {
-			await db.delete(projectReportPermissions).where(eq(projectReportPermissions.reportId, params.reportId));
+			await db.delete(projectReportPermissions).where(eq(projectReportPermissions.reportId, reportId));
 			if (requestedPermissions.length > 0) {
 				await db.insert(projectReportPermissions).values(
 					requestedPermissions.map((permission) => ({
-						reportId: params.reportId,
+						reportId: reportId,
 						userId: permission.userId,
 						accessLevel: permission.accessLevel,
 						assignedBy: user?.id ?? null,

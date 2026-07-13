@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import UserForm, {UserFormData} from '@/components/forms/UserForm'
+import UserForm, {type UserInput} from '@/components/forms/UserForm'
 import { useUserStore } from '@/store/userStore'
 import Spinner from '@/components/Spinner'
 import {useTranslations} from "use-intl";
@@ -19,7 +19,7 @@ const EditUserPage = () => {
 		}
 
 		fetchUser()
-	}, [])
+	}, [id, fetchOneUser])
 
 	const t = useTranslations();
 
@@ -51,7 +51,7 @@ const EditUserPage = () => {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<UserForm user={selectedUser} />
+					<UserForm user={selectedUser as unknown as UserInput} />
 				</CardContent>
 			</Card>
 		</div>
