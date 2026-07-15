@@ -21,15 +21,18 @@ import {useSession} from "next-auth/react";
 import {useParams, usePathname, useSearchParams} from "next/navigation";
 import {useCheckedLocale} from "@/lib/client-utils";
 import {useTranslations} from "use-intl";
+import {useProjectStore} from "@/store/projectStore";
 
 export const useNavigationData = (
   role: "admin" | "moderator" | "employee" | "client",
   {
     projectId,
+    clientProjectId,
     pathname,
     currentTab,
   }: {
     projectId?: string | string[];
+    clientProjectId?: string;
     pathname: string;
     currentTab: string | null;
   }
@@ -37,6 +40,7 @@ export const useNavigationData = (
   const t = useTranslations();
   const normalizedProjectId =
     typeof projectId === "string" ? projectId : Array.isArray(projectId) ? projectId[0] : undefined;
+  const clientProjectsHref = (suffix: string) => (clientProjectId ? `/projects/${clientProjectId}/${suffix}` : "/projects");
   const isRootPath = pathname === "/";
   const isProjectsPath = pathname === "/projects" || pathname.startsWith("/projects/");
   const isUsersPath = pathname === "/users" || pathname.startsWith("/users/");
@@ -92,13 +96,13 @@ export const useNavigationData = (
         ? [
           {
             title: t("Tasks"),
-            url: `/projects/${normalizedProjectId}/tasks`,
+            url: clientProjectsHref("tasks"),
             icon: ClipboardListIcon,
             isActive: isClientTasksPath,
           },
           {
             title: t("Contracts"),
-            url: `/projects/${normalizedProjectId}/contracts`,
+            url: clientProjectsHref("contracts"),
             icon: FileTextIcon,
             isActive: isClientContractsPath,
           },
@@ -126,12 +130,23 @@ export const useNavigationData = (
 };
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const {data: session} = useSession();
+  const role = session?.user?.role ?? "client";
   const { id: projectId } = useParams();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
-  const data = useNavigationData(session?.user?.role ?? "client", {
+
+  const {projects, fetchProjects} = useProjectStore();
+  React.useEffect(() => {
+    if (role === "client") {
+      fetchProjects();
+    }
+  }, [role, fetchProjects]);
+  const clientProjectId = role === "client" && projects.length === 1 ? projects[0].id : undefined;
+
+  const data = useNavigationData(role, {
     projectId,
+    clientProjectId,
     pathname,
     currentTab,
   });

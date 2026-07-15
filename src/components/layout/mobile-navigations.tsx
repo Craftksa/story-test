@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, {useEffect} from 'react';
 import {motion} from 'framer-motion';
 import {
 	FolderOpenDotIcon,
@@ -9,10 +9,11 @@ import {
 	Users2Icon,
 } from 'lucide-react';
 import Link from "next/link";
-import {useParams, usePathname} from "next/navigation";
+import {usePathname} from "next/navigation";
 import {useSession} from "next-auth/react";
 import {hasRole} from "@/lib/utils";
 import {useTranslations} from "use-intl";
+import {useProjectStore} from "@/store/projectStore";
 
 type NavItem = { icon: typeof Home; label: string; href: string };
 
@@ -20,13 +21,21 @@ const MobileNavigation = () => {
 	const pathname = usePathname();
 	const {data: session} = useSession();
 	const user = session?.user;
-	const {id: projectId} = useParams();
 	const t = useTranslations();
+
+	const {projects, fetchProjects} = useProjectStore();
+	useEffect(() => {
+		if (hasRole(user, ["client"])) {
+			fetchProjects();
+		}
+	}, [user, fetchProjects]);
+	const clientProjectId = hasRole(user, ["client"]) && projects.length === 1 ? projects[0].id : undefined;
+	const clientProjectHref = (suffix: string) => (clientProjectId ? `/projects/${clientProjectId}/${suffix}` : "/projects");
 
 	const clientNavItems: NavItem[] = [
 		{icon: Home, label: 'Home', href: '/'},
-		{icon: FolderOpenDotIcon, label: 'Tasks', href: `/projects/${projectId}/tasks`},
-		{icon: Users2Icon, label: 'Contracts', href: `/projects/${projectId}/contracts`},
+		{icon: FolderOpenDotIcon, label: 'Tasks', href: clientProjectHref('tasks')},
+		{icon: Users2Icon, label: 'Contracts', href: clientProjectHref('contracts')},
 		{icon: SettingsIcon, label: 'Profile', href: '/profile'}
 	];
 
