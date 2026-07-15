@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/authenticate";
 import { isValidId, hasRole } from "@/lib/utils";
+import { authorizeProjectAccess } from "@/lib/project-permissions";
 
 // GET: Fetch contract + installments
 export async function GET(
@@ -19,6 +20,11 @@ export async function GET(
 	const { user } = await authenticate(req);
 	if (!hasRole(user, ["admin", "moderator", "client"])) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+	}
+
+	const access = await authorizeProjectAccess({ user, projectId, action: "read" });
+	if (!access.ok) {
+		return NextResponse.json({ error: access.error }, { status: access.status });
 	}
 
 	try {

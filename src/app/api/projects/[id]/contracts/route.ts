@@ -5,6 +5,7 @@ import { z } from "zod";
 import { authenticate } from "@/lib/authenticate";
 import { hasRole, isValidId } from "@/lib/utils";
 import { eq, inArray } from "drizzle-orm";
+import { authorizeProjectAccess } from "@/lib/project-permissions";
 
 // ✅ Contract schema validation
 const createContractSchema = z.object({
@@ -64,6 +65,11 @@ export async function GET(
 
 	if (!isValidId(projectId)) {
 		return NextResponse.json({ error: "Invalid project ID" }, { status: 400 });
+	}
+
+	const access = await authorizeProjectAccess({ user, projectId, action: "read" });
+	if (!access.ok) {
+		return NextResponse.json({ error: access.error }, { status: access.status });
 	}
 
 	const contractList = await db

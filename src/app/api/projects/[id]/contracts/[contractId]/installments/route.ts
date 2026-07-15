@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/authenticate";
 import { hasRole, isValidId } from "@/lib/utils";
 import { z } from "zod";
+import { authorizeProjectAccess } from "@/lib/project-permissions";
 
 // ✅ Schema for creation
 const createInstallmentSchema = z.object({
@@ -27,6 +28,11 @@ export async function GET(
 
 	if (!hasRole(user, ["admin", "moderator", "client"])) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+	}
+
+	const access = await authorizeProjectAccess({ user, projectId, action: "read" });
+	if (!access.ok) {
+		return NextResponse.json({ error: access.error }, { status: access.status });
 	}
 
 	try {

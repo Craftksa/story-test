@@ -18,8 +18,7 @@ const ROLE_ACCESS_MAP: Record<string, AccessRule> = {
 		allow: ["/", "/projects", "/projects/new", "/projects/edit", "/users", "/profile", "/projects/:id/contracts/new"],
 	},
 	moderator: {
-		allow: ["/", "/projects", "/projects/new", "/projects/edit", "/profile"],
-		deny: ["/projects/:id/contracts/new"],
+		allow: ["/", "/projects", "/projects/new", "/projects/edit", "/profile", "/projects/:id/contracts/new"],
 	},
 	employee: {
 		allow: ["/", "/projects", "/profile"],
@@ -40,8 +39,21 @@ const ALL_KNOWN_PATHS = Array.from(
 	)
 );
 
+// Build a matcher for rule paths containing ":param" segments (e.g. "/projects/:id/contracts/new"),
+// where ":param" matches exactly one path segment. Rules without ":" fall back to plain prefix matching.
+function buildRulePattern(rulePath: string): RegExp {
+	const escaped = rulePath
+		.split("/")
+		.map((segment) => (segment.startsWith(":") ? "[^/]+" : segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
+		.join("/");
+	return new RegExp(`^${escaped}(?:/.*)?$`);
+}
+
 // Check if a path matches a rule path or its subpaths
 function isPathMatch(path: string, rulePath: string): boolean {
+	if (rulePath.includes(":")) {
+		return buildRulePattern(rulePath).test(path);
+	}
 	return path === rulePath || path.startsWith(rulePath + "/");
 }
 

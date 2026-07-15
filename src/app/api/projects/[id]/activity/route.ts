@@ -1,13 +1,27 @@
 import {taskImages, tasks} from "@/drizzle/schema";
 import { eq, sql, desc } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {db} from "@/drizzle/db";
+import { authenticate } from "@/lib/authenticate";
+import { authorizeProjectAccess } from "@/lib/project-permissions";
+import { isValidId } from "@/lib/utils";
 
 export async function GET(
-	req: Request,
+	req: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id: projectId } = await params;
+
+	if (!isValidId(projectId)) {
+		return NextResponse.json({ error: "Invalid project ID" }, { status: 400 });
+	}
+
+	const { user } = await authenticate(req);
+	const access = await authorizeProjectAccess({ user, projectId, action: "read" });
+
+	if (!access.ok) {
+		return NextResponse.json({ error: access.error }, { status: access.status });
+	}
 
 	const activities = await db
 		.select({
