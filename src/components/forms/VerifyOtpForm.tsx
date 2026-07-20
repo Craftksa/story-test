@@ -121,7 +121,7 @@ const VerifyOtpForm = ({ email, onSuccess, onBack }: VerifyOtpFormProps) => {
 			toast.success(t('New OTP sent to your email!'));
 			form.reset();
 		} catch {
-			toast.error(t('Failed to resend OTP. Please try again.'));
+			toast.error(t('Failed to resend OTP Please try again'));
 		} finally {
 			setIsResending(false);
 		}
