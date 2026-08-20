@@ -4,7 +4,6 @@ import {useRouter} from 'next/navigation';
 import {useForm, type Resolver} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
-import bcrypt from 'bcryptjs';
 import {toast} from 'sonner';
 
 import {Input} from '@/components/ui/input';
@@ -69,9 +68,11 @@ const UserForm = ({user}: { user?: UserInput }) => {
 
 	const onSubmit = async (data: UserFormData) => {
 		try {
+			// Password is sent as plain text over HTTPS and hashed server-side
+			// (see /api/users). Do not hash it here — hashing twice breaks login.
 			const payload = {
 				...data,
-				password: data.password ? await bcrypt.hash(data.password, 10) : undefined
+				password: data.password ? data.password : undefined
 			};
 
 			if (isUpdate) {
