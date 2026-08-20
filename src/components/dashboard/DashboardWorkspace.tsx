@@ -18,6 +18,7 @@ import {
 	Sparkles,
 	UploadCloud,
 } from "lucide-react";
+import { useTranslations } from "use-intl";
 import { useCheckedLocale } from "@/lib/client-utils";
 import { uploadFiles } from "@/utils/uploadthing";
 import { cn, formatStatus } from "@/lib/utils";
@@ -323,47 +324,6 @@ const EMPTY_LETTER_FORM: LetterFormState = {
 	attachments: [],
 };
 
-const reportTypeLabel: Record<ProjectReport["reportType"], string> = {
-	client: "تقرير للعميل",
-	internal: "تقرير داخلي",
-	shared: "تقرير مشترك",
-};
-
-const reportStatusLabel: Record<ProjectReport["status"], string> = {
-	draft: "مسودة",
-	pending_admin_approval: "بانتظار موافقة الأدمن",
-	approved: "معتمد",
-	rejected: "مرفوض",
-	sent: "تم الإرسال",
-};
-
-const letterStatusLabel: Record<ProjectLetter["status"], string> = {
-	draft: "مسودة",
-	ready: "جاهز",
-};
-
-const deliveryStatusLabel: Record<ProjectReport["emailStatus"], string> = {
-	not_applicable: "غير مطلوب",
-	pending: "قيد الانتظار",
-	sent: "تم",
-	failed: "فشل",
-	not_configured: "غير مهيأ",
-};
-
-const pdfStatusLabel: Record<ProjectReport["pdfStatus"], string> = {
-	not_generated: "غير مولد",
-	generated: "تم التوليد",
-	failed: "فشل",
-};
-
-const deliveryOptionLabel: Record<ReportDeliveryOption, string> = {
-	draft: "حفظ كمسودة",
-	pdf_only: "إنشاء PDF فقط",
-	email: "إرسال PDF عبر البريد الإلكتروني",
-	whatsapp: "إرسال PDF عبر واتساب",
-	email_whatsapp: "إرسال PDF عبر البريد والواتساب",
-};
-
 const isRecentProject = (summary: ProjectSummary) => {
 	if (!summary.lastActivityAt) return false;
 	const diff = Date.now() - new Date(summary.lastActivityAt).getTime();
@@ -379,7 +339,8 @@ const matchesActivityFilter = (summary: ProjectSummary, filter: ActivityFilter) 
 	return true;
 };
 
-const getProjectCountLabel = (count: number) => (count === 1 ? "مشروع" : "مشاريع");
+const getProjectCountLabel = (count: number, t: ReturnType<typeof useTranslations>) =>
+	count === 1 ? t("One project") : t("Multiple projects");
 
 const truncate = (value?: string | null, max = 110) => {
 	if (!value) return "";
@@ -446,20 +407,24 @@ const normalizeLetterDate = (value?: string | null) => {
 	return value.slice(0, 10);
 };
 
-const extractApiErrorMessage = (error: unknown, fallbackMessage: string) => {
+const extractApiErrorMessage = (
+	error: unknown,
+	fallbackMessage: string,
+	t: ReturnType<typeof useTranslations>
+) => {
 	if (axios.isAxiosError(error)) {
 		const responseData = error.response?.data as
 			| { error?: string; issues?: ApiValidationIssue[]; debug?: ApiErrorDebug | null }
 			| undefined;
 		const apiIssues = Array.isArray(responseData?.issues) ? responseData.issues : [];
 		if (apiIssues.length > 0) {
-			return formatValidationIssues(apiIssues);
+			return formatValidationIssues(apiIssues, t);
 		}
 
 		const apiMessage = responseData?.error;
 		const debugDetails = formatApiDebugDetails(responseData?.debug);
 		if (typeof apiMessage === "string" && apiMessage.trim()) {
-			const translatedMessage = translateApiErrorMessage(apiMessage);
+			const translatedMessage = translateApiErrorMessage(apiMessage, t);
 			return debugDetails ? `${translatedMessage} — ${debugDetails}` : translatedMessage;
 		}
 
@@ -512,51 +477,52 @@ const normalizeReportPermissions = (
 	return Array.from(uniquePermissions.values());
 };
 
-const validationFieldLabels: Record<string, string> = {
-	projectId: "المشروع",
-	reportType: "نوع التقرير",
-	title: "عنوان التقرير",
-	summary: "ملخص التقرير",
-	details: "تفاصيل التقرير",
-	workDetails: "التفاصيل الإضافية",
-	attachments: "المرفقات",
-	recipients: "المستلمون",
-	permissions: "الصلاحيات",
-	deliveryOption: "خيار الإرسال",
-	recipientName: "الجهة المرسل إليها",
-	subject: "عنوان الخطاب",
-	letterDate: "تاريخ الخطاب",
-	body: "نص الخطاب",
-	email: "البريد الإلكتروني",
-	phone: "رقم الواتساب",
-	url: "رابط المرفق",
-	userId: "المستخدم",
-	accessLevel: "مستوى الصلاحية",
-};
+const getValidationFieldLabels = (t: ReturnType<typeof useTranslations>): Record<string, string> => ({
+	projectId: t("Project"),
+	reportType: t("Report type"),
+	title: t("Report title"),
+	summary: t("Report summary"),
+	details: t("Report details"),
+	workDetails: t("Additional details"),
+	attachments: t("Attachments"),
+	recipients: t("Recipients"),
+	permissions: t("Permissions"),
+	deliveryOption: t("Delivery option"),
+	recipientName: t("Recipient party"),
+	subject: t("Letter subject"),
+	letterDate: t("Letter date"),
+	body: t("Letter body"),
+	email: t("Email"),
+	phone: t("WhatsApp Number"),
+	url: t("Attachment link"),
+	userId: t("User"),
+	accessLevel: t("Access level"),
+});
 
-const getIssueFieldLabel = (issue: ApiValidationIssue) => {
+const getIssueFieldLabel = (issue: ApiValidationIssue, t: ReturnType<typeof useTranslations>) => {
+	const validationFieldLabels = getValidationFieldLabels(t);
 	const issuePath = Array.isArray(issue.path) ? issue.path : [];
 	const [root, index, leaf] = issuePath;
 
 	if (root === "recipients" && typeof index === "number") {
 		const leafLabel = typeof leaf === "string" ? validationFieldLabels[leaf] : null;
 		return leafLabel
-			? `المستلم ${index + 1} - ${leafLabel}`
-			: `المستلم ${index + 1}`;
+			? `${t("Recipient")} ${index + 1} - ${leafLabel}`
+			: `${t("Recipient")} ${index + 1}`;
 	}
 
 	if (root === "permissions" && typeof index === "number") {
 		const leafLabel = typeof leaf === "string" ? validationFieldLabels[leaf] : null;
 		return leafLabel
-			? `الصلاحية ${index + 1} - ${leafLabel}`
-			: `الصلاحية ${index + 1}`;
+			? `${t("Permission")} ${index + 1} - ${leafLabel}`
+			: `${t("Permission")} ${index + 1}`;
 	}
 
 	if (root === "attachments" && typeof index === "number") {
 		const leafLabel = typeof leaf === "string" ? validationFieldLabels[leaf] : null;
 		return leafLabel
-			? `المرفق ${index + 1} - ${leafLabel}`
-			: `المرفق ${index + 1}`;
+			? `${t("Attachment")} ${index + 1} - ${leafLabel}`
+			: `${t("Attachment")} ${index + 1}`;
 	}
 
 	if (typeof leaf === "string" && validationFieldLabels[leaf]) {
@@ -567,69 +533,69 @@ const getIssueFieldLabel = (issue: ApiValidationIssue) => {
 		return validationFieldLabels[root];
 	}
 
-	return "البيانات المدخلة";
+	return t("Entered data");
 };
 
-const translateValidationIssue = (issue: ApiValidationIssue) => {
+const translateValidationIssue = (issue: ApiValidationIssue, t: ReturnType<typeof useTranslations>) => {
 	if (issue.code === "too_small" && typeof issue.minimum === "number") {
-		return `يجب ألا يقل عن ${issue.minimum} أحرف.`;
+		return t("Must be at least {min} characters", { min: issue.minimum });
 	}
 
 	if (issue.code === "too_big" && typeof issue.maximum === "number") {
-		return `يجب ألا يزيد عن ${issue.maximum} حرفًا.`;
+		return t("Must be at most {max} characters", { max: issue.maximum });
 	}
 
 	if (issue.code === "invalid_string" && issue.validation === "email") {
-		return "صيغة البريد الإلكتروني غير صحيحة.";
+		return t("Invalid email format");
 	}
 
 	if (issue.code === "invalid_string" && issue.validation === "url") {
-		return "رابط الملف غير صالح.";
+		return t("Invalid file link");
 	}
 
 	if (issue.code === "invalid_type") {
-		return issue.received === "undefined" ? "هذا الحقل مطلوب." : "قيمة هذا الحقل غير صحيحة.";
+		return issue.received === "undefined" ? t("This field is required") : t("This field value is invalid");
 	}
 
 	if (issue.message === "Invalid email") {
-		return "صيغة البريد الإلكتروني غير صحيحة.";
+		return t("Invalid email format");
 	}
 
 	if (issue.message === "Required") {
-		return "هذا الحقل مطلوب.";
+		return t("This field is required");
 	}
 
-	return "القيمة المدخلة غير صحيحة.";
+	return t("The entered value is invalid");
 };
 
-const formatValidationIssues = (issues: ApiValidationIssue[]) => {
+const formatValidationIssues = (issues: ApiValidationIssue[], t: ReturnType<typeof useTranslations>) => {
 	const messages = issues
 		.slice(0, 3)
-		.map((issue) => `${getIssueFieldLabel(issue)}: ${translateValidationIssue(issue)}`);
+		.map((issue) => `${getIssueFieldLabel(issue, t)}: ${translateValidationIssue(issue, t)}`);
 
 	return messages.join(" ");
 };
 
-const translateApiErrorMessage = (message: string) => {
+const translateApiErrorMessage = (message: string, t: ReturnType<typeof useTranslations>) => {
 	const trimmedMessage = message.trim();
 
 	const knownMessages: Record<string, string> = {
-		Forbidden: "لا تملك الصلاحية لتنفيذ هذا الإجراء.",
-		"Project not found": "المشروع غير موجود أو لا تملك صلاحية الوصول إليه.",
-		"Report not found": "التقرير غير موجود.",
-		"Letter not found": "الخطاب غير موجود.",
-		"Invalid report data": "بيانات التقرير غير مكتملة أو لا تطابق المتطلبات المطلوبة.",
-		"Invalid letter data": "بيانات الخطاب غير مكتملة أو لا تطابق المتطلبات المطلوبة.",
-		"One or more report permissions are invalid.": "يوجد مستخدم غير صالح ضمن صلاحيات التقرير.",
-		"You do not have permission to edit this report.": "لا تملك صلاحية تعديل هذا التقرير.",
-		"You do not have permission to edit this letter.": "لا تملك صلاحية تعديل هذا الخطاب.",
-		"Only client reports can be sent.": "يمكن إرسال تقارير العميل فقط.",
-		"Report must be approved before sending.": "يجب اعتماد التقرير قبل إرساله.",
-		"Failed to create report": "تعذر إنشاء التقرير.",
-		"Failed to update report": "تعذر تحديث التقرير.",
-		"Failed to send report": "تعذر إرسال التقرير.",
-		"Failed to create letter": "تعذر إنشاء الخطاب.",
-		"Failed to update letter": "تعذر تحديث الخطاب.",
+		Forbidden: t("You do not have permission to perform this action"),
+		"Project not found": t("Project not found or no access"),
+		"Report not found": t("Report not found"),
+		"Letter not found": t("Letter not found"),
+		"Invalid report data": t("Invalid report data"),
+		"Invalid letter data": t("Invalid letter data"),
+		"One or more report permissions are invalid.": t("Invalid report permissions"),
+		"You do not have permission to edit this report.": t("No permission to edit this report"),
+		"You do not have permission to edit this letter.": t("No permission to edit this letter"),
+		"Only client reports can be sent.": t("Only client reports can be sent"),
+		"Report must be approved before sending.": t("Report must be approved before sending"),
+		"Failed to create report": t("Failed to create report"),
+		"Failed to update report": t("Failed to update report"),
+		"Failed to send report": t("Failed to send the report"),
+		"Failed to create letter": t("Failed to create letter"),
+		"Failed to update letter": t("Failed to update letter"),
 	};
 
 	return knownMessages[trimmedMessage] ?? trimmedMessage;
@@ -642,6 +608,7 @@ const validateReportForm = ({
 	reportType,
 	permissions,
 	isAdmin,
+	t,
 }: {
 	projectId: string;
 	title: string;
@@ -649,17 +616,18 @@ const validateReportForm = ({
 	reportType: ReportFormState["reportType"];
 	permissions: Array<{ userId: string; accessLevel: "view" | "edit" }>;
 	isAdmin: boolean;
+	t: ReturnType<typeof useTranslations>;
 }) => {
 	if (!projectId) {
-		return "اختر المشروع أولًا.";
+		return t("Choose the project first");
 	}
 
 	if (title.trim().length < 3) {
-		return "عنوان التقرير يجب أن يكون 3 أحرف على الأقل.";
+		return t("Report title must be at least 3 characters");
 	}
 
 	if (details.trim().length < 5) {
-		return "تفاصيل التقرير يجب أن تكون 5 أحرف على الأقل.";
+		return t("Report details must be at least 5 characters");
 	}
 
 	if (
@@ -667,7 +635,7 @@ const validateReportForm = ({
 		reportType !== "client" &&
 		permissions.some((permission) => !permission.userId.trim())
 	) {
-		return "اختر مستخدمًا لكل صلاحية أو احذف الصف الفارغ.";
+		return t("Choose a user for each permission or remove the empty row");
 	}
 
 	return null;
@@ -678,26 +646,28 @@ const validateLetterForm = ({
 	recipientName,
 	subject,
 	body,
+	t,
 }: {
 	projectId: string;
 	recipientName: string;
 	subject: string;
 	body: string;
+	t: ReturnType<typeof useTranslations>;
 }) => {
 	if (!projectId) {
-		return "اختر المشروع أولًا.";
+		return t("Choose the project first");
 	}
 
 	if (recipientName.trim().length < 2) {
-		return "اسم الجهة أو الشخص يجب أن يكون حرفين على الأقل.";
+		return t("Recipient name must be at least 2 characters");
 	}
 
 	if (subject.trim().length < 2) {
-		return "عنوان الخطاب يجب أن يكون حرفين على الأقل.";
+		return t("Letter subject must be at least 2 characters");
 	}
 
 	if (body.trim().length < 5) {
-		return "نص الخطاب يجب أن يكون 5 أحرف على الأقل.";
+		return t("Letter body must be at least 5 characters");
 	}
 
 	return null;
@@ -797,10 +767,52 @@ const reportModalRowCardClassName =
 	"grid gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-[#7f6c47]/24 dark:bg-[#1c1611]";
 
 export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
+	const t = useTranslations();
 	const { lang, dir } = useCheckedLocale();
 	const activityDirection = dir === "rtl" ? "rtl" : "ltr";
 	const activityTextAlignClass = activityDirection === "rtl" ? "text-right" : "text-left";
 	const isAdmin = ["admin", "moderator"].includes(currentUser.role ?? "");
+
+	const reportTypeLabel: Record<ProjectReport["reportType"], string> = {
+		client: t("Client report"),
+		internal: t("Internal report"),
+		shared: t("Shared report"),
+	};
+
+	const reportStatusLabel: Record<ProjectReport["status"], string> = {
+		draft: t("Draft"),
+		pending_admin_approval: t("Awaiting admin approval"),
+		approved: t("Approved"),
+		rejected: t("Rejected"),
+		sent: t("Sent"),
+	};
+
+	const letterStatusLabel: Record<ProjectLetter["status"], string> = {
+		draft: t("Draft"),
+		ready: t("Ready"),
+	};
+
+	const deliveryStatusLabel: Record<ProjectReport["emailStatus"], string> = {
+		not_applicable: t("Not applicable"),
+		pending: t("pending"),
+		sent: t("Done"),
+		failed: t("Failed"),
+		not_configured: t("Not configured"),
+	};
+
+	const pdfStatusLabel: Record<ProjectReport["pdfStatus"], string> = {
+		not_generated: t("Not generated"),
+		generated: t("Generated"),
+		failed: t("Failed"),
+	};
+
+	const deliveryOptionLabel: Record<ReportDeliveryOption, string> = {
+		draft: t("Save as Draft"),
+		pdf_only: t("Generate PDF only"),
+		email: t("Send PDF via email"),
+		whatsapp: t("Send PDF via WhatsApp"),
+		email_whatsapp: t("Send PDF via email and WhatsApp"),
+	};
 	const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
 	const [projects, setProjects] = useState<ProjectSummary[]>([]);
 	const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
@@ -830,7 +842,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 	const lastPrintOpenRef = useRef<{ url: string; openedAt: number } | null>(null);
 
 	const formatDate = (value?: string | null) => {
-		if (!value) return "غير متوفر";
+		if (!value) return t("Not provided");
 		return new Date(value).toLocaleString(lang === "ar" ? "ar-SA" : "en-US", {
 			dateStyle: "medium",
 			timeStyle: "short",
@@ -852,7 +864,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			});
 		} catch (error) {
 			console.error("Failed to load activity projects", error);
-			toast.error("تعذر تحميل بيانات صفحة النشاط.");
+			toast.error(t("Failed to load activity page data"));
 		} finally {
 			setLoadingProjects(false);
 		}
@@ -871,7 +883,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			return response.data;
 		} catch (error) {
 			console.error("Failed to load project activity details", error);
-			toast.error("تعذر تحميل تفاصيل النشاط لهذا المشروع.");
+			toast.error(t("Failed to load activity details for this project"));
 			setProjectDetails(null);
 			return null;
 		} finally {
@@ -896,42 +908,42 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 		() => [
 			{
 				filter: "all" as ActivityFilter,
-				label: "كل المشاريع",
+				label: t("All projects"),
 				count: projects.length,
 				icon: FolderKanban,
 			},
 			{
 				filter: "pending_approval" as ActivityFilter,
-				label: "تحتاج اعتماد",
+				label: t("Needs approval"),
 				count: projects.filter((summary) => matchesActivityFilter(summary, "pending_approval")).length,
 				icon: AlertCircle,
 			},
 			{
 				filter: "overdue" as ActivityFilter,
-				label: "متأخرة",
+				label: t("Overdue projects"),
 				count: projects.filter((summary) => matchesActivityFilter(summary, "overdue")).length,
 				icon: Clock3,
 			},
 			{
 				filter: "waiting_client_action" as ActivityFilter,
-				label: "بانتظار العميل",
+				label: t("Waiting on client"),
 				count: projects.filter((summary) => matchesActivityFilter(summary, "waiting_client_action")).length,
 				icon: MessageSquarePlus,
 			},
 			{
 				filter: "no_recent_activity" as ActivityFilter,
-				label: "بدون نشاط حديث",
+				label: t("No recent activity items"),
 				count: projects.filter((summary) => matchesActivityFilter(summary, "no_recent_activity")).length,
 				icon: RefreshCcw,
 			},
 			{
 				filter: "recent" as ActivityFilter,
-				label: "محدثة اليوم",
+				label: t("Updated today"),
 				count: projects.filter((summary) => matchesActivityFilter(summary, "recent")).length,
 				icon: Sparkles,
 			},
 		],
-		[projects]
+		[projects, t]
 	);
 
 	useEffect(() => {
@@ -1045,7 +1057,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 	const handleNoteSubmit = async () => {
 		if (!noteProjectId || !noteText.trim()) {
-			toast.error("اكتب الملاحظة وحدد المشروع أولًا.");
+			toast.error(t("Write the note and select the project first"));
 			return;
 		}
 
@@ -1061,10 +1073,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			setNoteDialogOpen(false);
 			setNoteText("");
 			await loadProjects();
-			toast.success("تمت إضافة الملاحظة بنجاح.");
+			toast.success(t("Note added successfully"));
 		} catch (error) {
 			console.error("Failed to save note", error);
-			toast.error("تعذر إضافة الملاحظة.");
+			toast.error(t("Failed to add note"));
 		} finally {
 			setSubmittingNote(false);
 		}
@@ -1087,10 +1099,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 				...current,
 				attachments: [...current.attachments, ...nextAttachments.filter((item) => item.url)],
 			}));
-			toast.success("تم رفع المرفقات.");
+			toast.success(t("Attachments uploaded"));
 		} catch (error) {
 			console.error("Failed to upload report attachments", error);
-			toast.error("تعذر رفع المرفقات.");
+			toast.error(t("Failed to upload attachments"));
 		} finally {
 			setUploadingAttachments(false);
 			event.target.value = "";
@@ -1114,10 +1126,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 				...current,
 				attachments: [...current.attachments, ...nextAttachments.filter((item) => item.url)],
 			}));
-			toast.success("تم رفع مرفقات الخطاب.");
+			toast.success(t("Letter attachments uploaded"));
 		} catch (error) {
 			console.error("Failed to upload letter attachments", error);
-			toast.error("تعذر رفع مرفقات الخطاب.");
+			toast.error(t("Failed to upload letter attachments"));
 		} finally {
 			setUploadingLetterAttachments(false);
 			event.target.value = "";
@@ -1201,6 +1213,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			reportType: reportForm.reportType,
 			permissions: reportForm.permissions,
 			isAdmin,
+			t,
 		});
 
 		if (validationError) {
@@ -1214,24 +1227,24 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 				cleanedRecipients.length === 0 ||
 				cleanedRecipients.some((recipient) => !hasValidEmailAddress(recipient.email))
 			) {
-				return "البريد الإلكتروني مطلوب لإرسال التقرير";
+				return t("Email is required to send the report");
 			}
 		}
 
 		if (action === "send") {
 			if (!isAdmin) {
-				return "لا تملك صلاحية إرسال التقرير.";
+				return t("No permission to send the report");
 			}
 
 			if (reportForm.reportType !== "client") {
-				return "يمكن إرسال تقارير العميل فقط.";
+				return t("Only client reports can be sent");
 			}
 
 			const deliveryOption = getReportDeliveryOptionForAction(action, reportForm.deliveryOption);
 			const cleanedRecipients = getCleanedReportRecipients();
 			const hasEmailRecipient = cleanedRecipients.some((recipient) => !!recipient.email);
 			if (deliveryOption === "email" && !hasEmailRecipient) {
-				return "البريد الإلكتروني مطلوب لإرسال التقرير";
+				return t("Email is required to send the report");
 			}
 		}
 
@@ -1268,20 +1281,20 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 			if (action === "send") {
 				if (!savedReportId) {
-					throw new Error("تعذر حفظ التقرير قبل الإرسال.");
+					throw new Error(t("Failed to save the report before sending"));
 				}
 
 				const sendResponse = await upsertProjectDetails(
 					axios.post<ActivityMutationResponse>(`/api/activity/reports/${savedReportId}/send`, {})
 				);
-				toast.success(sendResponse.message || "تم إرسال التقرير بنجاح");
+				toast.success(sendResponse.message || t("Report sent successfully"));
 				closeReportDialog();
 				return;
 			}
 
 			toast.success(
 				saveResponse.message ||
-					(action === "draft" ? "تم حفظ التقرير كمسودة" : "تم حفظ التعديلات بنجاح.")
+					(action === "draft" ? t("Report saved as draft") : t("Changes saved successfully"))
 			);
 			closeReportDialog();
 		} catch (error) {
@@ -1289,7 +1302,8 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			toast.error(
 				extractApiErrorMessage(
 					error,
-					action === "send" ? "تعذر إرسال التقرير." : "تعذر حفظ التقرير."
+					action === "send" ? t("Failed to send the report") : t("Failed to save the report"),
+					t
 				)
 			);
 		} finally {
@@ -1303,6 +1317,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			recipientName: letterForm.recipientName,
 			subject: letterForm.subject,
 			body: letterForm.body,
+			t,
 		});
 
 		if (validationError) {
@@ -1311,7 +1326,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 		}
 
 		if (action === "send" && !hasValidEmailAddress(letterForm.recipientEmail)) {
-			toast.error("البريد الإلكتروني مطلوب لإرسال الخطاب");
+			toast.error(t("Email is required to send the letter"));
 			return;
 		}
 
@@ -1366,7 +1381,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 			if (action === "send") {
 				if (!savedLetterId) {
-					throw new Error("تعذر حفظ الخطاب قبل الإرسال.");
+					throw new Error(t("Failed to save the letter before sending"));
 				}
 
 				const sendResponse = await upsertProjectDetails(
@@ -1374,14 +1389,14 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						recipientEmail: letterForm.recipientEmail.trim(),
 					})
 				);
-				toast.success(sendResponse.message || "تم إرسال الخطاب عبر البريد الإلكتروني بنجاح");
+				toast.success(sendResponse.message || t("Letter sent via email successfully"));
 				closeLetterDialog();
 				return;
 			}
 
 			toast.success(
 				responsePayload.message ||
-					(isEditingLetter ? "تم تحديث الخطاب." : "تم إنشاء الخطاب بنجاح.")
+					(isEditingLetter ? t("Letter updated") : t("Letter created successfully"))
 			);
 			closeLetterDialog();
 		} catch (error) {
@@ -1389,7 +1404,8 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			toast.error(
 				extractApiErrorMessage(
 					error,
-					action === "send" ? "فشل إرسال الخطاب عبر البريد الإلكتروني" : "تعذر حفظ الخطاب."
+					action === "send" ? t("Failed to send the letter via email") : t("Failed to save the letter"),
+					t
 				)
 			);
 		} finally {
@@ -1400,7 +1416,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 	const handleApprovalAction = async () => {
 		if (!approvalDialog) return;
 		if (approvalDialog.decision === "reject" && !approvalDialog.reason.trim()) {
-			toast.error("سبب الرفض مطلوب.");
+			toast.error(t("Rejection reason is required"));
 			return;
 		}
 
@@ -1414,12 +1430,12 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			);
 			toast.success(
 				responsePayload.message ||
-					(approvalDialog.decision === "approve" ? "تم اعتماد التقرير." : "تم رفض التقرير.")
+					(approvalDialog.decision === "approve" ? t("Report approved") : t("Report rejected"))
 			);
 			setApprovalDialog(null);
 		} catch (error) {
 			console.error("Failed to process report approval", error);
-			toast.error(extractApiErrorMessage(error, "تعذر تنفيذ إجراء الموافقة."));
+			toast.error(extractApiErrorMessage(error, t("Failed to process the approval action"), t));
 		} finally {
 			setActioningReportId(null);
 		}
@@ -1431,10 +1447,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			const responsePayload = await upsertProjectDetails(
 				axios.post<ActivityMutationResponse>(`/api/activity/reports/${report.id}/send`, {})
 			);
-			toast.success(responsePayload.message || "تم إرسال التقرير للعميل.");
+			toast.success(responsePayload.message || t("Report sent to the client"));
 		} catch (error) {
 			console.error("Failed to send report", error);
-			toast.error(extractApiErrorMessage(error, "تعذر إرسال التقرير."));
+			toast.error(extractApiErrorMessage(error, t("Failed to send the report"), t));
 		} finally {
 			setActioningReportId(null);
 		}
@@ -1574,7 +1590,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 									<div className="mt-3 flex items-end gap-2">
 										<span className="text-2xl font-semibold text-foreground">{card.count}</span>
 										<span className="pb-1 text-xs text-muted-foreground">
-											{getProjectCountLabel(card.count)}
+											{getProjectCountLabel(card.count, t)}
 										</span>
 									</div>
 								</div>
@@ -1598,7 +1614,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			<Card className="border-border/70 shadow-sm">
 				<CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
 					<div className={cn("space-y-1", activityTextAlignClass)}>
-						<CardTitle>لوحة التحكم</CardTitle>
+						<CardTitle>{t("Dashboard")}</CardTitle>
 					</div>
 					<div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
 						<Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as ActivityFilter)}>
@@ -1607,25 +1623,25 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="all">كل المشاريع</SelectItem>
-								<SelectItem value="pending_approval">تحتاج اعتماد</SelectItem>
-								<SelectItem value="overdue">متأخرة</SelectItem>
-								<SelectItem value="waiting_client_action">بانتظار العميل</SelectItem>
-								<SelectItem value="no_recent_activity">بدون نشاط حديث</SelectItem>
-								<SelectItem value="recent">محدثة اليوم</SelectItem>
+								<SelectItem value="all">{t("All projects")}</SelectItem>
+								<SelectItem value="pending_approval">{t("Needs approval")}</SelectItem>
+								<SelectItem value="overdue">{t("Overdue projects")}</SelectItem>
+								<SelectItem value="waiting_client_action">{t("Waiting on client")}</SelectItem>
+								<SelectItem value="no_recent_activity">{t("No recent activity items")}</SelectItem>
+								<SelectItem value="recent">{t("Updated today")}</SelectItem>
 							</SelectContent>
 						</Select>
 						<Button type="button" variant="outline" onClick={openAddNoteDialog}>
 							<MessageSquarePlus className="me-2 h-4 w-4" />
-							إضافة ملاحظة
+							{t("Add note")}
 						</Button>
 						<Button type="button" onClick={openCreateReportDialog}>
 							<FilePlus2 className="me-2 h-4 w-4" />
-							إنشاء تقرير
+							{t("Create report")}
 						</Button>
 						<Button type="button" variant="outline" onClick={openCreateLetterDialog}>
 							<FilePlus2 className="me-2 h-4 w-4" />
-							إنشاء خطاب
+							{t("Create letter")}
 						</Button>
 					</div>
 				</CardHeader>
@@ -1634,17 +1650,17 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			<div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
 				<Card className="overflow-hidden">
 					<CardHeader className={cn("pb-3", activityTextAlignClass)}>
-						<CardTitle className="text-base">المشاريع</CardTitle>
+						<CardTitle className="text-base">{t("Projects")}</CardTitle>
 					</CardHeader>
 					<CardContent className="min-h-0">
 						{loadingProjects ? (
 							<div className="flex min-h-52 items-center justify-center gap-2 text-sm text-muted-foreground">
 								<Spinner className="h-4 w-4 text-muted-foreground" />
-								جاري تحميل المشاريع...
+								{t("Loading projects")}
 							</div>
 						) : filteredProjects.length === 0 ? (
 							<div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
-								لا توجد مشاريع مطابقة لهذا الفلتر.
+								{t("No projects match this filter")}
 							</div>
 						) : (
 							<div
@@ -1673,7 +1689,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 														{summary.name}
 													</h3>
 													<p className="text-xs text-muted-foreground">
-														{summary.clientName || "بدون عميل محدد"}
+														{summary.clientName || t("No client specified")}
 													</p>
 												</div>
 												<div className="shrink-0 self-start">
@@ -1682,30 +1698,30 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 											</div>
 											<div className={cn("mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2", activityTextAlignClass)}>
 												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
-													<p>آخر تحديث</p>
+													<p>{t("Last update")}</p>
 													<p className="mt-1 font-medium text-foreground">{formatDate(summary.lastActivityAt || summary.lastUpdatedAt)}</p>
 												</div>
 												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
-													<p>الملاحظات</p>
+													<p>{t("Notes")}</p>
 													<p className="mt-1 font-medium text-foreground">{summary.noteCount}</p>
 												</div>
 												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
-													<p>التقارير</p>
+													<p>{t("Reports")}</p>
 													<p className="mt-1 font-medium text-foreground">{summary.reportCount}</p>
 												</div>
 												<div className={cn("rounded-xl border border-border/50 bg-muted/20 px-3 py-2", activityTextAlignClass)}>
-													<p>المهام الحرجة</p>
+													<p>{t("Critical tasks")}</p>
 													<p className="mt-1 font-medium text-foreground">
-														{summary.overdueTaskCount} متأخر | {summary.clientActionTaskCount} عميل
+														{summary.overdueTaskCount} {t("Overdue")} | {summary.clientActionTaskCount} {t("client")}
 													</p>
 												</div>
 											</div>
 											<div className={cn("mt-3 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-muted-foreground", activityTextAlignClass)}>
-												{summary.lastNote ? truncate(summary.lastNote.content) : "لا توجد ملاحظات بعد"}
+												{summary.lastNote ? truncate(summary.lastNote.content) : t("No notes yet")}
 											</div>
 											{summary.pendingApprovalCount > 0 && (
 												<div className="mt-3 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-													{summary.pendingApprovalCount} تقرير بانتظار المراجعة
+													{summary.pendingApprovalCount} {t("reports awaiting review")}
 												</div>
 											)}
 										</button>
@@ -1719,14 +1735,14 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 				<Card className="overflow-hidden">
 					<CardHeader className={cn("border-b border-border/60", activityTextAlignClass)}>
 						<CardTitle className="text-base">
-							{selectedSummary ? selectedSummary.name : "تفاصيل النشاط"}
+							{selectedSummary ? selectedSummary.name : t("Activity details")}
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="min-h-0 p-0">
 						{loadingDetails ? (
 							<div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
 								<Loader2 className="h-4 w-4 animate-spin" />
-								جاري تحميل تفاصيل المشروع...
+								{t("Loading project details")}
 							</div>
 						) : !projectDetails ? (
 							<div className="px-6 py-10" />
@@ -1741,40 +1757,40 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								<div dir="rtl" className={cn("space-y-5 px-6 py-6 text-right", activityTextAlignClass)}>
 									<div className="grid gap-3 sm:grid-cols-2 [&>div]:rounded-xl [&>div]:border [&>div]:border-zinc-200 [&>div]:bg-zinc-100/85 [&>div]:px-4 [&>div]:py-3 dark:[&>div]:border-[#7f6c47]/24 dark:[&>div]:bg-[#211a14] [&>div_p:last-child]:font-medium [&>div_p:last-child]:text-zinc-900 dark:[&>div_p:last-child]:text-[#f4ead8]">
 										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
-											<p className="text-xs text-muted-foreground">العميل</p>
+											<p className="text-xs text-muted-foreground">{t("Client")}</p>
 											<p className="mt-1 font-medium">
-												{projectDetails.project.clientName || "غير محدد"}
+												{projectDetails.project.clientName || t("Not set")}
 											</p>
 										</div>
 										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
-											<p className="text-xs text-muted-foreground">آخر نشاط</p>
+											<p className="text-xs text-muted-foreground">{t("Last activity")}</p>
 											<p className="mt-1 font-medium">
 												{formatDate(projectDetails.project.lastActivityAt || projectDetails.project.lastUpdatedAt)}
 											</p>
 										</div>
 										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
-											<p className="text-xs text-muted-foreground">الفريق</p>
+											<p className="text-xs text-muted-foreground">{t("Team")}</p>
 											<p className="mt-1 font-medium">
-												{projectDetails.project.teamMembers.map((member) => member.name || member.email).join("، ") || "غير محدد"}
+												{projectDetails.project.teamMembers.map((member) => member.name || member.email).join("، ") || t("Not set")}
 											</p>
 										</div>
 										<div className={cn("rounded-2xl border border-border/60 bg-muted/20 p-4", activityTextAlignClass)}>
-											<p className="text-xs text-muted-foreground">الوصف</p>
+											<p className="text-xs text-muted-foreground">{t("Description")}</p>
 											<p className="mt-1 font-medium text-sm text-muted-foreground">
-												{projectDetails.project.description || "لا يوجد وصف"}
+												{projectDetails.project.description || t("No description")}
 											</p>
 										</div>
 									</div>
 
 									<section className={cn("space-y-3", activityTextAlignClass)}>
 										<div className="flex items-center justify-between">
-											<h3 className="text-sm font-semibold">النشاط المرتبط بالمشروع</h3>
+											<h3 className="text-sm font-semibold">{t("Activity related to the project")}</h3>
 											<Badge variant="outline">{projectDetails.activities.length}</Badge>
 										</div>
 										<div className="space-y-3">
 											{projectDetails.activities.length === 0 ? (
 												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
-													لا توجد عناصر نشاط بعد.
+													{t("No activity items yet")}
 												</div>
 											) : (
 												projectDetails.activities.map((activity) => (
@@ -1785,7 +1801,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 																<p className="text-sm text-muted-foreground">{truncate(activity.description, 160)}</p>
 															</div>
 															<span className={cn("rounded-full border px-2 py-1 text-[11px] font-medium", priorityClasses[activity.priority])}>
-																{activity.priority === "high" ? "عالي" : activity.priority === "medium" ? "متوسط" : "منخفض"}
+																{activity.priority === "high" ? t("High") : activity.priority === "medium" ? t("Medium") : t("Low")}
 															</span>
 														</div>
 														<p className="mt-3 text-xs text-muted-foreground">{formatDate(activity.occurredAt)}</p>
@@ -1797,16 +1813,16 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 									<section className={cn("space-y-3", activityTextAlignClass)}>
 										<div className="flex items-center justify-between">
-											<h3 className="text-sm font-semibold">الملاحظات</h3>
+											<h3 className="text-sm font-semibold">{t("Notes")}</h3>
 											<Button type="button" variant="outline" size="sm" onClick={openAddNoteDialog}>
 												<MessageSquarePlus className="me-2 h-4 w-4" />
-												إضافة ملاحظة
+												{t("Add note")}
 											</Button>
 										</div>
 										<div className="space-y-3">
 											{projectDetails.notes.length === 0 ? (
 												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
-													لا توجد ملاحظات بعد
+													{t("No notes yet")}
 												</div>
 											) : (
 												projectDetails.notes.map((note) => (
@@ -1824,16 +1840,16 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 									<section className={cn("space-y-3", activityTextAlignClass)}>
 										<div className="flex items-center justify-between">
-											<h3 className="text-sm font-semibold">الخطابات</h3>
+											<h3 className="text-sm font-semibold">{t("Letters")}</h3>
 											<Button type="button" size="sm" onClick={openCreateLetterDialog}>
 												<FilePlus2 className="me-2 h-4 w-4" />
-												إنشاء خطاب
+												{t("Create letter")}
 											</Button>
 										</div>
 										<div className="space-y-3">
 											{projectDetails.letters.length === 0 ? (
 												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
-													لا توجد خطابات مرتبطة بهذا المشروع بعد.
+													{t("No letters linked to this project yet")}
 												</div>
 											) : (
 												projectDetails.letters.map((letter) => (
@@ -1860,30 +1876,30 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 																</div>
 																<div className={cn("grid gap-3 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4", activityTextAlignClass)}>
 																	<div className="space-y-1">
-																		<p>الجهة الموجه لها</p>
+																		<p>{t("Addressed to")}</p>
 																		<p className="text-sm text-foreground">{letter.recipientName}</p>
 																	</div>
 																	<div className="space-y-1">
-																		<p>التاريخ</p>
+																		<p>{t("Date")}</p>
 																		<p className="text-sm text-foreground">{formatDate(letter.letterDate || letter.createdAt)}</p>
 																	</div>
 																	<div className="space-y-1">
-																		<p>الحالة</p>
+																		<p>{t("Status")}</p>
 																		<p className="text-sm text-foreground">{letterStatusLabel[letter.status]}</p>
 																	</div>
 																	<div className="space-y-1">
-																		<p>الكاتب</p>
+																		<p>{t("Author")}</p>
 																		<p className="text-sm text-foreground">{letter.authorName}</p>
 																	</div>
 																</div>
 															</div>
 															<div className="flex flex-wrap justify-start gap-2 lg:justify-end">
 																<Button type="button" variant="outline" size="sm" onClick={() => openViewLetterDialog(letter)}>
-																	عرض
+																	{t("View")}
 																</Button>
 																{letter.canEdit && (
 																	<Button type="button" size="sm" onClick={() => openEditLetterDialog(letter)}>
-																		تعديل
+																		{t("Edit")}
 																	</Button>
 																)}
 															</div>
@@ -1896,16 +1912,16 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 									<section className={cn("space-y-3", activityTextAlignClass)}>
 										<div className="flex items-center justify-between">
-											<h3 className="text-sm font-semibold">التقارير</h3>
+											<h3 className="text-sm font-semibold">{t("Reports")}</h3>
 											<Button type="button" size="sm" onClick={openCreateReportDialog}>
 												<FilePlus2 className="me-2 h-4 w-4" />
-												إنشاء تقرير
+												{t("Create report")}
 											</Button>
 										</div>
 										<div className="space-y-3">
 											{projectDetails.reports.length === 0 ? (
 												<div className="rounded-xl border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
-													لا توجد تقارير مرتبطة بهذا المشروع بعد.
+													{t("No reports linked to this project yet")}
 												</div>
 											) : (
 												projectDetails.reports.map((report) => (
@@ -1939,30 +1955,30 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 																	)}
 																>
 																	<div className="space-y-1">
-																		<p>نوع التقرير</p>
+																		<p>{t("Report type")}</p>
 																		<p className="text-sm text-foreground">{reportTypeLabel[report.reportType]}</p>
 																	</div>
 																	<div className="space-y-1">
-																		<p>حالة التقرير</p>
+																		<p>{t("Report status")}</p>
 																		<p className="text-sm text-foreground">{reportStatusLabel[report.status]}</p>
 																	</div>
 																	<div className="space-y-1">
-																		<p>تاريخ الإنشاء</p>
+																		<p>{t("Creation date")}</p>
 																		<p className="text-sm text-foreground">{formatDate(report.createdAt)}</p>
 																	</div>
 																	<div className="space-y-1">
-																		<p>كاتب التقرير</p>
+																		<p>{t("Report author")}</p>
 																		<p className="text-sm text-foreground">{report.authorName}</p>
 																	</div>
 																</div>
 															</div>
 															<div className="flex flex-wrap justify-start gap-2 lg:justify-end">
 																<Button type="button" variant="outline" size="sm" onClick={() => openViewReportDialog(report)}>
-																	عرض
+																	{t("View")}
 																</Button>
 																{report.canEdit && (
 																	<Button type="button" size="sm" onClick={() => openEditReportDialog(report)}>
-																		تعديل
+																		{t("Edit")}
 																	</Button>
 																)}
 															</div>
@@ -1988,7 +2004,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<DialogHeader className={reportModalHeaderClassName}>
 							<div>
 								<DialogTitle className="text-xl font-semibold text-foreground">
-									{viewedLetter?.subject || "عرض الخطاب"}
+									{viewedLetter?.subject || t("View letter")}
 								</DialogTitle>
 							</div>
 							<Button
@@ -2013,7 +2029,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 											className={activityModalCancelButtonClassName}
 										>
 											<FileText className="me-2 h-4 w-4" />
-											طباعة / حفظ PDF
+											{t("Print / Save PDF")}
 										</Button>
 										{viewedLetter.canEdit && (
 											<Button
@@ -2029,7 +2045,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 												) : (
 													<>
 														<Send className="me-2 h-4 w-4" />
-														تعديل للإرسال
+														{t("Edit to send")}
 													</>
 												)}
 											</Button>
@@ -2038,47 +2054,47 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 									<div className="grid gap-3 sm:grid-cols-2">
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-muted-foreground">اسم المشروع</p>
-											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{projectDetails?.project.name || "غير متوفر"}</p>
+											<p className="text-xs text-muted-foreground">{t("Project Name")}</p>
+											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{projectDetails?.project.name || t("Not provided")}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-muted-foreground">الجهة الموجه لها</p>
+											<p className="text-xs text-muted-foreground">{t("Addressed to")}</p>
 											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{viewedLetter.recipientName}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-muted-foreground">الموضوع</p>
+											<p className="text-xs text-muted-foreground">{t("Subject")}</p>
 											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{viewedLetter.subject}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-muted-foreground">التاريخ</p>
+											<p className="text-xs text-muted-foreground">{t("Date")}</p>
 											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">
 												{formatDate(viewedLetter.letterDate || viewedLetter.createdAt)}
 											</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-muted-foreground">الحالة</p>
+											<p className="text-xs text-muted-foreground">{t("Status")}</p>
 											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{letterStatusLabel[viewedLetter.status]}</p>
 										</div>
 										<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-											<p className="text-xs text-muted-foreground">الكاتب</p>
+											<p className="text-xs text-muted-foreground">{t("Author")}</p>
 											<p className="text-sm text-zinc-900 dark:text-[#f4ead8]">{viewedLetter.authorName}</p>
 										</div>
 									</div>
 
 									<div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-100/85 px-5 py-5 text-zinc-700 dark:border-[#8b744a]/20 dark:bg-[#211a14] dark:text-stone-200 [&_p]:text-zinc-700 dark:[&_p]:text-stone-200 [&_section:last-child_p]:text-zinc-900 dark:[&_section:last-child_p]:text-stone-100">
-										<p className="text-base">تحية طيبة وبعد،</p>
+										<p className="text-base">{t("Dear recipient")}</p>
 										<p className="whitespace-pre-line text-sm leading-8">
-											{viewedLetter.body || "لا يوجد نص مضاف لهذا الخطاب."}
+											{viewedLetter.body || t("No text added to this letter")}
 										</p>
 										<section className="space-y-1 pt-2">
-											<p className="text-sm">وتفضلوا بقبول فائق التحية والتقدير،</p>
-											<p className="text-sm">فريق شركة كرافت</p>
+											<p className="text-sm">{t("Please accept our highest regards")}</p>
+											<p className="text-sm">{t("Craft Company Team")}</p>
 										</section>
 									</div>
 
 									{viewedLetter.attachments.length > 0 && (
 										<div className={cn(activityModalCardClassName, "space-y-3")}>
-											<p className="text-sm font-medium text-foreground">المرفقات</p>
+											<p className="text-sm font-medium text-foreground">{t("Attachments")}</p>
 											<div className="flex flex-wrap gap-2">
 												{viewedLetter.attachments.map((attachment, index) => (
 													<a
@@ -2088,7 +2104,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 														rel="noreferrer"
 														className="rounded-xl border border-zinc-200 bg-zinc-100/80 px-3 py-2 text-xs font-medium text-zinc-800 transition hover:border-zinc-400 hover:bg-zinc-200/80 dark:border-[#8b744a]/28 dark:bg-[#221b15] dark:text-[#f2e3c4] dark:hover:border-[#caa96a]/45 dark:hover:bg-[#2c2117]"
 													>
-														{attachment.name || `مرفق ${index + 1}`}
+														{attachment.name || `${t("Attachment")} ${index + 1}`}
 													</a>
 												))}
 											</div>
@@ -2097,7 +2113,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								</div>
 							</div>
 						) : (
-							<div className="px-6 py-8 text-sm text-zinc-500 dark:text-[#b8b2a3]">تعذر تحميل بيانات الخطاب المحدد.</div>
+							<div className="px-6 py-8 text-sm text-zinc-500 dark:text-[#b8b2a3]">{t("Failed to load the selected letter data")}</div>
 						)}
 					</div>
 				</DialogContent>
@@ -2112,7 +2128,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<DialogHeader className={reportModalHeaderClassName}>
 							<div>
 								<DialogTitle className="text-xl font-semibold text-foreground">
-									{viewedReport?.title || "عرض التقرير"}
+									{viewedReport?.title || t("View report")}
 								</DialogTitle>
 							</div>
 							<Button
@@ -2135,38 +2151,38 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 										<div className="grid gap-3 sm:grid-cols-2 [&>div]:rounded-xl [&>div]:border [&>div]:border-zinc-200 [&>div]:bg-zinc-100/85 [&>div]:px-4 [&>div]:py-3 dark:[&>div]:border-[#7f6c47]/24 dark:[&>div]:bg-[#211a14] [&>div_p:last-child]:font-medium [&>div_p:last-child]:text-zinc-900 dark:[&>div_p:last-child]:text-[#f4ead8]">
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-												<p className="text-xs text-muted-foreground">اسم المشروع</p>
-												<p className="text-sm text-zinc-900 dark:text-stone-100">{projectDetails?.project.name || "غير متوفر"}</p>
+												<p className="text-xs text-muted-foreground">{t("Project Name")}</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">{projectDetails?.project.name || t("Not provided")}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-												<p className="text-xs text-muted-foreground">نوع التقرير</p>
+												<p className="text-xs text-muted-foreground">{t("Report type")}</p>
 												<p className="text-sm text-zinc-900 dark:text-stone-100">{reportTypeLabel[viewedReport.reportType]}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-												<p className="text-xs text-muted-foreground">التاريخ</p>
+												<p className="text-xs text-muted-foreground">{t("Date")}</p>
 												<p className="text-sm text-zinc-900 dark:text-stone-100">{formatDate(viewedReport.createdAt)}</p>
 											</div>
 											<div className="space-y-1 rounded-xl border border-[#dac58f]/10 bg-white/[0.03] px-4 py-3">
-												<p className="text-xs text-muted-foreground">إعداد</p>
+												<p className="text-xs text-muted-foreground">{t("Prepared by")}</p>
 												<p className="text-sm text-zinc-900 dark:text-stone-100">{viewedReport.authorName}</p>
 											</div>
 										</div>
 
 										<div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-100/85 px-5 py-5 text-zinc-700 dark:border-[#8b744a]/20 dark:bg-[#211a14] dark:text-stone-200 [&_h4]:text-zinc-950 dark:[&_h4]:text-stone-100 [&_p]:text-zinc-700 dark:[&_p]:text-stone-200 [&_section:last-child_p]:text-zinc-900 dark:[&_section:last-child_p]:text-stone-100">
-											<p className="text-base text-zinc-900 dark:text-stone-100">السلام عليكم ورحمة الله وبركاته،</p>
+											<p className="text-base text-zinc-900 dark:text-stone-100">{t("Peace be upon you greeting")}</p>
 											<p className="text-sm leading-8 text-zinc-700 dark:text-stone-200">
-												نقدم لكم هذا التقرير الذي يعرض أحدث مستجدات المشروع، موضحًا أبرز ما تم إنجازه من أعمال، والنتائج المحققة حتى تاريخ إعداد هذا التقرير، وذلك في إطار الحرص على تعزيز الشفافية ومتابعة سير العمل بكفاءة وفعالية.
+												{t("Report intro paragraph")}
 											</p>
 
 											<section className="space-y-2">
-												<h4 className="text-sm font-semibold text-zinc-900 dark:text-stone-100">ملخص التقرير</h4>
+												<h4 className="text-sm font-semibold text-zinc-900 dark:text-stone-100">{t("Report summary")}</h4>
 												<p className="whitespace-pre-line text-sm leading-8 text-zinc-700 dark:text-stone-200">
-													{viewedReport.summary || "لا يوجد ملخص لهذا التقرير."}
+													{viewedReport.summary || t("No summary for this report")}
 												</p>
 											</section>
 
 											<section className="space-y-2">
-												<h4 className="text-sm font-semibold text-zinc-900 dark:text-stone-100">متن التقرير</h4>
+												<h4 className="text-sm font-semibold text-zinc-900 dark:text-stone-100">{t("Report body")}</h4>
 												<p className="whitespace-pre-line text-sm leading-8 text-zinc-700 dark:text-stone-200">
 													{viewedReport.details}
 												</p>
@@ -2178,8 +2194,8 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 											</section>
 
 											<section className="space-y-1 pt-2">
-												<p className="text-sm text-zinc-900 dark:text-stone-100">أطيب التحيات،</p>
-												<p className="text-sm text-zinc-900 dark:text-stone-100">فريق شركة كرافت</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">{t("Best regards")}</p>
+												<p className="text-sm text-zinc-900 dark:text-stone-100">{t("Craft Company Team")}</p>
 											</section>
 										</div>
 									</div>
@@ -2196,7 +2212,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 														className={reportModalCancelButtonClassName}
 													>
 														<FileText className="me-2 h-4 w-4" />
-														طباعة / حفظ PDF
+														{t("Print / Save PDF")}
 													</Button>
 												)}
 												{viewedReport.canSendToClient && (
@@ -2209,7 +2225,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 														className={reportModalCancelButtonClassName}
 													>
 														<Send className="me-2 h-4 w-4" />
-														إرسال
+														{t("Send")}
 													</Button>
 												)}
 												{viewedReport.canApprove && (
@@ -2231,7 +2247,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 															{actioningReportId === viewedReport.id ? (
 																<Loader2 className="h-4 w-4 animate-spin" />
 															) : (
-																"اعتماد"
+																t("Approve")
 															)}
 														</Button>
 														<Button
@@ -2248,7 +2264,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 															}
 															className={reportModalCancelButtonClassName}
 														>
-															رفض
+															{t("Reject")}
 														</Button>
 													</>
 												)}
@@ -2256,19 +2272,19 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 											<div className="grid gap-3 sm:grid-cols-2">
 												<div className={reportModalMetaCardClassName}>
-													<p className="text-xs text-muted-foreground">حالة التقرير</p>
+													<p className="text-xs text-muted-foreground">{t("Report status")}</p>
 													<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-[#f4ead8]">{reportStatusLabel[viewedReport.status]}</p>
 												</div>
 												<div className={reportModalMetaCardClassName}>
-													<p className="text-xs text-muted-foreground">حالة PDF</p>
+													<p className="text-xs text-muted-foreground">{t("PDF status")}</p>
 													<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-[#f4ead8]">{pdfStatusLabel[viewedReport.pdfStatus]}</p>
 												</div>
 												<div className={reportModalMetaCardClassName}>
-													<p className="text-xs text-muted-foreground">إرسال البريد</p>
+													<p className="text-xs text-muted-foreground">{t("Email delivery")}</p>
 													<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-[#f4ead8]">{deliveryStatusLabel[viewedReport.emailStatus]}</p>
 												</div>
 												<div className={reportModalMetaCardClassName}>
-													<p className="text-xs text-muted-foreground">إرسال الواتساب</p>
+													<p className="text-xs text-muted-foreground">{t("WhatsApp delivery")}</p>
 													<p className="mt-1 text-sm font-medium text-zinc-900 dark:text-[#f4ead8]">{deliveryStatusLabel[viewedReport.whatsappStatus]}</p>
 												</div>
 											</div>
@@ -2276,22 +2292,22 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 										<div className={cn(reportModalCardClassName, "space-y-4")}>
 											<div className="space-y-2">
-												<p className="text-sm font-medium text-foreground">معلومات الإرسال</p>
+												<p className="text-sm font-medium text-foreground">{t("Delivery information")}</p>
 												<p className={reportModalSubtleTextClassName}>
 													{viewedReport.recipients.length > 0
 														? viewedReport.recipients
-																.map((recipient) => `${recipient.name}${recipient.channel && recipient.channel !== "both" ? ` - ${recipient.channel === "email" ? "بريد" : recipient.channel === "whatsapp" ? "واتساب" : "بدون إرسال"}` : ""}`)
+																.map((recipient) => `${recipient.name}${recipient.channel && recipient.channel !== "both" ? ` - ${recipient.channel === "email" ? t("Email channel") : recipient.channel === "whatsapp" ? t("WhatsApp") : t("No delivery")}` : ""}`)
 																.join("، ")
-														: "لا يوجد مستلمون محددون لهذا التقرير."}
+														: t("No recipients specified for this report")}
 												</p>
 											</div>
 
 											{viewedReport.permissions.length > 0 && (
 												<div className="space-y-2">
-													<p className="text-sm font-medium text-foreground">صلاحيات التقرير</p>
+													<p className="text-sm font-medium text-foreground">{t("Report permissions")}</p>
 													<p className={reportModalSubtleTextClassName}>
 														{viewedReport.permissions
-															.map((permission) => `${permission.userName} (${permission.accessLevel === "edit" ? "تعديل" : "مشاهدة"})`)
+															.map((permission) => `${permission.userName} (${permission.accessLevel === "edit" ? t("Edit") : t("Viewing")})`)
 															.join("، ")}
 													</p>
 												</div>
@@ -2299,7 +2315,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 											{viewedReport.attachments.length > 0 && (
 												<div className="space-y-2">
-													<p className="text-sm font-medium text-foreground">المرفقات</p>
+													<p className="text-sm font-medium text-foreground">{t("Attachments")}</p>
 													<div className="flex flex-wrap gap-2">
 														{viewedReport.attachments.map((attachment, index) => (
 															<a
@@ -2309,7 +2325,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 																rel="noreferrer"
 																className="rounded-xl border border-zinc-200 bg-zinc-100/80 px-3 py-2 text-xs font-medium text-zinc-800 transition hover:border-zinc-400 hover:bg-zinc-200/80 dark:border-[#8b744a]/28 dark:bg-[#221b15] dark:text-[#f2e3c4] dark:hover:border-[#caa96a]/45 dark:hover:bg-[#2c2117]"
 															>
-																{attachment.name || `مرفق ${index + 1}`}
+																{attachment.name || `${t("Attachment")} ${index + 1}`}
 															</a>
 														))}
 													</div>
@@ -2319,7 +2335,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 
 										{viewedReport.rejectionReason && (
 											<div className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-4 text-sm text-rose-900 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-200">
-												سبب الرفض: {viewedReport.rejectionReason}
+												{t("Rejection reason")}: {viewedReport.rejectionReason}
 											</div>
 										)}
 
@@ -2332,7 +2348,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								</div>
 							</div>
 						) : (
-							<div className="px-6 py-8 text-sm text-zinc-500 dark:text-[#b8b2a3]">تعذر تحميل بيانات التقرير المحدد.</div>
+							<div className="px-6 py-8 text-sm text-zinc-500 dark:text-[#b8b2a3]">{t("Failed to load the selected report data")}</div>
 						)}
 					</div>
 				</DialogContent>
@@ -2346,7 +2362,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 					<div dir={activityDirection} className={cn("overflow-hidden", activityTextAlignClass)}>
 						<DialogHeader className={activityModalHeaderClassName}>
 							<div>
-								<DialogTitle className="text-xl font-semibold text-foreground">إضافة ملاحظة</DialogTitle>
+								<DialogTitle className="text-xl font-semibold text-foreground">{t("Add note")}</DialogTitle>
 							</div>
 							<Button
 								type="button"
@@ -2360,10 +2376,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<div className="space-y-5 px-6 py-6">
 							<div className={cn(activityModalCardClassName, "space-y-4")}>
 								<div className="space-y-2">
-									<label className={activityModalLabelClassName}>المشروع</label>
+									<label className={activityModalLabelClassName}>{t("Project")}</label>
 									<Select value={noteProjectId} onValueChange={setNoteProjectId}>
 										<SelectTrigger className={activityModalFieldClassName}>
-											<SelectValue placeholder="اختر المشروع" />
+											<SelectValue placeholder={t("Choose the project")} />
 										</SelectTrigger>
 										<SelectContent className={activityModalSelectContentClassName}>
 											{projects.map((project) => (
@@ -2375,11 +2391,11 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 									</Select>
 								</div>
 								<div className="space-y-2">
-									<label className={activityModalLabelClassName}>الملاحظة</label>
+									<label className={activityModalLabelClassName}>{t("The note")}</label>
 									<Textarea
 										value={noteText}
 										onChange={(event) => setNoteText(event.target.value)}
-										placeholder="اكتب ملاحظة واضحة مرتبطة بالمشروع..."
+										placeholder={t("Write a clear note related to the project")}
 										rows={6}
 										className={cn(activityModalFieldClassName, "min-h-[150px] resize-y")}
 									/>
@@ -2393,7 +2409,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								onClick={() => setNoteDialogOpen(false)}
 								className={activityModalCancelButtonClassName}
 							>
-								إلغاء
+								{t("Cancel")}
 							</Button>
 							<Button
 								type="button"
@@ -2401,7 +2417,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								disabled={submittingNote}
 								className={activityModalPrimaryButtonClassName}
 							>
-								{submittingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ الملاحظة"}
+								{submittingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : t("Save note")}
 							</Button>
 						</DialogFooter>
 					</div>
@@ -2417,7 +2433,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<DialogHeader className={activityModalHeaderClassName}>
 							<div>
 								<DialogTitle className="text-xl font-semibold text-foreground">
-									{letterForm.letterId ? "تعديل خطاب" : "إنشاء خطاب"}
+									{letterForm.letterId ? t("Edit letter") : t("Create letter")}
 								</DialogTitle>
 							</div>
 							<Button
@@ -2433,7 +2449,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<div className="space-y-5 px-6 py-6">
 							<div className="grid gap-4 md:grid-cols-2">
 								<div className="space-y-2">
-									<label className={activityModalLabelClassName}>المشروع</label>
+									<label className={activityModalLabelClassName}>{t("Project")}</label>
 									<Select
 										value={letterForm.projectId}
 										onValueChange={(value) =>
@@ -2441,7 +2457,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 										}
 									>
 										<SelectTrigger className={activityModalFieldClassName}>
-											<SelectValue placeholder="اختر المشروع" />
+											<SelectValue placeholder={t("Choose the project")} />
 										</SelectTrigger>
 										<SelectContent className={activityModalSelectContentClassName}>
 											{projects.map((project) => (
@@ -2454,7 +2470,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								</div>
 
 								<div className="space-y-2">
-									<label className={activityModalLabelClassName}>التاريخ</label>
+									<label className={activityModalLabelClassName}>{t("Date")}</label>
 									<Input
 										type="date"
 										value={letterForm.letterDate}
@@ -2469,7 +2485,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								</div>
 
 								<div className="space-y-2">
-									<label className={activityModalLabelClassName}>الجهة / الشخص الموجه له الخطاب</label>
+									<label className={activityModalLabelClassName}>{t("Party or person addressed in the letter")}</label>
 									<Input
 										value={letterForm.recipientName}
 										onChange={(event) =>
@@ -2478,13 +2494,13 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 												recipientName: event.target.value,
 											}))
 										}
-										placeholder="اسم الجهة أو الشخص"
+										placeholder={t("Name of the party or person")}
 										className={activityModalFieldClassName}
 									/>
 								</div>
 
 								<div className="space-y-2">
-									<label className={activityModalLabelClassName}>البريد الإلكتروني للمستلم</label>
+									<label className={activityModalLabelClassName}>{t("Recipient email address")}</label>
 									<Input
 										value={letterForm.recipientEmail}
 										onChange={(event) =>
@@ -2500,7 +2516,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								</div>
 
 								<div className="space-y-2">
-									<label className={activityModalLabelClassName}>عنوان الخطاب أو الموضوع</label>
+									<label className={activityModalLabelClassName}>{t("Letter title or subject")}</label>
 									<Input
 										value={letterForm.subject}
 										onChange={(event) =>
@@ -2509,20 +2525,20 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 												subject: event.target.value,
 											}))
 										}
-										placeholder="مثال: خطاب طلب اعتماد"
+										placeholder={t("Example approval request letter")}
 										className={activityModalFieldClassName}
 									/>
 								</div>
 
 								<div className="space-y-2 md:col-span-2">
-									<label className={activityModalLabelClassName}>نص الخطاب</label>
+									<label className={activityModalLabelClassName}>{t("Letter body")}</label>
 									<Textarea
 										value={letterForm.body}
 										onChange={(event) =>
 											setLetterForm((current) => ({ ...current, body: event.target.value }))
 										}
 										rows={10}
-										placeholder="اكتب نص الخطاب الرسمي هنا..."
+										placeholder={t("Write the official letter text here")}
 										className={cn(activityModalFieldClassName, "min-h-[220px] resize-y")}
 									/>
 								</div>
@@ -2530,11 +2546,11 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 									<div className="flex flex-wrap items-center justify-between gap-3">
 										<div>
-											<p className="text-sm font-medium text-foreground">المرفقات</p>
+											<p className="text-sm font-medium text-foreground">{t("Attachments")}</p>
 										</div>
 										<label className={activityModalUploadTriggerClassName}>
 											<UploadCloud className="me-2 h-4 w-4" />
-											{uploadingLetterAttachments ? "جاري الرفع..." : "رفع مرفقات"}
+											{uploadingLetterAttachments ? t("Uploading files") : t("Upload attachments")}
 											<input
 												type="file"
 												multiple
@@ -2547,7 +2563,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 									<div className="space-y-2">
 										{letterForm.attachments.length === 0 ? (
 											<div className={activityModalEmptySurfaceClassName}>
-												لا توجد مرفقات بعد.
+												{t("No attachments yet")}
 											</div>
 										) : (
 											letterForm.attachments.map((attachment, index) => (
@@ -2575,7 +2591,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 															}))
 														}
 													>
-														حذف
+														{t("Delete")}
 													</Button>
 												</div>
 											))
@@ -2592,7 +2608,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								onClick={closeLetterDialog}
 								className={activityModalCancelButtonClassName}
 							>
-								إلغاء
+								{t("Cancel")}
 							</Button>
 							<Button
 								type="button"
@@ -2601,7 +2617,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								disabled={submittingLetter || uploadingLetterAttachments}
 								className={activityModalCancelButtonClassName}
 							>
-								{submittingLetter ? <Loader2 className="h-4 w-4 animate-spin" /> : "إرسال الخطاب"}
+								{submittingLetter ? <Loader2 className="h-4 w-4 animate-spin" /> : t("Send letter")}
 							</Button>
 							<Button
 								type="button"
@@ -2612,9 +2628,9 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								{submittingLetter ? (
 									<Loader2 className="h-4 w-4 animate-spin" />
 								) : letterForm.letterId ? (
-									"حفظ التعديلات"
+									t("Save changes")
 								) : (
-									"إنشاء الخطاب"
+									t("Create the letter")
 								)}
 							</Button>
 						</DialogFooter>
@@ -2631,7 +2647,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<DialogHeader className={activityModalHeaderClassName}>
 							<div>
 								<DialogTitle className="text-xl font-semibold text-foreground">
-									{reportForm.reportId ? "تعديل تقرير" : "إنشاء تقرير"}
+									{reportForm.reportId ? t("Edit report") : t("Create report")}
 								</DialogTitle>
 							</div>
 							<Button
@@ -2647,13 +2663,13 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 					<div className="space-y-5 px-6 py-6">
 					<div className="grid gap-4 md:grid-cols-2">
 						<div className="space-y-2">
-							<label className={activityModalLabelClassName}>اسم المشروع</label>
+							<label className={activityModalLabelClassName}>{t("Project Name")}</label>
 							<Select
 								value={reportForm.projectId}
 								onValueChange={(value) => setReportForm((current) => ({ ...current, projectId: value }))}
 							>
 								<SelectTrigger className={activityModalFieldClassName}>
-									<SelectValue placeholder="اختر المشروع" />
+									<SelectValue placeholder={t("Choose the project")} />
 								</SelectTrigger>
 								<SelectContent className={activityModalSelectContentClassName}>
 									{projects.map((project) => (
@@ -2665,7 +2681,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 							</Select>
 						</div>
 						<div className="space-y-2">
-							<label className={activityModalLabelClassName}>نوع التقرير</label>
+							<label className={activityModalLabelClassName}>{t("Report type")}</label>
 							<Select
 								value={reportForm.reportType}
 								onValueChange={(value) =>
@@ -2679,16 +2695,16 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent className={activityModalSelectContentClassName}>
-									<SelectItem value="client">تقرير للعميل</SelectItem>
-									<SelectItem value="internal">تقرير داخلي</SelectItem>
-									<SelectItem value="shared">تقرير مشترك بين الأدمن والمهندسين</SelectItem>
+									<SelectItem value="client">{t("Client report")}</SelectItem>
+									<SelectItem value="internal">{t("Internal report")}</SelectItem>
+									<SelectItem value="shared">{t("Report shared between admin and engineers")}</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
 						<div className="space-y-2 md:col-span-2">
 							<div className={cn(activityModalCardClassName, "space-y-4")}>
 								<div>
-									<p className="text-sm font-medium text-foreground">خيارات الإرسال</p>
+									<p className="text-sm font-medium text-foreground">{t("Delivery options")}</p>
 								</div>
 								<Select
 									value={reportForm.deliveryOption}
@@ -2710,49 +2726,49 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						</div>
 						</div>
 						<div className="space-y-2 md:col-span-2">
-							<label className={activityModalLabelClassName}>عنوان التقرير</label>
+							<label className={activityModalLabelClassName}>{t("Report title")}</label>
 							<Input
 								value={reportForm.title}
 								onChange={(event) =>
 									setReportForm((current) => ({ ...current, title: event.target.value }))
 								}
-								placeholder="مثال: تقرير تقدم الأعمال للأسبوع الحالي"
+								placeholder={t("Example weekly progress report")}
 								className={activityModalFieldClassName}
 							/>
 						</div>
 						<div className="space-y-2 md:col-span-2">
-							<label className={activityModalLabelClassName}>وصف / ملخص</label>
+							<label className={activityModalLabelClassName}>{t("Description or summary")}</label>
 							<Textarea
 								value={reportForm.summary}
 								onChange={(event) =>
 									setReportForm((current) => ({ ...current, summary: event.target.value }))
 								}
 								rows={3}
-								placeholder="ملخص تنفيذي موجز للتقرير"
+								placeholder={t("A brief executive summary of the report")}
 								className={cn(activityModalFieldClassName, "min-h-[110px] resize-y")}
 							/>
 						</div>
 						<div className="space-y-2 md:col-span-2">
-							<label className={activityModalLabelClassName}>تفاصيل الأعمال أو الملاحظات</label>
+							<label className={activityModalLabelClassName}>{t("Work details or notes")}</label>
 							<Textarea
 								value={reportForm.details}
 								onChange={(event) =>
 									setReportForm((current) => ({ ...current, details: event.target.value }))
 								}
 								rows={6}
-								placeholder="اكتب التفاصيل الرسمية للتقرير"
+								placeholder={t("Write the official report details")}
 								className={cn(activityModalFieldClassName, "min-h-[150px] resize-y")}
 							/>
 						</div>
 						<div className="space-y-2 md:col-span-2">
-							<label className={activityModalLabelClassName}>تفاصيل إضافية</label>
+							<label className={activityModalLabelClassName}>{t("Additional details")}</label>
 							<Textarea
 								value={reportForm.workDetails}
 								onChange={(event) =>
 									setReportForm((current) => ({ ...current, workDetails: event.target.value }))
 								}
 								rows={4}
-								placeholder="أي توضيحات أو أعمال منفذة أو ملاحظات داخلية"
+								placeholder={t("Any clarifications completed work or internal notes")}
 								className={cn(activityModalFieldClassName, "min-h-[110px] resize-y")}
 							/>
 						</div>
@@ -2760,11 +2776,11 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 							<div className="flex flex-wrap items-center justify-between gap-3">
 								<div>
-									<p className="text-sm font-medium text-foreground">الصور أو المرفقات</p>
+									<p className="text-sm font-medium text-foreground">{t("Images or attachments")}</p>
 								</div>
 								<label className={activityModalUploadTriggerClassName}>
 									<UploadCloud className="me-2 h-4 w-4" />
-									{uploadingAttachments ? "جاري الرفع..." : "رفع مرفقات"}
+									{uploadingAttachments ? t("Uploading files") : t("Upload attachments")}
 									<input
 										type="file"
 										multiple
@@ -2776,7 +2792,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 							<div className="space-y-2">
 								{reportForm.attachments.length === 0 ? (
 									<div className={activityModalEmptySurfaceClassName}>
-										لا توجد مرفقات بعد.
+										{t("No attachments yet")}
 									</div>
 								) : (
 									reportForm.attachments.map((attachment, index) => (
@@ -2797,7 +2813,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 													}))
 												}
 											>
-												حذف
+												{t("Delete")}
 											</Button>
 										</div>
 									))
@@ -2808,10 +2824,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 							<div className="flex items-center justify-between">
 								<div>
-									<p className="text-sm font-medium text-foreground">المستلمون</p>
+									<p className="text-sm font-medium text-foreground">{t("Recipients")}</p>
 								</div>
 								<Button type="button" variant="outline" size="sm" onClick={addRecipient} className={activityModalSecondaryButtonClassName}>
-									إضافة مستلم
+									{t("Add recipient")}
 								</Button>
 							</div>
 							<div className="space-y-3">
@@ -2820,7 +2836,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 										<Input
 											value={recipient.name}
 											onChange={(event) => updateRecipient(index, "name", event.target.value)}
-											placeholder="اسم المستلم"
+											placeholder={t("Recipient Name")}
 											className={activityModalFieldClassName}
 										/>
 										<Input
@@ -2836,12 +2852,12 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 											onClick={openWhatsAppComingSoonDialog}
 											onKeyDown={handleWhatsAppFieldKeyDown}
 											className="relative"
-											aria-label="ميزة الواتساب غير مفعلة حاليًا"
+											aria-label={t("WhatsApp feature is not currently enabled")}
 										>
 											<Input
 												value={recipient.phone || ""}
 												readOnly
-												placeholder="رقم الواتساب"
+												placeholder={t("WhatsApp Number")}
 												className={cn(
 													activityModalFieldClassName,
 													"pointer-events-none cursor-not-allowed pe-24 opacity-70"
@@ -2852,7 +2868,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 												variant="secondary"
 												className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 whitespace-nowrap"
 											>
-												قريبًا
+												{t("Soon")}
 											</Badge>
 										</div>
 										<div className="flex gap-2">
@@ -2865,11 +2881,11 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent className={activityModalSelectContentClassName}>
-													<SelectItem value="email">البريد فقط</SelectItem>
+													<SelectItem value="email">{t("Email only")}</SelectItem>
 												</SelectContent>
 											</Select>
 											<Button type="button" variant="ghost" onClick={() => removeRecipient(index)} className={reportModalGhostActionClassName}>
-												حذف
+												{t("Delete")}
 											</Button>
 										</div>
 									</div>
@@ -2881,16 +2897,16 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 							<div className={cn(activityModalCardClassName, "space-y-3 md:col-span-2")}>
 								<div className="flex items-center justify-between">
 									<div>
-										<p className="text-sm font-medium text-foreground">صلاحيات التقرير</p>
+										<p className="text-sm font-medium text-foreground">{t("Report permissions")}</p>
 									</div>
 									<Button type="button" variant="outline" size="sm" onClick={addPermission} className={activityModalSecondaryButtonClassName}>
-										إضافة صلاحية
+										{t("Add permission")}
 									</Button>
 								</div>
 								<div className="space-y-3">
 									{reportForm.permissions.length === 0 ? (
 										<div className={activityModalEmptySurfaceClassName}>
-											لم يتم تعيين صلاحيات إضافية بعد.
+											{t("No additional permissions assigned yet")}
 										</div>
 									) : (
 										reportForm.permissions.map((permission, index) => (
@@ -2900,7 +2916,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 													onValueChange={(value) => updatePermission(index, "userId", value)}
 												>
 													<SelectTrigger className={activityModalFieldClassName}>
-														<SelectValue placeholder="اختر المستخدم" />
+														<SelectValue placeholder={t("Choose the user")} />
 													</SelectTrigger>
 													<SelectContent className={activityModalSelectContentClassName}>
 														{visiblePermissionUsers.map((user) => (
@@ -2918,12 +2934,12 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent className={activityModalSelectContentClassName}>
-														<SelectItem value="view">مشاهدة فقط</SelectItem>
-														<SelectItem value="edit">تعديل</SelectItem>
+														<SelectItem value="view">{t("View only")}</SelectItem>
+														<SelectItem value="edit">{t("Edit")}</SelectItem>
 													</SelectContent>
 												</Select>
 												<Button type="button" variant="ghost" onClick={() => removePermission(index)} className={reportModalGhostActionClassName}>
-													حذف
+													{t("Delete")}
 												</Button>
 											</div>
 										))
@@ -2935,27 +2951,27 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 						<div className="rounded-2xl border border-zinc-200 bg-zinc-100/80 p-4 md:col-span-2 dark:border-[#7f6c47]/24 dark:bg-[#1f1813]">
 							<div className="grid gap-3 sm:grid-cols-3">
 								<div>
-									<p className="text-xs text-muted-foreground">كاتب التقرير</p>
-									<p className="mt-1 text-sm font-medium text-foreground">{currentUser.name || currentUser.email || "غير محدد"}</p>
+									<p className="text-xs text-muted-foreground">{t("Report author")}</p>
+									<p className="mt-1 text-sm font-medium text-foreground">{currentUser.name || currentUser.email || t("Not set")}</p>
 								</div>
 								<div>
-									<p className="text-xs text-muted-foreground">تاريخ الإنشاء</p>
+									<p className="text-xs text-muted-foreground">{t("Creation date")}</p>
 									<p className="mt-1 text-sm font-medium text-foreground">{formatDate(new Date().toISOString())}</p>
 								</div>
 								<div>
-									<p className="text-xs text-muted-foreground">الحالة المتوقعة</p>
+									<p className="text-xs text-muted-foreground">{t("Expected status")}</p>
 									<p className="mt-1 text-sm font-medium text-foreground">
 										{reportForm.deliveryOption === "draft"
-											? "مسودة"
+											? t("Draft")
 											: reportForm.reportType === "client" && !isAdmin
-											? "بانتظار موافقة الأدمن"
+											? t("Awaiting admin approval")
 											: reportForm.reportType === "client"
 												? reportForm.deliveryOption === "pdf_only"
-													? "معتمد مع إنشاء PDF"
-													: "معتمد مع محاولة الإرسال"
+													? t("Approved with PDF generation")
+													: t("Approved with delivery attempt")
 												: reportForm.deliveryOption === "pdf_only"
-													? "داخلي مع إنشاء PDF"
-													: "معتمد داخليًا"}
+													? t("Internal with PDF generation")
+													: t("Approved internally")}
 									</p>
 								</div>
 							</div>
@@ -2972,10 +2988,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 							{reportSubmitAction === "draft" ? (
 								<>
 									<Loader2 className="me-2 h-4 w-4 animate-spin" />
-									جارٍ الحفظ...
+									{t("Saving in progress")}
 								</>
 							) : (
-								"حفظ كمسودة"
+								t("Save as Draft")
 							)}
 						</Button>
 						<Button
@@ -2987,10 +3003,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 							{reportSubmitAction === "save" ? (
 								<>
 									<Loader2 className="me-2 h-4 w-4 animate-spin" />
-									جارٍ الحفظ...
+									{t("Saving in progress")}
 								</>
 							) : (
-								"حفظ التعديلات"
+								t("Save changes")
 							)}
 						</Button>
 						{isAdmin && reportForm.reportType === "client" && (
@@ -3003,10 +3019,10 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 								{reportSubmitAction === "send" ? (
 									<>
 										<Loader2 className="me-2 h-4 w-4 animate-spin" />
-										جارٍ الإرسال...
+										{t("Sending")}
 									</>
 								) : (
-									"إرسال التقرير"
+									t("Send report")
 								)}
 							</Button>
 						)}
@@ -3017,7 +3033,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 							disabled={!!reportSubmitAction}
 							className={activityModalCancelButtonClassName}
 						>
-							إلغاء
+							{t("Cancel")}
 						</Button>
 					</DialogFooter>
 					</div>
@@ -3029,7 +3045,7 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 				<DialogContent className="sm:max-w-lg">
 					<DialogHeader>
 						<DialogTitle>
-							{approvalDialog?.decision === "approve" ? "اعتماد التقرير" : "رفض التقرير"}
+							{approvalDialog?.decision === "approve" ? t("Approve report") : t("Reject report")}
 						</DialogTitle>
 					</DialogHeader>
 					<div className="space-y-3">
@@ -3042,21 +3058,21 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 									)
 								}
 								rows={5}
-								placeholder="اكتب سبب الرفض..."
+								placeholder={t("Write the rejection reason")}
 							/>
 						)}
 					</div>
 					<DialogFooter>
 						<Button type="button" variant="outline" onClick={() => setApprovalDialog(null)}>
-							إلغاء
+							{t("Cancel")}
 						</Button>
 						<Button type="button" onClick={handleApprovalAction} disabled={actioningReportId === approvalDialog?.reportId}>
 							{actioningReportId === approvalDialog?.reportId ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
 							) : approvalDialog?.decision === "approve" ? (
-								"اعتماد وإرسال"
+								t("Approve and send")
 							) : (
-								"تأكيد الرفض"
+								t("Confirm rejection")
 							)}
 						</Button>
 					</DialogFooter>
@@ -3066,16 +3082,16 @@ export function DashboardWorkspace({ currentUser }: ActivityCenterProps) {
 			<Dialog open={whatsAppComingSoonDialogOpen} onOpenChange={setWhatsAppComingSoonDialogOpen}>
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
-						<DialogTitle>قريبًا</DialogTitle>
+						<DialogTitle>{t("Soon")}</DialogTitle>
 					</DialogHeader>
 					<p className="text-sm leading-7 text-muted-foreground">
-						سيتم تطوير ميزة الإرسال عبر واتساب لاحقًا.
+						{t("WhatsApp sending feature will be developed later")}
 						<br />
-						حاليًا إرسال التقارير يتم عبر البريد الإلكتروني فقط.
+						{t("Currently reports are sent via email only")}
 					</p>
 					<DialogFooter>
 						<Button type="button" onClick={() => setWhatsAppComingSoonDialogOpen(false)}>
-							حسنًا
+							{t("OK")}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

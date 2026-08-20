@@ -2,9 +2,12 @@ import { users } from "@/drizzle/schema";
 import {NextRequest, NextResponse} from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 import { db } from "@/drizzle/db";
 import {authenticate} from "@/lib/authenticate";
 import {hasRole} from "@/lib/utils";
+
+const PASSWORD_SALT_ROUNDS = 10;
 
 // Define user creation schema
 const createUserSchema = z.object({
@@ -66,13 +69,16 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ error: "User already exists" }, { status: 409 });
 	}
 
+	const hashedPassword = await bcrypt.hash(password, PASSWORD_SALT_ROUNDS);
+
 	const newUser = await db.insert(users).values({
 		name,
 		username,
 		email,
-		password, // Hash in production!
+		password: hashedPassword,
 		role,
 	}).returning();
 
-	return NextResponse.json(newUser[0]);
+	const { password: _password, ...userWithoutPassword } = newUser[0];
+	return NextResponse.json(userWithoutPassword);
 }

@@ -3,8 +3,11 @@ import { users } from "@/drizzle/schema";
 import {NextRequest, NextResponse} from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 import {authenticate} from "@/lib/authenticate";
 import {hasRole} from "@/lib/utils";
+
+const PASSWORD_SALT_ROUNDS = 10;
 
 const updateUserSchema = z.object({
 	name: z.string().optional(),
@@ -58,7 +61,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 		return NextResponse.json({ error: "Invalid data", issues: parsed.error.errors }, { status: 400 });
 	}
 
-	await db.update(users).set(parsed.data).where(eq(users.id, id));
+	const updateData = { ...parsed.data };
+	if (updateData.password) {
+		updateData.password = await bcrypt.hash(updateData.password, PASSWORD_SALT_ROUNDS);
+	}
+
+	await db.update(users).set(updateData).where(eq(users.id, id));
 
 	return NextResponse.json({ message: "User updated" });
 }
