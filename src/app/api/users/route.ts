@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
 		role,
 	}).returning();
 
-	const { password: _password, ...userWithoutPassword } = newUser[0];
+	const userWithoutPassword: Partial<typeof newUser[0]> = { ...newUser[0] };
+	delete userWithoutPassword.password;
 	return NextResponse.json(userWithoutPassword);
 }
