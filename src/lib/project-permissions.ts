@@ -5,7 +5,7 @@ import { projectAssignments, projects } from "@/drizzle/schema";
 import type { AuthenticatedUser } from "@/lib/authenticate";
 import { hasRole } from "@/lib/utils";
 
-export type ProjectPermissionAction = "read" | "update" | "delete";
+export type ProjectPermissionAction = "read" | "update" | "delete" | "upload";
 
 type ProjectAccessProject = {
 	id: string;
@@ -90,6 +90,16 @@ export async function authorizeProjectAccess({
 	}
 
 	if (action === "read" && ((isClient && isProjectClient) || (isEmployee && isProjectMember))) {
+		return {
+			ok: true,
+			project: project[0],
+			isGlobalManager,
+			isProjectClient,
+			isProjectMember,
+		};
+	}
+
+	if (action === "upload" && isEmployee && isProjectMember) {
 		return {
 			ok: true,
 			project: project[0],
