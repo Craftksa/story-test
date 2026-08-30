@@ -27,7 +27,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useTranslations } from "use-intl";
 
-import TaskSprintBoard from "@/components/tasks/TaskSprintBoard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +54,6 @@ import {
 	getCurrentWeekRange,
 	getTaskDependencyIds,
 	getTaskOperationalColorClasses,
-	getSprintBuckets,
 	getTaskDurationLabel,
 	getTaskStatusColorClasses,
 	getThisWeekTasks,
@@ -83,7 +81,6 @@ type TaskTimelineViewProps = {
 	compact?: boolean;
 	title?: string;
 	isLoading?: boolean;
-	mode?: "timeline" | "sprint";
 	canCreateTask?: boolean;
 };
 
@@ -368,7 +365,6 @@ export default function TaskTimelineView({
 	showWeeklyTable = true,
 	title,
 	isLoading = false,
-	mode = "timeline",
 	canCreateTask,
 }: TaskTimelineViewProps) {
 	const t = useTranslations();
@@ -391,7 +387,7 @@ export default function TaskTimelineView({
 
 	const labels = useMemo(
 		() => ({
-			timelineAndSprints: t("Timeline / Sprints"),
+			timeline: t("Timeline"),
 			description: t("Operational task plan grouped by phase, urgency, and weekly execution"),
 			project: t("Project"),
 			currentProject: t("Current Project"),
@@ -444,25 +440,11 @@ export default function TaskTimelineView({
 			range: t("Timeline range"),
 			today: t("Today"),
 			currentWeek: t("Current week"),
-			starts: t("Starts"),
-			ends: t("Ends"),
 			lastUpdate: t("Last Updated"),
 			attention: t("Needs attention"),
 			weeklySnapshot: t("Weekly Snapshot"),
 			weeklySnapshotDescription: t("A compact list of tasks touching the current week"),
 			noWeekTasks: t("No scheduled tasks for this week"),
-			activeDescription: t("Tasks active this week"),
-			startingDescription: t("Tasks starting this week"),
-			endingDescription: t("Tasks ending this week"),
-			overdueDescription: t("Tasks delayed beyond plan"),
-			completedDescription: t("Completed tasks visible in this project"),
-			upcomingDescription: t("Upcoming tasks after this week"),
-			noActiveTasks: t("No active tasks this week"),
-			noStartingTasks: t("No tasks start this week"),
-			noEndingTasks: t("No tasks end this week"),
-			noOverdueTasks: t("No overdue tasks right now"),
-			noCompletedTasks: t("No completed tasks yet"),
-			noUpcomingTasks: t("No upcoming tasks after this week"),
 			high: t("High"),
 			medium: t("Medium"),
 			low: t("Low"),
@@ -590,11 +572,6 @@ export default function TaskTimelineView({
 	const thisWeekTaskIds = useMemo(
 		() => new Set(thisWeekTasks.map((task) => task.id)),
 		[thisWeekTasks]
-	);
-
-	const sprintBuckets = useMemo(
-		() => getSprintBuckets(sortedTasks, today),
-		[sortedTasks, today]
 	);
 
 	const ganttSections = useMemo<GanttSection[]>(
@@ -773,7 +750,7 @@ export default function TaskTimelineView({
 					<div className="min-w-0">
 						<div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
 							<Target className="size-3.5" />
-							{labels.timelineAndSprints}
+							{labels.timeline}
 						</div>
 						<h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-slate-950 dark:text-stone-50">
 							{projectName}
@@ -944,7 +921,7 @@ export default function TaskTimelineView({
 						>
 							{filters.sortDirection === "asc" ? (
 								<ArrowUpWideNarrow className="me-2 h-4 w-4" />
-							) : (
+					) : (
 								<ArrowDownWideNarrow className="me-2 h-4 w-4" />
 							)}
 							{filters.sortDirection === "asc" ? labels.ascending : labels.descending}
@@ -958,49 +935,7 @@ export default function TaskTimelineView({
 					<div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-400">
 						{emptyStateLabel}
 					</div>
-				) : mode === "sprint" ? (
-					<TaskSprintBoard
-						buckets={sprintBuckets}
-						getTaskHref={resolveTaskHref}
-						isRTL={isRTL}
-						labels={{
-							active: labels.active,
-							activeDescription: labels.activeDescription,
-							noActive: labels.noActiveTasks,
-							starting: labels.starts,
-							startingDescription: labels.startingDescription,
-							noStarting: labels.noStartingTasks,
-							ending: labels.ends,
-							endingDescription: labels.endingDescription,
-							noEnding: labels.noEndingTasks,
-							overdue: labels.overdue,
-							overdueDescription: labels.overdueDescription,
-							noOverdue: labels.noOverdueTasks,
-							completed: labels.completed,
-							completedDescription: labels.completedDescription,
-							noCompleted: labels.noCompletedTasks,
-							upcoming: labels.upcoming,
-							upcomingDescription: labels.upcomingDescription,
-							noUpcoming: labels.noUpcomingTasks,
-							owner: labels.owner,
-							start: labels.startDate,
-							finish: labels.endDate,
-							duration: labels.duration,
-							noOwner: labels.noOwner,
-							day: labels.day,
-							days: labels.days,
-							high: labels.high,
-							medium: labels.medium,
-							low: labels.low,
-							phase: labels.phase,
-							overdueBadge: labels.overdue,
-						}}
-						locale={locale}
-						onOpenTask={openTask}
-						translateStatus={(status) => getTranslatedTaskStatusLabel(status, t)}
-						translateType={(task) => getTranslatedTaskTypeLabel(task, t)}
-					/>
-				) : (
+					) : (
 					<div className="space-y-4">
 						<div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
 							<div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -1397,7 +1332,7 @@ export default function TaskTimelineView({
 				)}
 			</div>
 
-			{mode === "timeline" && showWeeklyTable ? (
+			{showWeeklyTable ? (
 				<div className="border-t border-slate-200 bg-white px-4 py-5 sm:px-5 dark:border-stone-800 dark:bg-stone-950">
 					<div className="mb-4 flex flex-col gap-1">
 						<h3 className="text-base font-semibold">{labels.weeklySnapshot}</h3>

@@ -56,7 +56,7 @@ function getPriorityTone(priority: TimelineTask["priority"]) {
 }
 
 export function TasksPage({ tasks, projectId }: TasksPageProps) {
-	const [viewMode, setViewMode] = useState<"table" | "timeline" | "sprint">("table");
+	const [viewMode, setViewMode] = useState<"table" | "timeline">("timeline");
 	const { deleteTask, setProjectId } = useTaskStore();
 	const { fetchOneProject, selectedProject, removeTaskFromProject } = useProjectStore();
 	const searchParams = useSearchParams();
@@ -366,40 +366,31 @@ export function TasksPage({ tasks, projectId }: TasksPageProps) {
 							<span>{t("Tasks")}</span>
 							<div className="flex flex-wrap items-center gap-3">
 								<div className="inline-flex rounded-full border border-border/60 bg-muted/30 p-1">
-									<Button
-										type="button"
-										size="sm"
-										variant={viewMode === "table" ? "default" : "ghost"}
-										className="rounded-full px-4"
-										onClick={() => setViewMode("table")}
-									>
-										{t("Table")}
-									</Button>
-									<Button
-										type="button"
-										size="sm"
-										variant={viewMode === "timeline" ? "default" : "ghost"}
-										className="rounded-full px-4"
-										onClick={() => setViewMode("timeline")}
-									>
-										{t("Timeline")}
-									</Button>
-									<Button
-										type="button"
-										size="sm"
-										variant={viewMode === "sprint" ? "default" : "ghost"}
-										className="rounded-full px-4"
-										onClick={() => setViewMode("sprint")}
-									>
-										{t("Sprint")}
-									</Button>
+										<Button
+											type="button"
+											size="sm"
+											variant={viewMode === "timeline" ? "default" : "ghost"}
+											className="rounded-full px-4"
+											onClick={() => setViewMode("timeline")}
+										>
+											{t("Timeline")}
+										</Button>
+										<Button
+											type="button"
+											size="sm"
+											variant={viewMode === "table" ? "default" : "ghost"}
+											className="rounded-full px-4"
+											onClick={() => setViewMode("table")}
+										>
+											{t("Table")}
+										</Button>
 								</div>
 								{customActions}
 							</div>
 						</div>
 					</CardTitle>
 					<CardDescription>
-						{t("Switch between the task table, timeline, and weekly sprint planning")}
+						{t("Switch between the timeline and task table")}
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="p-0 md:px-6">
@@ -419,7 +410,6 @@ export function TasksPage({ tasks, projectId }: TasksPageProps) {
 							tasks={tasks}
 							projectTeam={selectedProject?.employees ?? []}
 							title={selectedProject?.name ?? undefined}
-							mode={viewMode === "sprint" ? "sprint" : "timeline"}
 							showWeeklyTable={false}
 							canCreateTask={canManageTasks}
 						/>
