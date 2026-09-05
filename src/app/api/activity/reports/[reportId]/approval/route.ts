@@ -43,7 +43,7 @@ export async function PATCH(
 	const { reportId } = await params;
 	const { user } = await authenticate(req);
 
-	if (!hasRole(user, ["admin", "moderator"]) || !isValidId(reportId)) {
+	if (!hasRole(user, ["moderator"]) || !isValidId(reportId)) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
@@ -57,6 +57,9 @@ export async function PATCH(
 		const report = await getReportById(reportId, user ?? {});
 		if (!report) {
 			return NextResponse.json({ error: "Report not found" }, { status: 404 });
+		}
+		if (report.status !== "pending_admin_approval") {
+			return NextResponse.json({ error: "التقرير ليس في انتظار المراجعة." }, { status: 409 });
 		}
 
 		if (parsed.data.decision === "reject") {
@@ -119,7 +122,7 @@ export async function PATCH(
 				project,
 				report,
 				approvedByName: user?.name ?? null,
-			});
+			}, { option: "email" });
 
 			pdfStatus = delivery.pdfStatus;
 			emailStatus = delivery.emailStatus;

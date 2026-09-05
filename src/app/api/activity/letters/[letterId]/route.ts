@@ -11,7 +11,7 @@ import {
 } from "@/lib/activity";
 import { db } from "@/drizzle/db";
 import { projectLetters } from "@/drizzle/schema";
-import { isValidId } from "@/lib/utils";
+import { hasRole, isValidId } from "@/lib/utils";
 
 const attachmentSchema = z.object({
 	url: z.string().url(),
@@ -75,6 +75,9 @@ export async function PATCH(
 		if (!existingLetter) {
 			return NextResponse.json({ error: "Letter not found" }, { status: 404 });
 		}
+		if (!hasRole(user, ["admin", "moderator"]) && ["approved", "sent"].includes(existingLetter.status)) {
+			return NextResponse.json({ error: "لا يمكن تعديل خطاب معتمد أو مرسل." }, { status: 409 });
+		}
 
 		const body = await req.json();
 		const parsed = updateLetterSchema.safeParse(body);
@@ -93,7 +96,7 @@ export async function PATCH(
 				letterDate: parsed.data.letterDate ? new Date(parsed.data.letterDate) : null,
 				body: parsed.data.body.trim(),
 				attachments: serializeJsonList(parsed.data.attachments),
-				status: "ready",
+				status: "draft",
 				updatedAt: new Date(),
 			})
 			.where(eq(projectLetters.id, letterId));

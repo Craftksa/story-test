@@ -34,7 +34,6 @@ import {
 	ProjectVisibilityScope,
 } from "@/lib/project-visibility";
 import { cn, formatStatus } from "@/lib/utils";
-import { ActivityCenter } from "@/components/activity/ActivityCenter";
 import { DashboardWorkspace } from "@/components/dashboard/DashboardWorkspace";
 import { CalendarDays, List } from "lucide-react";
 
@@ -42,7 +41,7 @@ type ProjectStatus = 'in_progress' | 'not_started' | 'completed' | 'on_hold';
 type RecentActivityStatus = ProjectStatus | 'needs_review';
 type ActionCategory = 'overdue' | 'client_action' | 'recent';
 type ActionPriority = 'high' | 'medium' | 'low';
-type DashboardTab = 'projects' | 'tasks' | 'analysis' | 'activity';
+type DashboardTab = 'projects' | 'tasks' | 'analysis';
 
 type DashboardData = {
 	overview: {
@@ -237,8 +236,8 @@ const EMPLOYEE_ANALYSIS_SECTION_META: Record<
 
 const getAllowedDashboardTabs = (role?: string | null): DashboardTab[] =>
 	role === 'admin'
-		? ['projects', 'tasks', 'analysis', 'activity']
-		: ['projects', 'tasks', 'activity'];
+		? ['projects', 'tasks', 'analysis']
+		: ['projects', 'tasks'];
 
 const DEFAULT_DASHBOARD_TAB: DashboardTab = 'projects';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1110,7 +1109,7 @@ export default function AdminDashboard() {
 	}, [selectedTimelineProjectId, timelineProjectOptions]);
 
 	useEffect(() => {
-		if (activeTab !== 'activity' || !USE_LEGACY_ACTIVITY_CENTER) return;
+		if (!USE_LEGACY_ACTIVITY_CENTER) return;
 
 		let isCancelled = false;
 		const uniqueItems = visibleActionItems.filter(
@@ -1198,7 +1197,7 @@ export default function AdminDashboard() {
 	}, [activeTab, activityNotesByTaskKey, activityNotesLoadErrors, loadingActivityNotes, visibleActionItems]);
 
 	useEffect(() => {
-		if (activeTab !== 'activity' || !USE_LEGACY_ACTIVITY_CENTER) return;
+		if (!USE_LEGACY_ACTIVITY_CENTER) return;
 
 		if (!taskTimelineProjectIdsKey) {
 			setTaskTimelineProjectDetails([]);
@@ -2171,8 +2170,7 @@ export default function AdminDashboard() {
 					</TabsContent>
 				)}
 
-				<TabsContent value="activity" className="space-y-4">
-					{activeTab === "activity" ? <ActivityCenter currentUser={user ?? {}} /> : null}
+				<TabsContent value="activity" className="hidden">
 					{false && (
 						<>
 					<Card>

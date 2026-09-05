@@ -205,6 +205,9 @@ export async function PATCH(
 		if (!existingReport) {
 			return NextResponse.json({ error: "Report not found" }, { status: 404 });
 		}
+		if (!hasRole(user, ["admin", "moderator"]) && ["approved", "sent"].includes(existingReport.status)) {
+			return NextResponse.json({ error: "لا يمكن تعديل تقرير معتمد أو مرسل." }, { status: 409 });
+		}
 
 		const body = await req.json();
 		const parsed = updateReportSchema.safeParse(body);

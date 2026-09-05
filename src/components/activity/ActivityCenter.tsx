@@ -139,7 +139,7 @@ type ProjectLetter = {
 	body: string;
 	letterDate: string | null;
 	attachments: LetterAttachment[];
-	status: "draft" | "ready";
+	status: "draft" | "ready" | "pending_admin_approval" | "approved" | "rejected" | "sent";
 	authorId: string | null;
 	authorName: string;
 	createdAt: string | null;
@@ -338,6 +338,10 @@ const reportStatusLabel: Record<ProjectReport["status"], string> = {
 const letterStatusLabel: Record<ProjectLetter["status"], string> = {
 	draft: "مسودة",
 	ready: "جاهز",
+	pending_admin_approval: "بانتظار المراجعة",
+	approved: "معتمد",
+	rejected: "مرفوض",
+	sent: "تم الإرسال",
 };
 
 const deliveryStatusLabel: Record<ProjectReport["emailStatus"], string> = {

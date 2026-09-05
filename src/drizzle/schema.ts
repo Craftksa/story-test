@@ -219,6 +219,16 @@ export const projectNotes = pgTable("project_note", {
 	authorId: text("author_id")
 		.references(() => users.id, { onDelete: "set null" }),
 	content: text("content").notNull(),
+	recipientType: text("recipient_type").$type<"owner" | "client">(),
+	recipientId: text("recipient_id").references(() => users.id, { onDelete: "set null" }),
+	visibility: text("visibility").$type<"internal" | "client">().notNull().default("internal"),
+	status: text("status")
+		.$type<"draft" | "pending_admin_approval" | "approved" | "rejected">()
+		.notNull()
+		.default("approved"),
+	approvedBy: text("approved_by").references(() => users.id, { onDelete: "set null" }),
+	approvedAt: timestamp("approved_at", { mode: "date" }),
+	rejectionReason: text("rejection_reason"),
 	createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
 });
@@ -237,6 +247,10 @@ export const projectReports = pgTable("project_report", {
 	workDetails: text("work_details"),
 	attachments: text("attachments"),
 	recipients: text("recipients"),
+	recipientType: text("recipient_type").$type<"owner" | "client">(),
+	recipientId: text("recipient_id").references(() => users.id, { onDelete: "set null" }),
+	pdfUrl: text("pdf_url"),
+	pdfFileName: text("pdf_file_name"),
 	status: text("status")
 		.$type<"draft" | "pending_admin_approval" | "approved" | "rejected" | "sent">()
 		.notNull()
@@ -292,14 +306,20 @@ export const projectLetters = pgTable("project_letter", {
 	recipientName: text("recipient_name").notNull(),
 	subject: text("subject").notNull(),
 	body: text("body").notNull(),
+	recipientType: text("recipient_type").$type<"owner" | "client">(),
+	recipientId: text("recipient_id").references(() => users.id, { onDelete: "set null" }),
 	letterDate: timestamp("letter_date", { mode: "date" }),
 	attachments: text("attachments"),
 	status: text("status")
-		.$type<"draft" | "ready">()
+		.$type<"draft" | "ready" | "pending_admin_approval" | "approved" | "rejected" | "sent">()
 		.notNull()
-		.default("ready"),
+		.default("draft"),
 	authorId: text("author_id")
 		.references(() => users.id, { onDelete: "set null" }),
+	approvedBy: text("approved_by").references(() => users.id, { onDelete: "set null" }),
+	approvedAt: timestamp("approved_at", { mode: "date" }),
+	rejectionReason: text("rejection_reason"),
+	sentAt: timestamp("sent_at", { mode: "date" }),
 	createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
 });
