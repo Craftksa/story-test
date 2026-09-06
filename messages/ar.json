@@ -865,5 +865,13 @@
   "Currently reports are sent via email only": "حاليًا إرسال التقارير يتم عبر البريد الإلكتروني فقط.",
   "OK": "حسنًا",
   "Uploading files": "جاري الرفع...",
-  "Saving in progress": "جارٍ الحفظ..."
+  "Saving in progress": "جارٍ الحفظ...",
+  "Payment Proof": "إثبات الدفع",
+  "Upload Payment Proof": "رفع إثبات الدفع",
+  "Replace Payment Proof": "استبدال إثبات الدفع",
+  "Payment proof uploaded": "تم رفع إثبات الدفع",
+  "Only PDF files are allowed": "يُسمح بملفات PDF فقط",
+  "File size must be less than 8MB": "يجب أن يكون حجم الملف أقل من 8 ميجابايت",
+  "No payment proof found": "لا يوجد إثبات دفع",
+  "Failed to open payment proof": "تعذّر فتح إثبات الدفع"
 }

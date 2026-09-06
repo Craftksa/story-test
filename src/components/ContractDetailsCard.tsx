@@ -40,6 +40,10 @@ const ContractDetailsCard: React.FC<ContractDetailsCardProps> = ({contract, dele
 	const router = useRouter();
 	const t = useTranslations();
 
+	// Assigned employees see this page only for the payment-proof workflow; the
+	// backend also withholds contract financials / document from them.
+	const canSeeContractFinancials = hasRole(user, ["admin", "moderator", "client"]);
+
 	const formatDate = (date: string) => new Date(date).toLocaleDateString();
 
 	const getInstallmentTotals = (installments: Installment[]) => {
@@ -78,12 +82,12 @@ const ContractDetailsCard: React.FC<ContractDetailsCardProps> = ({contract, dele
 							confirmationText={contract.contractorName}
 							extraActions={
 								<div className="flex gap-1">
-									{!hasRole(user, ["client"]) && <Button title="Upload Contract" variant="rounded" size="icon" asChild>
+									{hasRole(user, ["admin", "moderator"]) && <Button title="Upload Contract" variant="rounded" size="icon" asChild>
                       <Link href={`/projects/${contract.projectId}/contracts/upload/${contract.id}`}>
                           <FileUp className="h-4 w-4"/>
                       </Link>
                   </Button>}
-									{contract.fileUrl && (
+									{canSeeContractFinancials && contract.fileUrl && (
 										<Button title="Download Contract" variant="rounded" size="icon" asChild>
 											<Link href={contract.fileUrl} target="_blank" rel="noopener noreferrer">
 												<FileDownIcon className="h-4 w-4 "/>
@@ -104,15 +108,17 @@ const ContractDetailsCard: React.FC<ContractDetailsCardProps> = ({contract, dele
 							</div>
 						</div>
 
-						<div className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
-							<FileText className="h-6 w-6 text-muted-foreground"/>
-							<div>
-								<p className="text-sm font-bold">{t("Amount")}</p>
-								<p className="text-sm text-muted-foreground">
-									SAR. {parseFloat(String(contract.contractedAmount)).toLocaleString()}
-								</p>
+						{canSeeContractFinancials && (
+							<div className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+								<FileText className="h-6 w-6 text-muted-foreground"/>
+								<div>
+									<p className="text-sm font-bold">{t("Amount")}</p>
+									<p className="text-sm text-muted-foreground">
+										SAR. {parseFloat(String(contract.contractedAmount)).toLocaleString()}
+									</p>
+								</div>
 							</div>
-						</div>
+						)}
 
 						<div className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
 							<Calendar className="h-6 w-6 text-muted-foreground"/>
@@ -130,13 +136,15 @@ const ContractDetailsCard: React.FC<ContractDetailsCardProps> = ({contract, dele
 							</div>
 						</div>
 
-						<div className="flex md:col-span-2 items-center space-x-3 p-3 bg-muted rounded-lg">
-							<ReceiptText className="h-6 w-6 text-muted-foreground"/>
-							<div>
-								<p className="text-sm font-bold">{t("Description")}</p>
-								<p className="text-sm text-muted-foreground">{contract.description}</p>
+						{canSeeContractFinancials && (
+							<div className="flex md:col-span-2 items-center space-x-3 p-3 bg-muted rounded-lg">
+								<ReceiptText className="h-6 w-6 text-muted-foreground"/>
+								<div>
+									<p className="text-sm font-bold">{t("Description")}</p>
+									<p className="text-sm text-muted-foreground">{contract.description}</p>
+								</div>
 							</div>
-						</div>
+						)}
 
 					</div>
 					<div className="space-y-4">

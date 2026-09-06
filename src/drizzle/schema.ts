@@ -187,6 +187,26 @@ export const contractInstallments = pgTable("contract_installment", {
 	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
 });
 
+// One-to-one PDF payment proof for a contract installment.
+// Managed exclusively through the `paymentProofUploader` route by an employee
+// assigned to the owning project. Deleting the installment removes the proof row
+// (the underlying stored file is cleaned up on replace by the uploader).
+//
+// The file is stored privately in UploadThing; access is always through a
+// signed URL generated at request time, so no URL is persisted here.
+export const installmentPaymentProofs = pgTable("installment_payment_proof", {
+	installmentId: text("installment_id")
+		.primaryKey()
+		.references(() => contractInstallments.id, { onDelete: "cascade" }),
+	fileKey: text("file_key").notNull().unique(),
+	mimeType: text("mime_type").notNull(),
+	fileName: text("file_name").notNull(),
+	fileSize: integer("file_size").notNull(),
+	uploadedBy: text("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+	uploadedAt: timestamp("uploaded_at", { mode: "date" }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 export const projectAssignments = pgTable("project_assignment", {
 	projectId: text("project_id")
 		.references(() => projects.id, { onDelete: "cascade" })

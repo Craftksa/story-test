@@ -1,5 +1,5 @@
 import { db } from "@/drizzle/db";
-import { contractInstallments } from "@/drizzle/schema";
+import { contractInstallments, installmentPaymentProofs } from "@/drizzle/schema";
 import { eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/authenticate";
@@ -26,7 +26,7 @@ export async function GET(
 		return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 	}
 
-	if (!hasRole(user, ["admin", "moderator", "client"])) {
+	if (!hasRole(user, ["admin", "moderator", "client", "employee"])) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
@@ -36,10 +36,36 @@ export async function GET(
 	}
 
 	try {
-		const installments = await db
-			.select()
+		// The payment-proof status is only meaningful to the employee who can act
+		// on it; managers and the client do not see it (they cannot view the file).
+		const isEmployeeViewer = user?.role === "employee";
+
+		if (!isEmployeeViewer) {
+			const installments = await db
+				.select()
+				.from(contractInstallments)
+				.where(eq(contractInstallments.contractId, contractId));
+
+			return NextResponse.json(installments);
+		}
+
+		const rows = await db
+			.select({
+				installment: contractInstallments,
+				proofUploadedAt: installmentPaymentProofs.uploadedAt,
+			})
 			.from(contractInstallments)
+			.leftJoin(
+				installmentPaymentProofs,
+				eq(installmentPaymentProofs.installmentId, contractInstallments.id)
+			)
 			.where(eq(contractInstallments.contractId, contractId));
+
+		const installments = rows.map((row) => ({
+			...row.installment,
+			hasPaymentProof: row.proofUploadedAt !== null,
+			paymentProofUploadedAt: row.proofUploadedAt,
+		}));
 
 		return NextResponse.json(installments);
 	} catch (error) {

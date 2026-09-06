@@ -865,5 +865,13 @@
   "Currently reports are sent via email only": "Currently, reports are sent via email only.",
   "OK": "OK",
   "Uploading files": "Uploading...",
-  "Saving in progress": "Saving..."
+  "Saving in progress": "Saving...",
+  "Payment Proof": "Payment Proof",
+  "Upload Payment Proof": "Upload payment proof",
+  "Replace Payment Proof": "Replace payment proof",
+  "Payment proof uploaded": "Payment proof uploaded",
+  "Only PDF files are allowed": "Only PDF files are allowed",
+  "File size must be less than 8MB": "File size must be less than 8MB",
+  "No payment proof found": "No payment proof found",
+  "Failed to open payment proof": "Failed to open payment proof"
 }

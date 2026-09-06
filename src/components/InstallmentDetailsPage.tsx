@@ -16,6 +16,10 @@ import {useCheckedLocale} from '@/lib/client-utils';
 import {hasRole} from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadgeSystem';
 import {ActionButtons} from '@/components/ActionButtons';
+import PaymentProofUploader from '@/components/PaymentProofUploader';
+import {toast} from 'sonner';
+import api from '@/lib/api';
+import {FileText} from 'lucide-react';
 
 interface InstallmentListItem {
 	id: string;
@@ -25,6 +29,7 @@ interface InstallmentListItem {
 	paymentDate: string | Date | null;
 	notes: string | null;
 	createdAt: string;
+	hasPaymentProof?: boolean;
 }
 
 export function InstallmentsPage({ projectId, contractId }: { projectId: string; contractId: string }) {
@@ -43,6 +48,22 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 
 	const { data: session } = useSession();
 	const user = session?.user;
+	const isEmployee = hasRole(user, ['employee']);
+
+	const viewPaymentProof = async (installmentId: string) => {
+		try {
+			const data = await api.get(
+				`projects/${projectId}/contracts/${contractId}/installments/${installmentId}/payment-proof`
+			);
+			if (data?.url) {
+				window.open(data.url, '_blank', 'noopener,noreferrer');
+			} else {
+				toast.error(t('No payment proof found'));
+			}
+		} catch {
+			toast.error(t('Failed to open payment proof'));
+		}
+	};
 
 	useEffect(() => {
 		setProjectId(projectId);
@@ -103,6 +124,35 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 			cell: ({ row }) => <span>{(row.getValue('notes') as string | null) || <StatusBadge />} </span>,
 		},
 		{
+			id: 'paymentProof',
+			header: () => <span>{t('Payment Proof')}</span>,
+			cell: ({ row }) => {
+				const installment = row.original;
+				// Payment proofs are employee-only end to end; this column is filtered
+				// out for everyone else (see `visibleColumns`).
+				return (
+					<div className="flex items-center gap-2">
+						{installment.hasPaymentProof && (
+							<Button
+								size="sm"
+								variant="outline"
+								className="flex text-xs items-center gap-2"
+								onClick={() => viewPaymentProof(installment.id)}
+							>
+								<FileText className="w-4 h-4" />
+								{t('View')}
+							</Button>
+						)}
+						<PaymentProofUploader
+							installmentId={installment.id}
+							hasExisting={!!installment.hasPaymentProof}
+							onUploaded={fetchInstallments}
+						/>
+					</div>
+				);
+			},
+		},
+		{
 			id: 'actions',
 			cell: ({ row }) => (
 				<ActionButtons
@@ -117,6 +167,10 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 			),
 		},
 	];
+
+	const visibleColumns = isEmployee
+		? columns
+		: columns.filter((column) => column.id !== 'paymentProof');
 
 	const customActions = (
 		<>
@@ -145,7 +199,7 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 				<CardContent className="md:px-6 p-0">
 					<DataTable
 						data={sortedInstallments}
-						columns={columns}
+						columns={visibleColumns}
 						globalFilter={true}
 						customActions={customActions}
 						loading={loading}

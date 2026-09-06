@@ -16,6 +16,8 @@ type Installment = {
 	taskId: string | null;
 	createdAt: string;
 	updatedAt: string;
+	hasPaymentProof?: boolean;
+	paymentProofUploadedAt?: string | Date | null;
 };
 
 type InstallmentsStore = {

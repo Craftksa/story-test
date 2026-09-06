@@ -18,7 +18,7 @@ export async function GET(
 	}
 
 	const { user } = await authenticate(req);
-	if (!hasRole(user, ["admin", "moderator", "client"])) {
+	if (!hasRole(user, ["admin", "moderator", "client", "employee"])) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 

@@ -18,7 +18,7 @@ export async function GET(
 	}
 
 	const { user } = await authenticate(req);
-	if (!hasRole(user, ["admin", "moderator", "client"])) {
+	if (!hasRole(user, ["admin", "moderator", "client", "employee"])) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
@@ -48,6 +48,20 @@ export async function GET(
 			})
 			.from(contractInstallments)
 			.where(eq(contractInstallments.contractId, contractId));
+
+		// Assigned employees only get what the payment-proof workflow needs.
+		// Contract financials / document stay with managers and the client.
+		if (user?.role === "employee") {
+			const { id, projectId: contractProjectId, contractorName, createdAt, updatedAt } = contract[0];
+			return NextResponse.json({
+				id,
+				projectId: contractProjectId,
+				contractorName,
+				createdAt,
+				updatedAt,
+				installments,
+			});
+		}
 
 		return NextResponse.json({
 			...contract[0],
