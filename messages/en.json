@@ -873,5 +873,13 @@
   "Only PDF files are allowed": "Only PDF files are allowed",
   "File size must be less than 8MB": "File size must be less than 8MB",
   "No payment proof found": "No payment proof found",
-  "Failed to open payment proof": "Failed to open payment proof"
+  "Failed to open payment proof": "Failed to open payment proof",
+  "Attach payment proof (PDF)": "Attach payment proof (PDF)",
+  "Choose PDF file": "Choose PDF file",
+  "Optional": "Optional",
+  "Remove": "Remove",
+  "Creating installment": "Creating installment...",
+  "Uploading payment proof": "Uploading payment proof...",
+  "Installment created, but the payment proof could not be uploaded": "The installment was created, but the payment proof could not be uploaded.",
+  "Something went wrong": "Something went wrong"
 }

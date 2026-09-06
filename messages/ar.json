@@ -873,5 +873,13 @@
   "Only PDF files are allowed": "يُسمح بملفات PDF فقط",
   "File size must be less than 8MB": "يجب أن يكون حجم الملف أقل من 8 ميجابايت",
   "No payment proof found": "لا يوجد إثبات دفع",
-  "Failed to open payment proof": "تعذّر فتح إثبات الدفع"
+  "Failed to open payment proof": "تعذّر فتح إثبات الدفع",
+  "Attach payment proof (PDF)": "إرفاق إثبات الدفع (PDF)",
+  "Choose PDF file": "اختر ملف PDF",
+  "Optional": "اختياري",
+  "Remove": "إزالة",
+  "Creating installment": "جارٍ إنشاء الدفعة...",
+  "Uploading payment proof": "جارٍ رفع إثبات الدفع...",
+  "Installment created, but the payment proof could not be uploaded": "تم إنشاء الدفعة، لكن تعذر رفع إثبات الدفع.",
+  "Something went wrong": "حدث خطأ ما"
 }
