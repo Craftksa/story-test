@@ -62,13 +62,30 @@ test("employee not assigned to the project → 403", async () => {
 	assert.deepEqual(res, { ok: false, status: 403, error: "Forbidden" });
 });
 
-for (const role of ["admin", "moderator", "client"] as const) {
-	test(`${role} → 403 (payment proofs are employee-only)`, async () => {
-		const res = await resolvePaymentProofAccess({ id: `u_${role}`, role }, "inst_1", deps());
-		assert.equal(res.ok, false);
-		assert.equal(res.ok === false && res.status, 403);
+for (const role of ["admin", "moderator"] as const) {
+	test(`${role} → granted without a project_assignment (global manager)`, async () => {
+		const res = await resolvePaymentProofAccess(
+			{ id: `u_${role}`, role },
+			"inst_1",
+			// isAssignedToProject only returns true for ASSIGNED_EMPLOYEE, so passing
+			// here proves no assignment row is required for admin / moderator.
+			deps()
+		);
+		assert.equal(res.ok, true);
+		assert.deepEqual(res.ok && res.chain, CHAIN);
+		assert.equal(res.ok && res.userId, `u_${role}`);
 	});
 }
+
+test("client → 403", async () => {
+	const res = await resolvePaymentProofAccess({ id: "u_client", role: "client" }, "inst_1", deps());
+	assert.deepEqual(res, { ok: false, status: 403, error: "Forbidden" });
+});
+
+test("unknown / missing role → 403", async () => {
+	const res = await resolvePaymentProofAccess({ id: "u_x", role: null }, "inst_1", deps());
+	assert.equal(res.ok === false && res.status, 403);
+});
 
 test("unauthenticated (null user) → 401", async () => {
 	const res = await resolvePaymentProofAccess(null, "inst_1", deps());

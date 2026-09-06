@@ -36,11 +36,12 @@ export async function GET(
 	}
 
 	try {
-		// The payment-proof status is only meaningful to the employee who can act
-		// on it; managers and the client do not see it (they cannot view the file).
-		const isEmployeeViewer = user?.role === "employee";
+		// The payment-proof status is exposed only to roles that can act on it
+		// (admin / moderator / employee). Clients never see it.
+		const canSeePaymentProofStatus =
+			user?.role === "admin" || user?.role === "moderator" || user?.role === "employee";
 
-		if (!isEmployeeViewer) {
+		if (!canSeePaymentProofStatus) {
 			const installments = await db
 				.select()
 				.from(contractInstallments)

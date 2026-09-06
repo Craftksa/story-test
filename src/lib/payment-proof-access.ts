@@ -4,14 +4,19 @@
  * This module has NO database or SDK imports on purpose so it can be unit-tested
  * with `node --test` without a database. The DB queries are injected as `deps`.
  *
- * Rule enforced here (backend, end to end): a payment proof can only be
- * uploaded, replaced, viewed or downloaded by an *employee assigned to the
- * project that owns the installment*. admin / moderator / client have no access.
+ * Rule enforced here (backend, end to end — upload / replace / view / download /
+ * signed URL): allowed for admin, moderator, and employees assigned to the
+ * project that owns the installment. admin / moderator are global project
+ * managers so they are not required to be assigned. Clients have no access.
  */
 
 export const PAYMENT_PROOF_MAX_BYTES = 8 * 1024 * 1024;
 export const PAYMENT_PROOF_MIME = "application/pdf";
 export const PDF_MAGIC = "%PDF-";
+
+// admin / moderator are global project managers in this app (see
+// lib/project-permissions) — allowed without a project_assignment row.
+const GLOBAL_MANAGER_ROLES = ["admin", "moderator"];
 
 export type ProofActor = { id?: string | null; role?: string | null } | null | undefined;
 
@@ -39,9 +44,13 @@ export async function resolvePaymentProofAccess(
 		return { ok: false, status: 401, error: "Unauthorized" };
 	}
 
-	// Employee-only, no exceptions (segregation of duties).
-	if (actor.role !== "employee") {
-		return { ok: false, status: 403, error: "Only employees can access payment proofs" };
+	const role = actor.role ?? "";
+	const isGlobalManager = GLOBAL_MANAGER_ROLES.includes(role);
+
+	// Allowed roles: admin, moderator, employee. Anything else (client, or a
+	// missing/unknown role) is rejected.
+	if (!isGlobalManager && role !== "employee") {
+		return { ok: false, status: 403, error: "Forbidden" };
 	}
 
 	if (!installmentId) {
@@ -55,6 +64,12 @@ export async function resolvePaymentProofAccess(
 		return { ok: false, status: 404, error: "Installment not found" };
 	}
 
+	// Global managers (admin / moderator) skip the project-assignment check.
+	if (isGlobalManager) {
+		return { ok: true, chain, userId: actor.id };
+	}
+
+	// Employees must be assigned to the project that owns the installment.
 	const assigned = await deps.isAssignedToProject(chain.projectId, actor.id);
 	if (!assigned) {
 		return { ok: false, status: 403, error: "Forbidden" };

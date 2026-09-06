@@ -48,7 +48,9 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 
 	const { data: session } = useSession();
 	const user = session?.user;
-	const isEmployee = hasRole(user, ['employee']);
+	// Payment proofs: admin / moderator / employee only (never client). The
+	// backend enforces the same rule (see @/lib/payment-proof-access).
+	const canUsePaymentProof = hasRole(user, ['admin', 'moderator', 'employee']);
 
 	const viewPaymentProof = async (installmentId: string) => {
 		try {
@@ -168,7 +170,7 @@ export function InstallmentsPage({ projectId, contractId }: { projectId: string;
 		},
 	];
 
-	const visibleColumns = isEmployee
+	const visibleColumns = canUsePaymentProof
 		? columns
 		: columns.filter((column) => column.id !== 'paymentProof');
 

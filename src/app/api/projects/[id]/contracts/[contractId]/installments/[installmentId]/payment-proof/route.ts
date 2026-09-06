@@ -7,9 +7,9 @@ import { chainMatchesPath, resolvePaymentProofAccess } from "@/lib/payment-proof
 import { getInstallmentChain, getPaymentProof } from "@/lib/payment-proof-db";
 
 // GET: return a short-lived signed URL for the installment's private payment proof.
-// Employee-only, end to end: same access rule as upload/replace. admin / moderator
-// / client cannot reach this endpoint. Upload / replace is handled exclusively by
-// the `paymentProofUploader` route.
+// Same access rule as upload/replace: admin, moderator, or an employee assigned to
+// the project (never a client). Upload / replace is handled exclusively by the
+// `paymentProofUploader` route.
 export async function GET(
 	req: NextRequest,
 	{ params }: { params: Promise<{ id: string; contractId: string; installmentId: string }> }

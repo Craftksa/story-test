@@ -127,8 +127,8 @@ export const ourFileRouter = {
 
 	/**
 	 * Independent from `contractUploader`. Attaches / replaces the single private
-	 * PDF payment proof for one contract installment. Only an employee assigned to
-	 * the owning project may use it.
+	 * PDF payment proof for one contract installment. Allowed for admin, moderator,
+	 * and employees assigned to the owning project (not clients).
 	 */
 	paymentProofUploader: f({
 		pdf: {
@@ -145,8 +145,9 @@ export const ourFileRouter = {
 		.middleware(async ({ input }) => {
 			const session = await auth();
 
-			// employee-only + assigned-to-project + IDOR resolution, enforced in one
-			// place shared with the GET route (see @/lib/payment-proof-access).
+			// role gate (admin / moderator / assigned employee, never client) +
+			// IDOR resolution, enforced in one place shared with the GET route
+			// (see @/lib/payment-proof-access).
 			const access = await resolvePaymentProofAccess(
 				session?.user,
 				input.installmentId,
