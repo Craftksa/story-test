@@ -127,18 +127,16 @@ const recordWorkflowEvent = async ({
 const getInitialStatus = ({
 	reportType,
 	deliveryOption,
-	isAdmin,
 }: {
 	reportType: "client" | "internal" | "shared";
 	deliveryOption: ReportDeliveryOption;
-	isAdmin: boolean;
 }) => {
 	if (deliveryOption === "draft") {
 		return "draft" as const;
 	}
 
 	if (reportType === "client") {
-		return isAdmin ? ("approved" as const) : ("pending_admin_approval" as const);
+		return "pending_admin_approval" as const;
 	}
 
 	return "approved" as const;
@@ -159,12 +157,10 @@ const getInitialChannelStatuses = (option: ReportDeliveryOption) => ({
 const getStatusForSubmitAction = ({
 	reportType,
 	deliveryOption,
-	isAdmin,
 	submitAction,
 }: {
 	reportType: "client" | "internal" | "shared";
 	deliveryOption: ReportDeliveryOption;
-	isAdmin: boolean;
 	submitAction?: z.infer<typeof reportSubmitActionSchema>;
 }) => {
 	if (submitAction === "draft") {
@@ -173,7 +169,7 @@ const getStatusForSubmitAction = ({
 
 	if (submitAction === "save" || submitAction === "send") {
 		if (reportType === "client") {
-			return isAdmin ? ("approved" as const) : ("pending_admin_approval" as const);
+			return "pending_admin_approval" as const;
 		}
 
 		return "approved" as const;
@@ -182,7 +178,6 @@ const getStatusForSubmitAction = ({
 	return getInitialStatus({
 		reportType,
 		deliveryOption,
-		isAdmin,
 	});
 };
 
@@ -267,7 +262,6 @@ export async function POST(req: NextRequest) {
 		const initialStatus = getStatusForSubmitAction({
 			reportType: parsed.data.reportType,
 			deliveryOption: effectiveDeliveryOption,
-			isAdmin,
 			submitAction: parsed.data.submitAction,
 		});
 		const initialChannelStatuses = getChannelStatusesForSubmitAction({
@@ -286,6 +280,7 @@ export async function POST(req: NextRequest) {
 				workDetails: parsed.data.workDetails?.trim() || null,
 				attachments: serializeJsonList(parsed.data.attachments),
 				recipients: serializeJsonList(normalizedRecipients),
+				recipientType: parsed.data.reportType === "client" ? "client" : "owner",
 				status: initialStatus,
 				authorId: user?.id ?? null,
 				pdfStatus: initialChannelStatuses.pdfStatus,
@@ -314,7 +309,7 @@ export async function POST(req: NextRequest) {
 		const shouldProcessImmediately =
 			!parsed.data.submitAction &&
 			effectiveDeliveryOption !== "draft" &&
-			(parsed.data.reportType !== "client" || isAdmin);
+			parsed.data.reportType !== "client";
 		const requestedImmediateClientDelivery =
 			parsed.data.reportType === "client" &&
 			effectiveDeliveryOption === "email";

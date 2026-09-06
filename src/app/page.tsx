@@ -28,18 +28,11 @@ export default function Home() {
 
 	useEffect(() => {
 		if (status === "loading" || loading) return;
-
 		if (user && hasRole(user, ["client"])) {
-			if (projects.length === 1) {
-				router.push(`/projects/${projects[0].id}`);
-			} else if (projects.length > 1) {
-				router.push("/projects");
-			} else {
-				setCheckingClientRedirect(false);
-			}
-		} else {
-			setCheckingClientRedirect(false);
-		}
+			if (projects.length === 1) router.push(`/projects/${projects[0].id}`);
+			else if (projects.length > 1) router.push("/projects");
+			else setCheckingClientRedirect(false);
+		} else setCheckingClientRedirect(false);
 	}, [status, loading, user, projects, router]);
 
 	if (user && hasRole(user, ["client"]) && (loading || status === "loading" || checkingClientRedirect)) {

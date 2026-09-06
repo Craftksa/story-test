@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 			letterDate: parsed.data.letterDate ? new Date(parsed.data.letterDate) : null,
 			body: parsed.data.body.trim(),
 			attachments: serializeJsonList(parsed.data.attachments),
-			status: "ready",
+			status: "draft",
 			authorId: user?.id ?? null,
 			createdAt: new Date(),
 			updatedAt: new Date(),

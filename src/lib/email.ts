@@ -139,6 +139,29 @@ export async function sendProjectLetterEmail({
 	});
 }
 
+export async function sendCorrespondenceEmail({
+	recipientEmail,
+	subject,
+	projectName,
+	content,
+	attachment,
+}: {
+	recipientEmail: string;
+	subject: string;
+	projectName: string;
+	content: string;
+	attachment?: { filename: string; content: Buffer };
+}) {
+	if (!isSmtpConfigured()) throw new Error("SMTP is not configured.");
+	return transporter.sendMail({
+		from: getReportSenderFrom(),
+		to: recipientEmail.trim(),
+		subject,
+		text: `المشروع: ${projectName}\n\n${content}`,
+		attachments: attachment ? [{ ...attachment, contentType: "application/pdf" }] : undefined,
+	});
+}
+
 export function generateOTP(): string {
 	return randomInt(100000, 1000000).toString();
 }

@@ -184,15 +184,6 @@ export type TimelineDependency = {
 	type: "finish_to_start";
 };
 
-export type SprintBuckets = {
-	active: TimelineTask[];
-	starting: TimelineTask[];
-	ending: TimelineTask[];
-	overdue: TimelineTask[];
-	completed: TimelineTask[];
-	upcoming: TimelineTask[];
-};
-
 const GROUP_ORDER: Record<string, number> = {
 	construction: 0,
 	foundations: 0,
@@ -647,24 +638,6 @@ export function getCurrentWeekRange(referenceDate = new Date()) {
 	};
 }
 
-export function isTaskStartingThisWeek(task: TimelineTask, referenceDate = new Date()) {
-	if (!task.startDate) return false;
-	const range = getCurrentWeekRange(referenceDate);
-	return (
-		task.startDate.getTime() >= range.start.getTime() &&
-		task.startDate.getTime() <= range.end.getTime()
-	);
-}
-
-export function isTaskEndingThisWeek(task: TimelineTask, referenceDate = new Date()) {
-	if (!task.endDate) return false;
-	const range = getCurrentWeekRange(referenceDate);
-	return (
-		task.endDate.getTime() >= range.start.getTime() &&
-		task.endDate.getTime() <= range.end.getTime()
-	);
-}
-
 export function formatTimelineDate(
 	date: Date | null | undefined,
 	options?: {
@@ -1098,58 +1071,6 @@ export function getTimelineSummary(tasks: TimelineTask[], referenceDate = new Da
 		thisWeekTasks,
 		upcomingTasks,
 		projectProgress: Math.round(progressSum / tasks.length),
-	};
-}
-
-export function getSprintBuckets(tasks: TimelineTask[], referenceDate = new Date()): SprintBuckets {
-	const range = getCurrentWeekRange(referenceDate);
-
-	return {
-		active: sortTimelineTasks(
-			tasks.filter(
-				(task) => isTaskActive(task, referenceDate) && isTaskInThisWeek(task, referenceDate)
-			),
-			"urgency",
-			"desc",
-			referenceDate
-		),
-		starting: sortTimelineTasks(
-			tasks.filter((task) => !isTaskCompleted(task) && isTaskStartingThisWeek(task, referenceDate)),
-			"startDate",
-			"asc",
-			referenceDate
-		),
-		ending: sortTimelineTasks(
-			tasks.filter((task) => !isTaskCompleted(task) && isTaskEndingThisWeek(task, referenceDate)),
-			"endDate",
-			"asc",
-			referenceDate
-		),
-		overdue: sortTimelineTasks(
-			tasks.filter((task) => isTaskOverdue(task, referenceDate)),
-			"urgency",
-			"desc",
-			referenceDate
-		),
-		completed: sortTimelineTasks(
-			tasks.filter((task) => isTaskCompleted(task)),
-			"updatedAt",
-			"desc",
-			referenceDate
-		),
-		upcoming: sortTimelineTasks(
-			tasks.filter((task) => {
-				const taskStart = task.startDate ?? task.placementDate;
-				return (
-					!isTaskCompleted(task) &&
-					taskStart.getTime() > range.end.getTime() &&
-					isTaskUpcoming(task, referenceDate)
-				);
-			}),
-			"startDate",
-			"asc",
-			referenceDate
-		),
 	};
 }
 

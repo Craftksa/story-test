@@ -60,7 +60,7 @@ export type ActivityLetter = {
 	body: string;
 	letterDate: string | null;
 	attachments: ActivityReportAttachment[];
-	status: "draft" | "ready";
+	status: "draft" | "ready" | "pending_admin_approval" | "approved" | "rejected" | "sent";
 	authorId: string | null;
 	authorName: string;
 	createdAt: string | null;
@@ -290,7 +290,7 @@ type RawLetterRow = {
 	body: string;
 	letterDate: Date | null;
 	attachments: string | null;
-	status: "draft" | "ready";
+	status: "draft" | "ready" | "pending_admin_approval" | "approved" | "rejected" | "sent";
 	authorId: string | null;
 	authorName: string | null;
 	authorEmail: string | null;

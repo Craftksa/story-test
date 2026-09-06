@@ -1,11 +1,13 @@
 import {createUploadthing, type FileRouter} from "uploadthing/next";
 import {UploadThingError} from "uploadthing/server";
 import {auth} from "@/auth";
-import {contracts, taskImages} from "@/drizzle/schema"; // your actual auth import
+import {contracts, taskImages, tasks} from "@/drizzle/schema"; // your actual auth import
 import {db} from "@/drizzle/db";
 import {z} from "zod";
 import {eq} from "drizzle-orm";
 import { hasRole } from "@/lib/utils";
+import { authorizeProjectAccess } from "@/lib/project-permissions";
+import type { AuthenticatedUser } from "@/lib/authenticate";
 
 const f = createUploadthing();
 
@@ -18,7 +20,7 @@ export const ourFileRouter = {
 	})
 		.input(
 			z.object({
-				taskId: z.string(),
+				taskId: z.string().min(1),
 				description: z.string().optional(),
 				uploadedAt: z.string().optional(), // ISO string from client
 			})
@@ -28,12 +30,26 @@ export const ourFileRouter = {
 			const session = await auth(); // next-auth session
 			if (!session?.user?.id) throw new UploadThingError("Unauthorized");
 
-			console.log(input.taskId);
-			console.log("Datedddd", input.uploadedAt)
+			const task = await db
+				.select({ id: tasks.id, projectId: tasks.projectId })
+				.from(tasks)
+				.where(eq(tasks.id, input.taskId))
+				.limit(1);
+
+			if (!task[0]) throw new UploadThingError("Task not found");
+
+			const access = await authorizeProjectAccess({
+				user: session.user as unknown as AuthenticatedUser,
+				projectId: task[0].projectId,
+				action: "upload",
+			});
+
+			if (!access.ok) throw new UploadThingError(access.error);
 
 			return {
 				userId: session.user.id,
-				taskId: input.taskId,
+				taskId: task[0].id,
+				projectId: task[0].projectId,
 				description: input.description ?? "",
 				uploadedAt: input.uploadedAt
 			};

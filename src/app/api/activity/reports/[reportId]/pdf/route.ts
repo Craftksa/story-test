@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/authenticate";
-import { canAccessActivity } from "@/lib/activity";
+import { canAccessActivity, getReportById } from "@/lib/activity";
 import {
 	generateReportPdfBuffer,
 	getReportPdfFileName,
@@ -30,6 +30,11 @@ export async function GET(
 	}
 
 	try {
+		const report = await getReportById(reportId, user ?? {});
+		if (!report) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+		if (report.reportType === "client" && !["approved", "sent"].includes(report.status)) {
+			return NextResponse.json({ error: "لا يمكن إنشاء PDF قبل اعتماد التقرير." }, { status: 403 });
+		}
 		const result = await getReportPdfPayload({
 			reportId: reportId,
 			user: user ?? {},

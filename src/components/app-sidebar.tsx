@@ -2,9 +2,9 @@
 
 import * as React from "react"
 import {
-  ActivityIcon,
   ClipboardListIcon,
   FileTextIcon,
+  FilesIcon,
   FolderOpenDotIcon,
   LayoutDashboardIcon,
   SettingsIcon,
@@ -18,7 +18,7 @@ import {BrandDetails} from "@/components/team-switcher"
 import {Sidebar, SidebarContent, SidebarFooter, SidebarHeader,} from "@/components/ui/sidebar"
 import {ScrollArea} from "@/components/ui/scroll-area";
 import {useSession} from "next-auth/react";
-import {useParams, usePathname, useSearchParams} from "next/navigation";
+import {useParams, usePathname, useRouter, useSearchParams} from "next/navigation";
 import {useCheckedLocale} from "@/lib/client-utils";
 import {useTranslations} from "use-intl";
 import {useProjectStore} from "@/store/projectStore";
@@ -58,6 +58,13 @@ export const useNavigationData = (
         isActive: isRootPath && !currentTab,
       },
 
+      {
+        title: "التقارير والمراسلات",
+        url: "/correspondence",
+        icon: FilesIcon,
+        isActive: pathname === "/correspondence" || pathname.startsWith("/correspondence/"),
+      },
+
       ...(["admin", "moderator", "employee"].includes(role)
         ? [
           {
@@ -65,12 +72,6 @@ export const useNavigationData = (
             url: "/projects",
             icon: FolderOpenDotIcon,
             isActive: isProjectsPath,
-          },
-          {
-            title: t("activityCenterTitle"),
-            url: "/?tab=activity",
-            icon: ActivityIcon,
-            isActive: isRootPath && currentTab === "activity",
           },
           {
             title: t("Tasks"),
@@ -133,8 +134,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const role = session?.user?.role ?? "client";
   const { id: projectId } = useParams();
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
+
+  React.useEffect(() => {
+    if (pathname === "/" && currentTab === "activity") router.replace("/correspondence");
+  }, [currentTab, pathname, router]);
 
   const {projects, fetchProjects} = useProjectStore();
   React.useEffect(() => {

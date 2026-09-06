@@ -7,10 +7,9 @@ import {
 	eachDayOfInterval,
 	eachMonthOfInterval,
 	eachWeekOfInterval,
-	eachYearOfInterval,
 	endOfMonth,
 	endOfWeek,
-	endOfYear,
+	isWeekend,
 	startOfDay,
 } from "date-fns";
 import {
@@ -27,7 +26,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useTranslations } from "use-intl";
 
-import TaskSprintBoard from "@/components/tasks/TaskSprintBoard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +53,6 @@ import {
 	getCurrentWeekRange,
 	getTaskDependencyIds,
 	getTaskOperationalColorClasses,
-	getSprintBuckets,
 	getTaskDurationLabel,
 	getTaskStatusColorClasses,
 	getThisWeekTasks,
@@ -83,7 +80,6 @@ type TaskTimelineViewProps = {
 	compact?: boolean;
 	title?: string;
 	isLoading?: boolean;
-	mode?: "timeline" | "sprint";
 	canCreateTask?: boolean;
 };
 
@@ -198,18 +194,6 @@ function getTranslatedTaskTypeLabel(
 	}
 }
 
-function getOwnerInitials(owner: string | null | undefined) {
-	if (!owner?.trim()) return "-";
-
-	return owner
-		.trim()
-		.split(/\s+/)
-		.filter(Boolean)
-		.slice(0, 2)
-		.map((token) => token.charAt(0).toUpperCase())
-		.join("");
-}
-
 function getPriorityLabel(
 	priority: TimelineTask["priority"],
 	labels: {
@@ -254,10 +238,10 @@ function SummaryCard({ accent, description, label, value }: SummaryCardProps) {
 	);
 }
 
-const GANTT_LEFT_COLUMN_WIDTH = 320;
-const GANTT_HEADER_HEIGHT = 109;
-const GANTT_GROUP_ROW_HEIGHT = 52;
-const GANTT_TASK_ROW_HEIGHT = 84;
+const GANTT_LEFT_COLUMN_WIDTH = 272;
+const GANTT_HEADER_HEIGHT = 72;
+const GANTT_GROUP_ROW_HEIGHT = 42;
+const GANTT_TASK_ROW_HEIGHT = 52;
 
 function getGanttPixelsPerDay(zoomLevel: GanttZoomLevel) {
 	switch (zoomLevel) {
@@ -269,25 +253,6 @@ function getGanttPixelsPerDay(zoomLevel: GanttZoomLevel) {
 		default:
 			return 6;
 	}
-}
-
-function buildGanttYearBands(
-	start: Date,
-	end: Date,
-	pixelsPerDay: number,
-	locale: typeof ar | typeof enUS
-) {
-	return eachYearOfInterval({ start, end }).map((yearStart) => {
-		const bandStart = yearStart < start ? start : yearStart;
-		const bandEnd = endOfYear(yearStart) > end ? end : endOfYear(yearStart);
-
-		return {
-			key: `year-${yearStart.toISOString()}`,
-			label: formatTimelineDate(yearStart, { locale, formatPattern: "yyyy" }),
-			width:
-				(differenceInCalendarDays(bandEnd, bandStart) + 1) * pixelsPerDay,
-		} satisfies GanttBandCell;
-	});
 }
 
 function buildGanttMonthBands(
@@ -302,7 +267,7 @@ function buildGanttMonthBands(
 
 		return {
 			key: `month-${monthStart.toISOString()}`,
-			label: formatTimelineDate(monthStart, { locale, formatPattern: "MMM" }),
+			label: formatTimelineDate(monthStart, { locale, formatPattern: "MMM yyyy" }),
 			width:
 				(differenceInCalendarDays(bandEnd, bandStart) + 1) * pixelsPerDay,
 		} satisfies GanttBandCell;
@@ -368,7 +333,6 @@ export default function TaskTimelineView({
 	showWeeklyTable = true,
 	title,
 	isLoading = false,
-	mode = "timeline",
 	canCreateTask,
 }: TaskTimelineViewProps) {
 	const t = useTranslations();
@@ -391,7 +355,7 @@ export default function TaskTimelineView({
 
 	const labels = useMemo(
 		() => ({
-			timelineAndSprints: t("Timeline / Sprints"),
+			timeline: t("Timeline"),
 			description: t("Operational task plan grouped by phase, urgency, and weekly execution"),
 			project: t("Project"),
 			currentProject: t("Current Project"),
@@ -444,25 +408,11 @@ export default function TaskTimelineView({
 			range: t("Timeline range"),
 			today: t("Today"),
 			currentWeek: t("Current week"),
-			starts: t("Starts"),
-			ends: t("Ends"),
 			lastUpdate: t("Last Updated"),
 			attention: t("Needs attention"),
 			weeklySnapshot: t("Weekly Snapshot"),
 			weeklySnapshotDescription: t("A compact list of tasks touching the current week"),
 			noWeekTasks: t("No scheduled tasks for this week"),
-			activeDescription: t("Tasks active this week"),
-			startingDescription: t("Tasks starting this week"),
-			endingDescription: t("Tasks ending this week"),
-			overdueDescription: t("Tasks delayed beyond plan"),
-			completedDescription: t("Completed tasks visible in this project"),
-			upcomingDescription: t("Upcoming tasks after this week"),
-			noActiveTasks: t("No active tasks this week"),
-			noStartingTasks: t("No tasks start this week"),
-			noEndingTasks: t("No tasks end this week"),
-			noOverdueTasks: t("No overdue tasks right now"),
-			noCompletedTasks: t("No completed tasks yet"),
-			noUpcomingTasks: t("No upcoming tasks after this week"),
 			high: t("High"),
 			medium: t("Medium"),
 			low: t("Low"),
@@ -587,15 +537,6 @@ export default function TaskTimelineView({
 		() => getThisWeekTasks(sortedTasks, today),
 		[sortedTasks, today]
 	);
-	const thisWeekTaskIds = useMemo(
-		() => new Set(thisWeekTasks.map((task) => task.id)),
-		[thisWeekTasks]
-	);
-
-	const sprintBuckets = useMemo(
-		() => getSprintBuckets(sortedTasks, today),
-		[sortedTasks, today]
-	);
 
 	const ganttSections = useMemo<GanttSection[]>(
 		() =>
@@ -620,10 +561,6 @@ export default function TaskTimelineView({
 		() => Math.max(960, timelineRange.totalDays * pixelsPerDay),
 		[pixelsPerDay, timelineRange.totalDays]
 	);
-	const ganttYearBands = useMemo(
-		() => buildGanttYearBands(timelineRange.start, timelineRange.end, pixelsPerDay, locale),
-		[locale, pixelsPerDay, timelineRange.end, timelineRange.start]
-	);
 	const ganttMonthBands = useMemo(
 		() => buildGanttMonthBands(timelineRange.start, timelineRange.end, pixelsPerDay, locale),
 		[locale, pixelsPerDay, timelineRange.end, timelineRange.start]
@@ -632,6 +569,16 @@ export default function TaskTimelineView({
 		() => buildGanttScaleCells(timelineRange.start, timelineRange.end, zoomLevel, pixelsPerDay, locale),
 		[locale, pixelsPerDay, timelineRange.end, timelineRange.start, zoomLevel]
 	);
+	const ganttDays = useMemo(
+		() => eachDayOfInterval({ start: timelineRange.start, end: timelineRange.end }),
+		[timelineRange.end, timelineRange.start]
+	);
+	const ganttGridTemplateColumns = isRTL
+		? `${ganttTimelineWidth}px ${GANTT_LEFT_COLUMN_WIDTH}px`
+		: `${GANTT_LEFT_COLUMN_WIDTH}px ${ganttTimelineWidth}px`;
+	const ganttInfoGridColumn = isRTL ? 2 : 1;
+	const ganttTimelineGridColumn = isRTL ? 1 : 2;
+	const ganttTimelineOffset = isRTL ? 0 : GANTT_LEFT_COLUMN_WIDTH;
 
 	const ganttRows = useMemo(() => {
 		let cursorY = 0;
@@ -773,7 +720,7 @@ export default function TaskTimelineView({
 					<div className="min-w-0">
 						<div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
 							<Target className="size-3.5" />
-							{labels.timelineAndSprints}
+							{labels.timeline}
 						</div>
 						<h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-slate-950 dark:text-stone-50">
 							{projectName}
@@ -842,15 +789,12 @@ export default function TaskTimelineView({
 			<div className="border-b border-slate-200 px-4 py-5 sm:px-5 dark:border-stone-800">
 				<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 					<div className="relative w-full xl:max-w-sm">
-						<Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-stone-500" />
+						<Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-stone-500" />
 						<Input
 							value={searchValue}
 							onChange={(event) => setSearchValue(event.target.value)}
 							placeholder={labels.search}
-							className={cn(
-								"h-10 rounded-full border-slate-200 bg-white ps-9 text-sm shadow-none dark:border-stone-800 dark:bg-stone-950",
-								isRTL && "text-right"
-							)}
+							className="h-10 rounded-full border-slate-200 bg-white ps-9 text-start text-sm shadow-none dark:border-stone-800 dark:bg-stone-950"
 						/>
 					</div>
 
@@ -944,7 +888,7 @@ export default function TaskTimelineView({
 						>
 							{filters.sortDirection === "asc" ? (
 								<ArrowUpWideNarrow className="me-2 h-4 w-4" />
-							) : (
+					) : (
 								<ArrowDownWideNarrow className="me-2 h-4 w-4" />
 							)}
 							{filters.sortDirection === "asc" ? labels.ascending : labels.descending}
@@ -958,49 +902,7 @@ export default function TaskTimelineView({
 					<div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-400">
 						{emptyStateLabel}
 					</div>
-				) : mode === "sprint" ? (
-					<TaskSprintBoard
-						buckets={sprintBuckets}
-						getTaskHref={resolveTaskHref}
-						isRTL={isRTL}
-						labels={{
-							active: labels.active,
-							activeDescription: labels.activeDescription,
-							noActive: labels.noActiveTasks,
-							starting: labels.starts,
-							startingDescription: labels.startingDescription,
-							noStarting: labels.noStartingTasks,
-							ending: labels.ends,
-							endingDescription: labels.endingDescription,
-							noEnding: labels.noEndingTasks,
-							overdue: labels.overdue,
-							overdueDescription: labels.overdueDescription,
-							noOverdue: labels.noOverdueTasks,
-							completed: labels.completed,
-							completedDescription: labels.completedDescription,
-							noCompleted: labels.noCompletedTasks,
-							upcoming: labels.upcoming,
-							upcomingDescription: labels.upcomingDescription,
-							noUpcoming: labels.noUpcomingTasks,
-							owner: labels.owner,
-							start: labels.startDate,
-							finish: labels.endDate,
-							duration: labels.duration,
-							noOwner: labels.noOwner,
-							day: labels.day,
-							days: labels.days,
-							high: labels.high,
-							medium: labels.medium,
-							low: labels.low,
-							phase: labels.phase,
-							overdueBadge: labels.overdue,
-						}}
-						locale={locale}
-						onOpenTask={openTask}
-						translateStatus={(status) => getTranslatedTaskStatusLabel(status, t)}
-						translateType={(task) => getTranslatedTaskTypeLabel(task, t)}
-					/>
-				) : (
+					) : (
 					<div className="space-y-4">
 						<div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
 							<div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -1056,7 +958,7 @@ export default function TaskTimelineView({
 							</div>
 						</div>
 
-						<div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-stone-800 dark:bg-stone-950">
+						<div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block dark:border-stone-800 dark:bg-stone-950">
 							<div className="border-b border-slate-200 px-4 py-4 dark:border-stone-800">
 								<div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
 									<div>
@@ -1079,9 +981,10 @@ export default function TaskTimelineView({
 								</div>
 							</div>
 
-							<div className="max-h-[680px] overflow-auto" dir="ltr">
+							<div className="max-h-[680px] overflow-auto" dir={isRTL ? "rtl" : "ltr"}>
 								<div
 									className="relative min-w-max"
+									dir="ltr"
 									style={{
 										width: GANTT_LEFT_COLUMN_WIDTH + ganttTimelineWidth,
 									}}
@@ -1089,57 +992,46 @@ export default function TaskTimelineView({
 									<div className="sticky top-0 z-30">
 										<div
 											className="grid"
-											style={{
-												gridTemplateColumns: `${GANTT_LEFT_COLUMN_WIDTH}px ${ganttTimelineWidth}px`,
-											}}
+											style={{ gridTemplateColumns: ganttGridTemplateColumns }}
 										>
-											<div className="sticky left-0 z-40 border-b border-r border-slate-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+											<div
+												className={cn(
+													"sticky z-40 flex h-[72px] flex-col justify-center border-b bg-white px-4 dark:border-stone-800 dark:bg-stone-950",
+													isRTL ? "right-0 border-l" : "left-0 border-r"
+												)}
+												style={{ gridColumn: ganttInfoGridColumn }}
+												dir={isRTL ? "rtl" : "ltr"}
+											>
 												<p
-													className={cn(
-														"text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500",
-														isRTL && "text-right"
-													)}
+													className="text-start text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-stone-500"
 												>
 													{labels.phase}
 												</p>
-												<p
-													className={cn(
-														"mt-2 text-sm text-slate-600 dark:text-stone-300",
-														isRTL && "text-right"
-													)}
-												>
-													{labels.ganttHint}
+												<p className="mt-1 truncate text-start text-xs text-slate-600 dark:text-stone-300">
+													{labels.scheduledTasks}
 												</p>
 											</div>
 
-											<div className="border-b border-slate-200 bg-white dark:border-stone-800 dark:bg-stone-950">
-												<div className="flex border-b border-slate-200 dark:border-stone-800">
-													{ganttYearBands.map((band) => (
-														<div
-															key={band.key}
-															className="whitespace-nowrap border-r border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 last:border-r-0 dark:border-stone-800 dark:text-stone-500"
-															style={{ width: band.width }}
-														>
-															{band.label}
-														</div>
-													))}
-												</div>
+											<div
+												className="relative border-b border-slate-200 bg-white dark:border-stone-800 dark:bg-stone-950"
+												style={{ gridColumn: ganttTimelineGridColumn }}
+											>
 												<div className="flex border-b border-slate-200 dark:border-stone-800">
 													{ganttMonthBands.map((band) => (
 														<div
 															key={band.key}
-															className="whitespace-nowrap border-r border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 last:border-r-0 dark:border-stone-800 dark:text-stone-300"
+															className="h-9 whitespace-nowrap border-r border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 last:border-r-0 dark:border-stone-800 dark:text-stone-300"
 															style={{ width: band.width }}
 														>
 															{band.label}
 														</div>
 													))}
 												</div>
-												<div className="flex bg-slate-50/80 dark:bg-stone-900/60">
+												<div className="flex h-9 bg-slate-50/80 dark:bg-stone-900/60">
 													{ganttScaleCells.map((cell) => (
 														<div
 															key={cell.key}
-															className="truncate whitespace-nowrap border-r border-slate-200 px-2 py-2 text-[11px] text-slate-500 last:border-r-0 dark:border-stone-800 dark:text-stone-400"
+															className="truncate whitespace-nowrap border-r border-slate-200 px-2 py-2 text-center text-[11px] text-slate-500 last:border-r-0 dark:border-stone-800 dark:text-stone-400"
 															style={{ width: cell.width }}
 															title={cell.label}
 														>
@@ -1147,6 +1039,10 @@ export default function TaskTimelineView({
 														</div>
 													))}
 												</div>
+												<div
+													className="pointer-events-none absolute bottom-0 z-10 h-9 w-0.5 bg-sky-600 dark:bg-sky-300"
+													style={{ left: todayPositionPx }}
+												/>
 											</div>
 										</div>
 									</div>
@@ -1155,11 +1051,21 @@ export default function TaskTimelineView({
 										className="pointer-events-none absolute"
 										style={{
 											top: GANTT_HEADER_HEIGHT,
-											left: GANTT_LEFT_COLUMN_WIDTH,
+											left: ganttTimelineOffset,
 											width: ganttTimelineWidth,
 											height: ganttRows.totalHeight,
 										}}
 									>
+										{ganttDays.map((day, index) => (
+											<div
+												key={day.toISOString()}
+												className={cn(
+													"absolute inset-y-0 border-l border-slate-100 dark:border-stone-900",
+													isWeekend(day) && "bg-slate-50/70 dark:bg-stone-900/35"
+												)}
+												style={{ left: index * pixelsPerDay, width: pixelsPerDay }}
+											/>
+										))}
 										<div
 											className="absolute inset-y-0 bg-sky-100/60 dark:bg-sky-500/10"
 											style={{
@@ -1168,25 +1074,30 @@ export default function TaskTimelineView({
 											}}
 										/>
 										<div
-											className="absolute inset-y-0 w-px bg-slate-900 dark:bg-stone-100"
+											className="absolute inset-y-0 z-10 w-0.5 bg-sky-600 dark:bg-sky-300"
 											style={{ left: todayPositionPx }}
 										/>
 									</div>
 
-									<div className="relative">
+									<div className="relative z-10">
 										{ganttRows.rows.map((row) => {
 											if (row.kind === "group") {
 												const isCollapsed = collapsedSections[row.groupKey];
 												return (
 													<div
 														key={row.key}
-														className="grid border-b border-slate-200 dark:border-stone-800"
-														style={{
-															gridTemplateColumns: `${GANTT_LEFT_COLUMN_WIDTH}px ${ganttTimelineWidth}px`,
-														}}
-													>
-														<div className="sticky left-0 z-20 border-r border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur dark:border-stone-800 dark:bg-stone-950/95">
-															<div className="flex items-center justify-between gap-3">
+												className="grid border-b border-slate-200 dark:border-stone-800"
+												style={{ gridTemplateColumns: ganttGridTemplateColumns }}
+											>
+												<div
+													className={cn(
+														"sticky z-20 flex h-[42px] items-center bg-slate-50/95 px-3 backdrop-blur dark:bg-stone-900/95",
+														isRTL ? "right-0 border-l" : "left-0 border-r"
+													)}
+													style={{ gridColumn: ganttInfoGridColumn }}
+													dir={isRTL ? "rtl" : "ltr"}
+												>
+													<div className="flex w-full items-center justify-between gap-3">
 																<button
 																	type="button"
 																	onClick={() =>
@@ -1195,13 +1106,10 @@ export default function TaskTimelineView({
 																			[row.groupKey]: !current[row.groupKey],
 																		}))
 																	}
-																	className={cn(
-																		"flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-stone-100",
-																		isRTL && "text-right"
-																	)}
-																>
-																	{isCollapsed ? (
-																		<ChevronRight className="h-4 w-4 shrink-0 text-slate-400 dark:text-stone-500" />
+															className="flex min-w-0 items-center gap-2 text-start text-sm font-semibold text-slate-900 dark:text-stone-100"
+														>
+															{isCollapsed ? (
+																<ChevronRight className={cn("h-4 w-4 shrink-0 text-slate-400 dark:text-stone-500", isRTL && "rotate-180")} />
 																	) : (
 																		<ChevronDown className="h-4 w-4 shrink-0 text-slate-400 dark:text-stone-500" />
 																	)}
@@ -1222,7 +1130,10 @@ export default function TaskTimelineView({
 																</div>
 															</div>
 														</div>
-														<div className="h-[52px] bg-slate-50/80 dark:bg-stone-900/40" />
+												<div
+													className="h-[42px] bg-slate-50/70 dark:bg-stone-900/35"
+													style={{ gridColumn: ganttTimelineGridColumn }}
+												/>
 													</div>
 												);
 											}
@@ -1239,80 +1150,51 @@ export default function TaskTimelineView({
 											return (
 												<div
 													key={row.key}
-													className="grid border-b border-slate-200 last:border-b-0 dark:border-stone-800"
-													style={{
-														gridTemplateColumns: `${GANTT_LEFT_COLUMN_WIDTH}px ${ganttTimelineWidth}px`,
-													}}
-												>
-													<div className="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-950">
-														<div className="flex items-start justify-between gap-3">
-															<div className="min-w-0">
-																<Button
+											className="grid border-b border-slate-200 last:border-b-0 dark:border-stone-800"
+											style={{ gridTemplateColumns: ganttGridTemplateColumns }}
+										>
+											<div
+												className={cn(
+													"sticky z-20 flex h-[52px] items-center bg-white px-3 dark:bg-stone-950",
+													isRTL ? "right-0 border-l" : "left-0 border-r"
+												)}
+												style={{ gridColumn: ganttInfoGridColumn }}
+												dir={isRTL ? "rtl" : "ltr"}
+											>
+												<div className="min-w-0 flex-1">
+													<div className="flex min-w-0 items-center gap-2">
+														<Button
 																	type="button"
 																	variant="link"
 																	onClick={() => openTaskDetails(row.task)}
 																	title={row.task.name}
-																	className={cn(
-																		"h-auto max-w-full p-0 text-sm font-semibold text-slate-950 hover:text-sky-600 dark:text-stone-50",
-																		isRTL ? "text-right" : "text-left"
-																	)}
-																>
-																	<span className="truncate">{row.task.name}</span>
-																</Button>
-																<div className="mt-2 flex flex-wrap items-center gap-2">
-																	<Badge className={cn("border", statusClasses.badge)}>
-																		{taskStatusLabel}
-																	</Badge>
-																	<Badge
-																		variant="outline"
-																		className="border-slate-200 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
-																	>
-																		{row.task.groupLabel}
-																	</Badge>
-																	{row.task.isOverdue ? (
-																		<Badge className="border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
-																			{labels.overdue}
-																		</Badge>
-																	) : null}
-																	{thisWeekTaskIds.has(row.task.id) ? (
-																		<Badge className="border border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
-																			{labels.thisWeek}
-																		</Badge>
-																	) : null}
-																</div>
-															</div>
-
-															<div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100">
-																{getOwnerInitials(row.task.ownerLabel || labels.noOwner)}
-															</div>
-														</div>
-
-														<div
-															className={cn(
-																"mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-stone-400",
-																isRTL && "text-right"
-															)}
+															className="h-auto min-w-0 max-w-full flex-1 justify-start p-0 text-start text-sm font-medium text-slate-950 hover:text-sky-600 dark:text-stone-50"
 														>
-															<span className="truncate">
-																{row.task.ownerLabel || labels.noOwner}
-															</span>
-															<span className="shrink-0">
-																{formatTimelineDate(row.task.startDate, {
-																	locale,
-																	formatPattern: "d MMM",
-																})}{" "}
-																-{" "}
+															<span className="truncate">{row.task.name}</span>
+														</Button>
+														<Badge className={cn("h-5 shrink-0 border px-1.5 text-[10px]", statusClasses.badge)}>
+															{taskStatusLabel}
+														</Badge>
+													</div>
+													<div className="mt-1 truncate text-start text-[11px] text-slate-500 dark:text-stone-400">
+														{formatTimelineDate(row.task.startDate, {
+															locale,
+															formatPattern: "d MMM",
+														})}{" "}
+														-{" "}
 																{formatTimelineDate(row.task.endDate, {
 																	locale,
 																	formatPattern: "d MMM",
 																})}
-															</span>
-														</div>
 													</div>
+												</div>
+											</div>
 
-													<div className="relative h-[84px] bg-white dark:bg-stone-950">
-														<div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-slate-200 dark:bg-stone-800" />
-														<button
+											<div
+												className="relative h-[52px]"
+												style={{ gridColumn: ganttTimelineGridColumn }}
+											>
+												<button
 															type="button"
 															onClick={() => openTaskDetails(row.task)}
 															title={`${row.task.name} • ${formatTimelineDate(row.task.startDate, {
@@ -1322,23 +1204,28 @@ export default function TaskTimelineView({
 																locale,
 																formatPattern: "d MMM",
 															})}`}
-															className={cn(
-																"absolute top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded-full shadow-sm transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-300/60",
-																operationalClasses.bar,
-																row.task.isOverdue && "ring-2 ring-rose-300/60 dark:ring-rose-500/40"
+													className={cn(
+														"absolute top-1/2 flex h-6 -translate-y-1/2 items-center overflow-hidden rounded-md shadow-sm transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-300/60",
+														operationalClasses.bar,
+														row.task.isOverdue && "ring-1 ring-rose-400/70 dark:ring-rose-400/60"
 															)}
 															style={{
 																left: rowMetrics.barStart,
 																width: rowMetrics.barWidth,
 															}}
 														>
-															<span
-																className="absolute inset-y-0 left-0 rounded-full bg-black/15"
+													<span
+														className="absolute inset-y-0 left-0 rounded-md bg-black/15"
 																style={{
 																	width: `${Math.max(0, Math.min(100, row.task.progress))}%`,
-																}}
-															/>
-														</button>
+														}}
+													/>
+													{rowMetrics.barWidth >= 112 ? (
+														<span className="relative z-10 truncate px-2 text-start text-[11px] font-medium text-white drop-shadow-sm">
+															{row.task.name}
+														</span>
+													) : null}
+												</button>
 													</div>
 												</div>
 											);
@@ -1346,6 +1233,68 @@ export default function TaskTimelineView({
 									</div>
 								</div>
 							</div>
+						</div>
+
+						<div className="space-y-3 md:hidden">
+							{ganttSections.map((section) => {
+								const isCollapsed = collapsedSections[section.groupKey];
+								return (
+									<section key={section.groupKey} className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-stone-800 dark:bg-stone-950">
+										<button
+											type="button"
+											onClick={() =>
+												setCollapsedSections((current) => ({
+													...current,
+													[section.groupKey]: !current[section.groupKey],
+												}))
+											}
+											className="flex w-full items-center justify-between gap-3 bg-slate-50 px-3 py-2.5 text-start dark:bg-stone-900"
+										>
+											<span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-stone-100">
+												{isCollapsed ? (
+													<ChevronRight className={cn("h-4 w-4 shrink-0 text-slate-400", isRTL && "rotate-180")} />
+												) : (
+													<ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+												)}
+												<span className="truncate">{section.groupLabel}</span>
+											</span>
+											<Badge variant="outline" className="shrink-0 bg-white dark:bg-stone-950">
+												{section.tasks.length}
+											</Badge>
+										</button>
+
+										{!isCollapsed ? (
+											<div className="divide-y divide-slate-200 dark:divide-stone-800">
+												{section.tasks.map((task) => {
+													const statusClasses = getTaskStatusColorClasses(task.status);
+													return (
+														<button
+															key={task.id}
+															type="button"
+															onClick={() => openTaskDetails(task)}
+															className="block w-full px-3 py-3 text-start transition hover:bg-slate-50 dark:hover:bg-stone-900/70"
+														>
+															<span className="flex items-start justify-between gap-3">
+																<span className="min-w-0 truncate text-sm font-medium text-slate-950 dark:text-stone-50">{task.name}</span>
+																<Badge className={cn("h-5 shrink-0 border px-1.5 text-[10px]", statusClasses.badge)}>
+																	{getTranslatedTaskStatusLabel(task.status, t)}
+																</Badge>
+															</span>
+															<span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-stone-400">
+																<span>
+																	{formatTimelineDate(task.startDate, { locale, formatPattern: "d MMM" })} → {formatTimelineDate(task.endDate, { locale, formatPattern: "d MMM" })}
+																</span>
+																<span aria-hidden="true">•</span>
+																<span>{getTaskDurationLabel(task, { dayLabel: labels.day, daysLabel: labels.days, unscheduledLabel: labels.withoutDate })}</span>
+															</span>
+														</button>
+													);
+												})}
+											</div>
+										) : null}
+									</section>
+								);
+							})}
 						</div>
 
 						{unscheduledTasks.length > 0 ? (
@@ -1397,7 +1346,7 @@ export default function TaskTimelineView({
 				)}
 			</div>
 
-			{mode === "timeline" && showWeeklyTable ? (
+			{showWeeklyTable ? (
 				<div className="border-t border-slate-200 bg-white px-4 py-5 sm:px-5 dark:border-stone-800 dark:bg-stone-950">
 					<div className="mb-4 flex flex-col gap-1">
 						<h3 className="text-base font-semibold">{labels.weeklySnapshot}</h3>
@@ -1410,7 +1359,7 @@ export default function TaskTimelineView({
 						<div className="overflow-x-auto">
 							<table className="min-w-full divide-y divide-slate-200 dark:divide-stone-800">
 								<thead className="bg-slate-50 dark:bg-stone-900">
-									<tr className="text-right">
+									<tr className={isRTL ? "text-right" : "text-left"}>
 										{[
 											t("Task Name"),
 											labels.phase,

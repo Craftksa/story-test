@@ -70,6 +70,9 @@ export async function POST(
 		if (!letter) {
 			return NextResponse.json({ error: "Letter not found" }, { status: 404 });
 		}
+		if (!(["approved", "sent"] as string[]).includes(letter.status)) {
+			return NextResponse.json({ error: "لا يمكن إرسال الخطاب قبل اعتماده." }, { status: 409 });
+		}
 
 		const project = await getProjectAndClientById(letter.projectId);
 		if (!project) {
@@ -93,7 +96,8 @@ export async function POST(
 		await db
 			.update(projectLetters)
 			.set({
-				status: "ready",
+				status: "sent",
+				sentAt: new Date(),
 				updatedAt: new Date(),
 			})
 			.where(eq(projectLetters.id, letterId));
